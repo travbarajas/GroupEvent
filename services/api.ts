@@ -119,6 +119,12 @@ export class ApiService {
     return this.request(`/groups/${groupId}`);
   }
 
+  static async leaveGroup(groupId: string): Promise<any> {
+    return this.request(`/groups/${groupId}/leave`, {
+      method: 'POST'
+    });
+  }
+
   static async getMemberByDevice(groupId: string, deviceId: string): Promise<{ member: Member }> {
     return this.request(`/groups/${groupId}/members/device/${deviceId}`);
   }

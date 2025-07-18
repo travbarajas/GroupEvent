@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ const squareSize = (width - 48) / 2; // Account for padding and gap
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { getGroup } = useGroups();
+  const { getGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
@@ -47,6 +48,32 @@ export default function GroupDetailScreen() {
   
   const generateInviteLink = (groupId: string) => {
     return inviteCode ? `https://group-event.vercel.app/join/${inviteCode}` : '';
+  };
+
+  const handleLeaveGroup = () => {
+    Alert.alert(
+      'Leave Group',
+      `Are you sure you want to leave "${group?.name}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await ApiService.leaveGroup(id as string);
+              await loadGroups(); // Refresh groups list
+              router.back(); // Go back to groups list
+            } catch (error: any) {
+              Alert.alert('Error', `Failed to leave group: ${error.message}`);
+            }
+          },
+        },
+      ],
+    );
   };
   
   if (!group) {
@@ -124,15 +151,20 @@ export default function GroupDetailScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Extended Header with Back and Invite */}
+      {/* Extended Header with Back, Invite, and Leave */}
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#ffffff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
-            <Text style={styles.inviteButtonText}>Invite</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
+              <Text style={styles.inviteButtonText}>Invite</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
+              <Ionicons name="close" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       
@@ -207,19 +239,35 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 16,
+  },
   inviteButton: {
     backgroundColor: '#2563eb',
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 8,
     flex: 1,
-    marginLeft: 16,
     alignItems: 'center',
+    marginRight: 12,
   },
   inviteButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  leaveButton: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   groupInfoBlock: {
     backgroundColor: '#1a1a1a',
