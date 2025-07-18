@@ -21,29 +21,24 @@
                 // Try to open in external browser
                 const currentUrl = window.location.href;
                 
-                // For iOS devices, try to use universal link patterns
+                // For iOS devices, try to use universal link patterns  
                 if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                    // Try Safari - use a different scheme that doesn't add url=
-                    window.location.href = currentUrl.replace('https://', 'safari-');
-                    
-                    // Fallback - show instructions
-                    setTimeout(() => {
-                        document.body.innerHTML = `
-                            <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
-                                <h2>Open in Browser</h2>
-                                <p>For the best experience, please open this link in your browser:</p>
-                                <ol style="text-align: left; max-width: 300px; margin: 20px auto;">
-                                    <li>Tap the "..." or share button</li>
-                                    <li>Select "Open in Safari" or "Open in Browser"</li>
-                                </ol>
-                                <p style="margin-top: 30px;">
-                                    <a href="${currentUrl}" style="color: #2563eb; text-decoration: none; font-weight: bold;">
-                                        Continue Anyway →
-                                    </a>
-                                </p>
-                            </div>
-                        `;
-                    }, 1000);
+                    // Skip automatic redirect, just show instructions immediately
+                    document.body.innerHTML = `
+                        <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
+                            <h2>Open in Browser</h2>
+                            <p>For the best experience, please open this link in your browser:</p>
+                            <ol style="text-align: left; max-width: 300px; margin: 20px auto;">
+                                <li>Tap the "..." or share button</li>
+                                <li>Select "Open in Safari" or "Open in Browser"</li>
+                            </ol>
+                            <p style="margin-top: 30px;">
+                                <a href="${currentUrl}" style="color: #2563eb; text-decoration: none; font-weight: bold;">
+                                    Continue Anyway →
+                                </a>
+                            </p>
+                        </div>
+                    `;
                     return true;
                 }
             }
