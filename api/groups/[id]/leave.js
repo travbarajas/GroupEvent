@@ -37,19 +37,35 @@ module.exports = async function handler(req, res) {
         WHERE group_id = ${id} AND device_id = ${device_id}
       `;
 
-      // Update group member count based on remaining members
-      await sql`
-        UPDATE groups 
-        SET member_count = (
-          SELECT COUNT(*) FROM members WHERE group_id = ${id}
-        )
-        WHERE id = ${id}
+      // Check if any members are left
+      const [memberCount] = await sql`
+        SELECT COUNT(*) as count FROM members WHERE group_id = ${id}
       `;
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Left group successfully'
-      });
+      if (memberCount.count === 0) {
+        // No members left, delete the group and all related data
+        // Invites will be deleted automatically due to CASCADE constraint
+        await sql`
+          DELETE FROM groups WHERE id = ${id}
+        `;
+
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Left group successfully. Group has been deleted as it had no remaining members.'
+        });
+      } else {
+        // Update group member count based on remaining members
+        await sql`
+          UPDATE groups 
+          SET member_count = ${memberCount.count}
+          WHERE id = ${id}
+        `;
+
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Left group successfully'
+        });
+      }
     } catch (error) {
       console.error('Error leaving group:', error);
       return res.status(500).json({ error: 'Failed to leave group' });
