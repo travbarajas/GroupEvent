@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups } from '@/contexts/GroupsContext';
+import { ApiService } from '@/services/api';
 import InviteModal from '@/components/InviteModal';
 
 const { width } = Dimensions.get('window');
@@ -23,11 +24,29 @@ export default function GroupDetailScreen() {
   const { getGroup } = useGroups();
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string>('');
   
   const group = getGroup(id as string);
   
+  useEffect(() => {
+    if (id) {
+      fetchInviteCode();
+    }
+  }, [id]);
+
+  const fetchInviteCode = async () => {
+    try {
+      const groupData = await ApiService.getGroup(id as string);
+      if (groupData.invite_code) {
+        setInviteCode(groupData.invite_code);
+      }
+    } catch (error) {
+      console.error('Failed to fetch invite code:', error);
+    }
+  };
+  
   const generateInviteLink = (groupId: string) => {
-    return `https://groupevent.app/join/${groupId}`;
+    return inviteCode ? `https://group-event-zeta.vercel.app/join/${inviteCode}` : '';
   };
   
   if (!group) {

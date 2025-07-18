@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 
 // Configuration
 const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.0.103:3000/api'  // Local development
-  : 'https://your-deployed-api.com/api';  // Production (update later)
+  ? 'http://localhost:8082/api'  // Local development (Expo dev server)
+  : 'https://group-event-zeta.vercel.app/api';  // Production (your Vercel URL)
 
 // Types
 export interface Group {
@@ -96,14 +96,28 @@ export class ApiService {
   }
 
   // Group endpoints
-  static async createGroup(data: CreateGroupRequest): Promise<{ group: Group; joinLink: string }> {
+  static async createGroup(data: { name: string; description?: string }): Promise<any> {
     return this.request('/groups', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  static async getGroup(groupId: string): Promise<Group> {
+  static async getAllGroups(): Promise<any[]> {
+    return this.request('/groups');
+  }
+
+  static async processInvite(code: string): Promise<any> {
+    return this.request(`/invites/${code}`);
+  }
+
+  static async joinGroup(code: string): Promise<any> {
+    return this.request(`/invites/${code}`, {
+      method: 'POST'
+    });
+  }
+
+  static async getGroup(groupId: string): Promise<any> {
     return this.request(`/groups/${groupId}`);
   }
 

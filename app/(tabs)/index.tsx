@@ -25,11 +25,16 @@ export default function GroupsTab() {
   const { groups, createGroup } = useGroups();
   const insets = useSafeAreaInsets();
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (groupName.trim()) {
-      createGroup(groupName.trim());
-      setGroupName('');
-      setShowCreateModal(false);
+      try {
+        await createGroup(groupName.trim());
+        setGroupName('');
+        setShowCreateModal(false);
+      } catch (error) {
+        console.error('Failed to create group:', error);
+        // You could add error handling UI here
+      }
     }
   };
 

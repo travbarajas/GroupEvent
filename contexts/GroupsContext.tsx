@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { ApiService } from '@/services/api';
 
 export interface Group {
   id: string;
@@ -20,8 +21,9 @@ export interface Event {
 
 interface GroupsContextType {
   groups: Group[];
-  createGroup: (name: string) => Group;
+  createGroup: (name: string) => Promise<Group>;
   getGroup: (id: string) => Group | undefined;
+  loadGroups: () => Promise<void>;
   selectedEvent: Event | null;
   sourceLayout: any;
   setSelectedEvent: (event: Event | null) => void;
@@ -44,32 +46,58 @@ interface GroupsProviderProps {
 
 export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   const [groups, setGroups] = useState<Group[]>([]);
-
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [sourceLayout, setSourceLayout] = useState<any>(null);
 
-  const generateId = () => `group_${Date.now()}`;
+  const loadGroups = async () => {
+    try {
+      const fetchedGroups = await ApiService.getAllGroups();
+      setGroups(fetchedGroups.map(g => ({
+        id: g.id,
+        name: g.name,
+        memberCount: g.member_count,
+        createdAt: new Date(g.created_at)
+      })));
+    } catch (error) {
+      console.error('Failed to load groups:', error);
+    }
+  };
 
-  const createGroup = (name: string): Group => {
-    const newGroup: Group = {
-      id: generateId(),
-      name: name.trim(),
-      memberCount: 1, // Just the creator for now
-      createdAt: new Date(),
-    };
-    
-    setGroups(prevGroups => [...prevGroups, newGroup]);
-    return newGroup;
+  const createGroup = async (name: string): Promise<Group> => {
+    try {
+      const response = await ApiService.createGroup({ 
+        name: name.trim(),
+        description: 'Ready to plan some events together!'
+      });
+      
+      const newGroup: Group = {
+        id: response.id,
+        name: response.name,
+        memberCount: response.member_count,
+        createdAt: new Date(response.created_at),
+      };
+      
+      setGroups(prevGroups => [...prevGroups, newGroup]);
+      return newGroup;
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      throw error;
+    }
   };
 
   const getGroup = (id: string): Group | undefined => {
     return groups.find(group => group.id === id);
   };
 
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
   const value: GroupsContextType = {
     groups,
     createGroup,
     getGroup,
+    loadGroups,
     selectedEvent,
     sourceLayout,
     setSelectedEvent,
