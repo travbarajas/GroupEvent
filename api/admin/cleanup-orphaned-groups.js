@@ -14,6 +14,24 @@ module.exports = async function handler(req, res) {
   
   if (req.method === 'POST') {
     try {
+      // First, add role column if it doesn't exist
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN role VARCHAR(20) DEFAULT 'member'
+        `;
+        console.log('Added role column to members table');
+      } catch (error) {
+        console.log('Role column already exists or error:', error.message);
+      }
+      
+      // Update existing members to have 'member' role
+      await sql`
+        UPDATE members 
+        SET role = 'member' 
+        WHERE role IS NULL OR role = ''
+      `;
+      
       // Get all groups with 0 members
       const orphanedGroups = await sql`
         SELECT g.id, g.name
