@@ -15,11 +15,33 @@ module.exports = async function handler(req, res) {
     const sql = neon(process.env.DATABASE_URL);
     
     // Test simple query
-    const result = await sql`SELECT 1 as test`;
+    const basicTest = await sql`SELECT 1 as test`;
+    
+    // Test if our tables exist
+    const tablesTest = await sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('groups', 'invites')
+    `;
+    
+    // Test groups table structure
+    let groupsColumns = null;
+    try {
+      groupsColumns = await sql`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'groups'
+      `;
+    } catch (e) {
+      groupsColumns = { error: e.message };
+    }
     
     return res.status(200).json({ 
       success: true, 
-      result,
+      basicTest,
+      tablesExist: tablesTest,
+      groupsColumns,
       message: 'Database connection working!'
     });
   } catch (error) {
