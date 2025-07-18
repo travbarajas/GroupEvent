@@ -6,7 +6,9 @@
       "Bash(git remote add:*)",
       "Bash(git push:*)",
       "Bash(vercel env pull:*)",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "WebFetch(domain:group-event-zeta.vercel.app)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
