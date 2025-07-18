@@ -2,9 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Configuration
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:8082/api'  // Local development (Expo dev server)
-  : 'https://group-event-zeta.vercel.app/api';  // Production (your Vercel URL)
+const API_BASE_URL = 'https://group-event-zeta.vercel.app/api';  // Always use production for now
 
 // Types
 export interface Group {
