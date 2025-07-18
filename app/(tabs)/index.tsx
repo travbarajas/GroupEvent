@@ -10,6 +10,7 @@ import {
   TextInput,
   Dimensions,
   FlatList,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ const { width } = Dimensions.get('window');
 export default function GroupsTab() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupName, setGroupName] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
 
@@ -85,6 +87,16 @@ export default function GroupsTab() {
     setShowCreateModal(false);
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadGroups();
+    } catch (error) {
+      console.error('Failed to refresh groups:', error);
+    }
+    setRefreshing(false);
+  };
+
   const handleGroupPress = (group: Group) => {
     router.push({
       pathname: '/group/[id]',
@@ -124,7 +136,18 @@ export default function GroupsTab() {
         </View>
       </View>
       
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollContainer} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            tintColor="#60a5fa"
+            colors={["#60a5fa"]}
+          />
+        }
+      >
         {/* Add Group Block */}
         <TouchableOpacity 
           style={styles.addGroupBlock} 

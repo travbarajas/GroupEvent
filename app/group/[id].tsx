@@ -56,6 +56,16 @@ export default function GroupDetailScreen() {
       console.error('Failed to fetch permissions:', error);
     }
   };
+
+  const handleRefresh = async () => {
+    try {
+      await loadGroups(); // Refresh the groups list
+      await fetchInviteCode(); // Refresh invite code
+      await fetchPermissions(); // Refresh permissions
+    } catch (error) {
+      console.error('Failed to refresh group data:', error);
+    }
+  };
   
   const generateInviteLink = (groupId: string) => {
     return inviteCode ? `https://group-event.vercel.app/join/${inviteCode}` : '';
@@ -165,9 +175,14 @@ export default function GroupDetailScreen() {
       {/* Extended Header with Back, Invite, and Leave */}
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#ffffff" />
-          </TouchableOpacity>
+          <View style={styles.leftButtons}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+              <Ionicons name="refresh" size={20} color="#60a5fa" />
+            </TouchableOpacity>
+          </View>
           <View style={styles.headerButtons}>
             {permissions?.permissions?.can_invite && (
               <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
@@ -249,8 +264,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  leftButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   backButton: {
     padding: 4,
+  },
+  refreshButton: {
+    padding: 6,
+    marginLeft: 8,
   },
   headerButtons: {
     flexDirection: 'row',
