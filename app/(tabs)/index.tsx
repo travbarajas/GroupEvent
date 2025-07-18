@@ -133,6 +133,9 @@ export default function GroupsTab() {
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Groups</Text>
+          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+            <Ionicons name="refresh" size={20} color="#60a5fa" />
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -239,12 +242,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  refreshButton: {
+    padding: 6,
   },
   scrollContainer: {
     flex: 1,

@@ -81,7 +81,7 @@ export default function GroupDetailScreen() {
     try {
       await ApiService.leaveGroup(id as string);
       await loadGroups(); // Refresh groups list
-      router.back(); // Go back to groups list
+      router.push('/(tabs)'); // Navigate to groups home screen
     } catch (error: any) {
       console.error('Failed to leave group:', error);
       // Could add error handling here if needed
