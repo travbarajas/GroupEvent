@@ -180,7 +180,7 @@ export default function GroupDetailScreen() {
                 <Text style={styles.inviteButtonText}>Invite</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
+            <TouchableOpacity style={styles.headerLeaveButton} onPress={handleLeaveGroup}>
               <Ionicons name="close" size={20} color="#ef4444" />
             </TouchableOpacity>
           </View>
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  leaveButton: {
+  headerLeaveButton: {
     backgroundColor: '#1a1a1a',
     borderWidth: 1,
     borderColor: '#ef4444',

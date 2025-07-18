@@ -51,6 +51,13 @@ export default function GroupsTab() {
             // Refresh groups
             await loadGroups();
             
+            // Clear the invite parameter from URL to prevent re-processing
+            if (typeof window !== 'undefined' && window.history) {
+              const url = new URL(window.location);
+              url.searchParams.delete('invite');
+              window.history.replaceState({}, '', url.toString());
+            }
+            
             // Navigate to the group
             router.push({
               pathname: '/group/[id]',
