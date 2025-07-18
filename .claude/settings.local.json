@@ -10,7 +10,8 @@
       "WebFetch(domain:group-event-zeta.vercel.app)",
       "Bash(git add:*)",
       "Bash(ls:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "WebFetch(domain:group-event.vercel.app)"
     ],
     "deny": []
   }

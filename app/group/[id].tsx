@@ -46,7 +46,7 @@ export default function GroupDetailScreen() {
   };
   
   const generateInviteLink = (groupId: string) => {
-    return inviteCode ? `https://group-event-zeta.vercel.app/join/${inviteCode}` : '';
+    return inviteCode ? `https://group-event.vercel.app/join/${inviteCode}` : '';
   };
   
   if (!group) {
