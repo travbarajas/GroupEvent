@@ -119,14 +119,6 @@ export class ApiService {
     return this.request(`/groups/${groupId}`);
   }
 
-  // Member endpoints
-  static async joinGroup(groupId: string, data: JoinGroupRequest): Promise<{ member: Member }> {
-    return this.request(`/groups/${groupId}/members`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
   static async getMemberByDevice(groupId: string, deviceId: string): Promise<{ member: Member }> {
     return this.request(`/groups/${groupId}/members/device/${deviceId}`);
   }
