@@ -8,7 +8,8 @@
       "Bash(vercel env pull:*)",
       "Bash(npx expo start:*)",
       "WebFetch(domain:group-event-zeta.vercel.app)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
