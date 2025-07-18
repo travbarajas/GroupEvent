@@ -28,16 +28,27 @@ export default function GroupsTab() {
 
   // Check for invite parameter on load
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const inviteCode = urlParams.get('invite');
-      if (inviteCode) {
-        handleInviteJoin(inviteCode);
+    const checkForInvite = () => {
+      try {
+        if (typeof window !== 'undefined' && window.location) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const inviteCode = urlParams.get('invite');
+          console.log('Checking for invite code:', inviteCode);
+          if (inviteCode) {
+            handleInviteJoin(inviteCode);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for invite:', error);
       }
-    }
-  }, []);
+    };
 
-  const handleInviteJoin = async (inviteCode: string) => {
+    // Delay the check to ensure component is mounted
+    const timer = setTimeout(checkForInvite, 100);
+    return () => clearTimeout(timer);
+  }, [handleInviteJoin]);
+
+  const handleInviteJoin = React.useCallback(async (inviteCode: string) => {
     try {
       console.log('Processing invite code:', inviteCode);
       
@@ -57,11 +68,11 @@ export default function GroupsTab() {
         pathname: '/group/[id]',
         params: { id: groupData.group_id }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to join group:', error);
       alert(`Failed to join group: ${error.message}`);
     }
-  };
+  }, [loadGroups]);
 
   const handleCreateGroup = async () => {
     if (groupName.trim()) {
