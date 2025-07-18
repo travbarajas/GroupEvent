@@ -2,6 +2,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/join/(.*)",
+      "destination": "/join.html"
+    },
+    {
       "source": "/((?!api).*)",
       "destination": "/index.html"
     }

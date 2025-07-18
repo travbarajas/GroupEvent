@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,48 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups, Group } from '../../contexts/GroupsContext';
+import { ApiService } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function GroupsTab() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupName, setGroupName] = useState('');
-  const { groups, createGroup } = useGroups();
+  const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
+
+  // Check for invite parameter on load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get('invite');
+      if (inviteCode) {
+        handleInviteJoin(inviteCode);
+      }
+    }
+  }, []);
+
+  const handleInviteJoin = async (inviteCode: string) => {
+    try {
+      // Process the invite
+      const groupData = await ApiService.processInvite(inviteCode);
+      
+      // Join the group
+      await ApiService.joinGroup(inviteCode);
+      
+      // Refresh groups
+      await loadGroups();
+      
+      // Navigate to the group
+      router.push({
+        pathname: '/group/[id]',
+        params: { id: groupData.group_id }
+      });
+    } catch (error) {
+      console.error('Failed to join group:', error);
+      // Could show an error modal here
+    }
+  };
 
   const handleCreateGroup = async () => {
     if (groupName.trim()) {

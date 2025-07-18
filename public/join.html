@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Join Group - GroupEvent</title>
+    <script>
+        // Extract invite code from URL and redirect to main app
+        const path = window.location.pathname;
+        const codeMatch = path.match(/join\/([^\/]+)/);
+        const code = codeMatch ? codeMatch[1] : null;
+        
+        if (code) {
+            // Redirect to main app with invite code as hash
+            window.location.href = `/?invite=${code}`;
+        } else {
+            // No code found, redirect to home
+            window.location.href = '/';
+        }
+    </script>
+</head>
+<body>
+    <p>Processing invite...</p>
+</body>
+</html>
