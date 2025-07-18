@@ -25,6 +25,18 @@ module.exports = async function handler(req, res) {
       AND table_name IN ('groups', 'invites')
     `;
     
+    // Test invites table structure too
+    let invitesColumns = null;
+    try {
+      invitesColumns = await sql`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'invites'
+      `;
+    } catch (e) {
+      invitesColumns = { error: e.message };
+    }
+    
     // Test groups table structure
     let groupsColumns = null;
     try {
@@ -42,6 +54,7 @@ module.exports = async function handler(req, res) {
       basicTest,
       tablesExist: tablesTest,
       groupsColumns,
+      invitesColumns,
       message: 'Database connection working!'
     });
   } catch (error) {
