@@ -18,45 +18,34 @@
                            userAgent.includes('tiktok');
             
             if (isInApp) {
-                // Show instructions to open in external browser
+                // Try to open in external browser
                 const currentUrl = window.location.href;
                 
-                document.body.innerHTML = `
-                    <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center; background: #0a0a0a; color: #ffffff; min-height: 100vh;">
-                        <h2 style="color: #60a5fa; margin-bottom: 20px;">📱 Open in Browser</h2>
-                        <p style="margin-bottom: 20px;">For the best experience, please open this link in your browser:</p>
-                        
-                        <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin: 20px auto; max-width: 320px;">
-                            <ol style="text-align: left; padding-left: 20px; line-height: 1.6;">
-                                <li>Tap the <strong>"..."</strong> or share button</li>
-                                <li>Select <strong>"Open in Safari"</strong> or <strong>"Open in Browser"</strong></li>
-                            </ol>
-                        </div>
-                        
-                        <p style="font-size: 14px; color: #9ca3af; margin: 20px 0;">
-                            This ensures you stay logged in as the same person
-                        </p>
-                        
-                        <p style="margin-top: 30px;">
-                            <a href="${currentUrl}" 
-                               style="color: #60a5fa; text-decoration: none; font-weight: bold; background: #1a1a1a; padding: 12px 24px; border-radius: 8px; display: inline-block;"
-                               onclick="proceedAnyway()">
-                                Continue Anyway →
-                            </a>
-                        </p>
-                    </div>
-                `;
-                
-                // Add proceed anyway function
-                window.proceedAnyway = function() {
-                    // Clear the instructions and proceed with normal flow
-                    document.body.innerHTML = '<p style="color: white; text-align: center; padding: 20px;">Processing invite...</p>';
+                // For iOS devices, try to use universal link patterns
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    // Try Safari - fix the URL scheme
+                    window.location.href = currentUrl.replace('https://', 'safari-https://');
+                    
+                    // Fallback - show instructions
                     setTimeout(() => {
-                        normalFlow();
-                    }, 500);
-                };
-                
-                return true;
+                        document.body.innerHTML = `
+                            <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
+                                <h2>Open in Browser</h2>
+                                <p>For the best experience, please open this link in your browser:</p>
+                                <ol style="text-align: left; max-width: 300px; margin: 20px auto;">
+                                    <li>Tap the "..." or share button</li>
+                                    <li>Select "Open in Safari" or "Open in Browser"</li>
+                                </ol>
+                                <p style="margin-top: 30px;">
+                                    <a href="${currentUrl}" style="color: #2563eb; text-decoration: none; font-weight: bold;">
+                                        Continue Anyway →
+                                    </a>
+                                </p>
+                            </div>
+                        `;
+                    }, 1000);
+                    return true;
+                }
             }
             return false;
         }
