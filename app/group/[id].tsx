@@ -180,10 +180,10 @@ export default function GroupDetailScreen() {
                 <Text style={styles.inviteButtonText}>Invite</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.headerLeaveButton} onPress={handleLeaveGroup}>
-              <Ionicons name="close" size={20} color="#ef4444" />
-            </TouchableOpacity>
           </View>
+          <TouchableOpacity style={styles.headerLeaveButton} onPress={handleLeaveGroup}>
+            <Ionicons name="close" size={20} color="#ef4444" />
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -312,15 +312,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginLeft: 16,
+    marginRight: 8,
   },
   inviteButton: {
     backgroundColor: '#2563eb',
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 8,
-    flex: 1,
     alignItems: 'center',
-    marginRight: 12,
   },
   inviteButtonText: {
     color: '#ffffff',
