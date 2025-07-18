@@ -39,11 +39,15 @@ export default function GroupsTab() {
 
   const handleInviteJoin = async (inviteCode: string) => {
     try {
+      console.log('Processing invite code:', inviteCode);
+      
       // Process the invite
       const groupData = await ApiService.processInvite(inviteCode);
+      console.log('Group data received:', groupData);
       
       // Join the group
       await ApiService.joinGroup(inviteCode);
+      console.log('Successfully joined group');
       
       // Refresh groups
       await loadGroups();
@@ -55,7 +59,7 @@ export default function GroupsTab() {
       });
     } catch (error) {
       console.error('Failed to join group:', error);
-      // Could show an error modal here
+      alert(`Failed to join group: ${error.message}`);
     }
   };
 
