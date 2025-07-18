@@ -36,6 +36,7 @@ export default function GroupsTab() {
           console.log('Checking for invite code:', inviteCode);
           if (inviteCode) {
             console.log('Processing invite code:', inviteCode);
+            console.log('API URL will be:', `https://group-event.vercel.app/api/invites/${inviteCode}`);
             
             // Process the invite
             const groupData = await ApiService.processInvite(inviteCode);
