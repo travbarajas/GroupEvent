@@ -148,6 +148,21 @@ export class ApiService {
     return this.request(`/groups/${groupId}/events`);
   }
 
+  // Permissions endpoint
+  static async getPermissions(groupId: string): Promise<{
+    is_member: boolean;
+    is_creator: boolean;
+    role: string;
+    permissions: {
+      can_invite: boolean;
+      can_leave: boolean;
+      can_delete_group: boolean;
+    };
+  }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/permissions?device_id=${device_id}`);
+  }
+
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');

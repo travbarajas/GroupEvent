@@ -26,12 +26,14 @@ export default function GroupDetailScreen() {
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
+  const [permissions, setPermissions] = useState<any>(null);
   
   const group = getGroup(id as string);
   
   useEffect(() => {
     if (id) {
       fetchInviteCode();
+      fetchPermissions();
     }
   }, [id]);
 
@@ -43,6 +45,15 @@ export default function GroupDetailScreen() {
       }
     } catch (error) {
       console.error('Failed to fetch invite code:', error);
+    }
+  };
+
+  const fetchPermissions = async () => {
+    try {
+      const permissionsData = await ApiService.getPermissions(id as string);
+      setPermissions(permissionsData);
+    } catch (error) {
+      console.error('Failed to fetch permissions:', error);
     }
   };
   
@@ -158,9 +169,11 @@ export default function GroupDetailScreen() {
             <Ionicons name="chevron-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <View style={styles.headerButtons}>
-            <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
-              <Text style={styles.inviteButtonText}>Invite</Text>
-            </TouchableOpacity>
+            {permissions?.permissions?.can_invite && (
+              <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
+                <Text style={styles.inviteButtonText}>Invite</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
               <Ionicons name="close" size={20} color="#ef4444" />
             </TouchableOpacity>

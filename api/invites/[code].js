@@ -84,10 +84,10 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // Add user as member
+      // Add user as member with member role
       await sql`
-        INSERT INTO members (id, group_id, device_id)
-        VALUES (${`member_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, ${invite.group_id}, ${device_id})
+        INSERT INTO members (id, group_id, device_id, role)
+        VALUES (${`member_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, ${invite.group_id}, ${device_id}, 'member')
       `;
 
       // Update invite usage count

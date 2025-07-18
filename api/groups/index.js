@@ -68,10 +68,10 @@ module.exports = async function handler(req, res) {
 
       console.log('Group created:', group);
 
-      // Add creator as member
+      // Add creator as member with creator role
       await sql`
-        INSERT INTO members (id, group_id, device_id)
-        VALUES (${`member_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, ${groupId}, ${device_id})
+        INSERT INTO members (id, group_id, device_id, role)
+        VALUES (${`member_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, ${groupId}, ${device_id}, 'creator')
       `;
 
       // Create default invite
