@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
-  Alert,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ export default function GroupDetailScreen() {
   const { getGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<any>(null);
   
@@ -72,29 +73,19 @@ export default function GroupDetailScreen() {
   };
 
   const handleLeaveGroup = () => {
-    Alert.alert(
-      'Leave Group',
-      `Are you sure you want to leave "${group?.name}"?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await ApiService.leaveGroup(id as string);
-              await loadGroups(); // Refresh groups list
-              router.back(); // Go back to groups list
-            } catch (error: any) {
-              Alert.alert('Error', `Failed to leave group: ${error.message}`);
-            }
-          },
-        },
-      ],
-    );
+    setShowLeaveModal(true);
+  };
+
+  const confirmLeaveGroup = async () => {
+    setShowLeaveModal(false);
+    try {
+      await ApiService.leaveGroup(id as string);
+      await loadGroups(); // Refresh groups list
+      router.back(); // Go back to groups list
+    } catch (error: any) {
+      console.error('Failed to leave group:', error);
+      // Could add error handling here if needed
+    }
   };
   
   if (!group) {
@@ -242,6 +233,47 @@ export default function GroupDetailScreen() {
         groupName={group.name}
         inviteLink={generateInviteLink(group.id)}
       />
+
+      {/* Leave Group Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showLeaveModal}
+        onRequestClose={() => setShowLeaveModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.leaveModalContent}>
+            <View style={styles.leaveModalHeader}>
+              <Ionicons name="warning" size={24} color="#ef4444" />
+              <Text style={styles.leaveModalTitle}>Leave Group</Text>
+            </View>
+            
+            <View style={styles.leaveModalBody}>
+              <Text style={styles.leaveModalText}>
+                Are you sure you want to leave "{group.name}"?
+              </Text>
+              <Text style={styles.leaveModalSubtext}>
+                This action cannot be undone.
+              </Text>
+            </View>
+            
+            <View style={styles.leaveModalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={() => setShowLeaveModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.leaveButton} 
+                onPress={confirmLeaveGroup}
+              >
+                <Text style={styles.leaveButtonText}>Leave Group</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -465,6 +497,86 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: '#2563eb',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Leave Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  leaveModalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  leaveModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  leaveModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  leaveModalBody: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  leaveModalText: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  leaveModalSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  leaveModalButtons: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  cancelButtonText: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  leaveButton: {
+    flex: 1,
+    backgroundColor: '#ef4444',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  leaveButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
