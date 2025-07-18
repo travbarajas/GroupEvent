@@ -37,31 +37,6 @@ export interface JoinGroupRequest {
   deviceId: string;
 }
 
-// Device ID management
-export class DeviceManager {
-  private static DEVICE_ID_KEY = 'device_id';
-
-  static async getDeviceId(): Promise<string> {
-    try {
-      let deviceId = await AsyncStorage.getItem(this.DEVICE_ID_KEY);
-      
-      if (!deviceId) {
-        // Generate new device ID
-        deviceId = this.generateDeviceId();
-        await AsyncStorage.setItem(this.DEVICE_ID_KEY, deviceId);
-      }
-      
-      return deviceId;
-    } catch (error) {
-      console.error('Error getting device ID:', error);
-      return this.generateDeviceId();
-    }
-  }
-
-  private static generateDeviceId(): string {
-    return `${Platform.OS}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-}
 
 // API Service Class
 export class ApiService {
@@ -177,7 +152,7 @@ export class GroupService {
     joinLink: string;
     creatorMember: Member;
   }> {
-    const deviceId = await DeviceManager.getDeviceId();
+    const deviceId = await DeviceIdManager.getDeviceId();
     
     // Create the group
     const { group, joinLink } = await ApiService.createGroup({
@@ -202,7 +177,7 @@ export class GroupService {
     member: Member;
     isReturningUser: boolean;
   }> {
-    const deviceId = await DeviceManager.getDeviceId();
+    const deviceId = await DeviceIdManager.getDeviceId();
     
     try {
       // Try to find existing membership
@@ -238,7 +213,7 @@ export class GroupService {
   // Get current user's member info for a group
   static async getCurrentMember(groupId: string): Promise<Member | null> {
     try {
-      const deviceId = await DeviceManager.getDeviceId();
+      const deviceId = await DeviceIdManager.getDeviceId();
       const { member } = await ApiService.getMemberByDevice(groupId, deviceId);
       return member;
     } catch (error) {
