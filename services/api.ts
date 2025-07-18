@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { DeviceIdManager } from '@/utils/deviceId';
 
 // Configuration
 const API_BASE_URL = 'https://group-event.vercel.app/api';  // Always use production for now
@@ -95,14 +96,16 @@ export class ApiService {
 
   // Group endpoints
   static async createGroup(data: { name: string; description?: string }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
     return this.request('/groups', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, device_id }),
     });
   }
 
   static async getAllGroups(): Promise<any[]> {
-    return this.request('/groups');
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups?device_id=${device_id}`);
   }
 
   static async processInvite(code: string): Promise<any> {
@@ -110,8 +113,10 @@ export class ApiService {
   }
 
   static async joinGroup(code: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/invites/${code}`, {
-      method: 'POST'
+      method: 'POST',
+      body: JSON.stringify({ device_id })
     });
   }
 
@@ -120,8 +125,10 @@ export class ApiService {
   }
 
   static async leaveGroup(groupId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}/leave`, {
-      method: 'POST'
+      method: 'POST',
+      body: JSON.stringify({ device_id })
     });
   }
 

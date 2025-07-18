@@ -15,34 +15,40 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const { id } = req.query;
+      const { device_id } = req.body;
 
-      // Check if group exists
-      const [group] = await sql`
-        SELECT * FROM groups 
-        WHERE id = ${id}
-      `;
-
-      if (!group) {
-        return res.status(404).json({ error: 'Group not found' });
+      if (!device_id) {
+        return res.status(400).json({ error: 'device_id is required' });
       }
 
-      // Decrease member count (minimum 0)
-      await sql`
-        UPDATE groups 
-        SET member_count = GREATEST(member_count - 1, 0)
-        WHERE id = ${id}
+      // Check if user is a member of this group
+      const [member] = await sql`
+        SELECT id FROM members 
+        WHERE group_id = ${id} AND device_id = ${device_id}
       `;
 
-      // Get updated group
-      const [updatedGroup] = await sql`
-        SELECT * FROM groups 
+      if (!member) {
+        return res.status(404).json({ error: 'You are not a member of this group' });
+      }
+
+      // Remove member record
+      await sql`
+        DELETE FROM members 
+        WHERE group_id = ${id} AND device_id = ${device_id}
+      `;
+
+      // Update group member count based on remaining members
+      await sql`
+        UPDATE groups 
+        SET member_count = (
+          SELECT COUNT(*) FROM members WHERE group_id = ${id}
+        )
         WHERE id = ${id}
       `;
 
       return res.status(200).json({ 
         success: true, 
-        message: 'Left group successfully',
-        group: updatedGroup
+        message: 'Left group successfully'
       });
     } catch (error) {
       console.error('Error leaving group:', error);

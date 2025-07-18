@@ -52,6 +52,12 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
+      const { device_id } = req.body;
+
+      if (!device_id) {
+        return res.status(400).json({ error: 'device_id is required' });
+      }
+
       // Find and validate invite
       const [invite] = await sql`
         SELECT i.*, g.id as group_id
@@ -64,6 +70,26 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ error: 'Invalid invite code' });
       }
 
+      // Check if user is already a member
+      const [existingMember] = await sql`
+        SELECT id FROM members 
+        WHERE group_id = ${invite.group_id} AND device_id = ${device_id}
+      `;
+
+      if (existingMember) {
+        return res.status(200).json({ 
+          success: true, 
+          group_id: invite.group_id,
+          message: 'Already a member of this group'
+        });
+      }
+
+      // Add user as member
+      await sql`
+        INSERT INTO members (id, group_id, device_id)
+        VALUES (${`member_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`}, ${invite.group_id}, ${device_id})
+      `;
+
       // Update invite usage count
       await sql`
         UPDATE invites 
@@ -71,10 +97,12 @@ module.exports = async function handler(req, res) {
         WHERE id = ${invite.id}
       `;
 
-      // Update group member count
+      // Update group member count based on actual member count
       await sql`
         UPDATE groups 
-        SET member_count = member_count + 1 
+        SET member_count = (
+          SELECT COUNT(*) FROM members WHERE group_id = ${invite.group_id}
+        )
         WHERE id = ${invite.group_id}
       `;
 
