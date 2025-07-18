@@ -48,12 +48,21 @@ module.exports = async function handler(req, res) {
       console.log('Group created:', group);
 
       // Create default invite
-      await sql`
+      console.log('About to create invite with:', {
+        id: `invite_${Date.now()}`,
+        group_id: groupId,
+        invite_code: inviteCode,
+        created_by: 'creator'
+      });
+      
+      const inviteResult = await sql`
         INSERT INTO invites (id, group_id, invite_code, created_by)
         VALUES (${`invite_${Date.now()}`}, ${groupId}, ${inviteCode}, 'creator')
+        RETURNING *
       `;
 
-      console.log('Invite created with code:', inviteCode);
+      console.log('Invite created successfully:', inviteResult);
+      console.log('Invite code:', inviteCode);
 
       return res.status(201).json({ 
         ...group, 
