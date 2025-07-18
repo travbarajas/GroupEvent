@@ -28,51 +28,43 @@ export default function GroupsTab() {
 
   // Check for invite parameter on load
   useEffect(() => {
-    const checkForInvite = () => {
+    const checkForInvite = async () => {
       try {
         if (typeof window !== 'undefined' && window.location) {
           const urlParams = new URLSearchParams(window.location.search);
           const inviteCode = urlParams.get('invite');
           console.log('Checking for invite code:', inviteCode);
           if (inviteCode) {
-            handleInviteJoin(inviteCode);
+            console.log('Processing invite code:', inviteCode);
+            
+            // Process the invite
+            const groupData = await ApiService.processInvite(inviteCode);
+            console.log('Group data received:', groupData);
+            
+            // Join the group
+            await ApiService.joinGroup(inviteCode);
+            console.log('Successfully joined group');
+            
+            // Refresh groups
+            await loadGroups();
+            
+            // Navigate to the group
+            router.push({
+              pathname: '/group/[id]',
+              params: { id: groupData.group_id }
+            });
           }
         }
-      } catch (error) {
-        console.error('Error checking for invite:', error);
+      } catch (error: any) {
+        console.error('Error with invite:', error);
+        alert(`Failed to join group: ${error.message}`);
       }
     };
 
     // Delay the check to ensure component is mounted
     const timer = setTimeout(checkForInvite, 100);
     return () => clearTimeout(timer);
-  }, [handleInviteJoin]);
-
-  const handleInviteJoin = React.useCallback(async (inviteCode: string) => {
-    try {
-      console.log('Processing invite code:', inviteCode);
-      
-      // Process the invite
-      const groupData = await ApiService.processInvite(inviteCode);
-      console.log('Group data received:', groupData);
-      
-      // Join the group
-      await ApiService.joinGroup(inviteCode);
-      console.log('Successfully joined group');
-      
-      // Refresh groups
-      await loadGroups();
-      
-      // Navigate to the group
-      router.push({
-        pathname: '/group/[id]',
-        params: { id: groupData.group_id }
-      });
-    } catch (error: any) {
-      console.error('Failed to join group:', error);
-      alert(`Failed to join group: ${error.message}`);
-    }
-  }, [loadGroups]);
+  }, []);
 
   const handleCreateGroup = async () => {
     if (groupName.trim()) {
