@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Join Group - GroupEvent</title>
+    <meta http-equiv="refresh" content="0; url=/" id="redirect-meta">
     <script>
         // Extract invite code from URL and redirect to main app
         const path = window.location.pathname;
@@ -16,6 +17,11 @@
             // Redirect to main app with invite code as query parameter
             const redirectUrl = `/?invite=${code}`;
             console.log('Redirecting to:', redirectUrl);
+            
+            // Update meta refresh for fallback
+            document.getElementById('redirect-meta').setAttribute('content', `0; url=${redirectUrl}`);
+            
+            // Try JavaScript redirect first
             window.location.href = redirectUrl;
         } else {
             // No code found, redirect to home
