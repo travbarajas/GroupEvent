@@ -43,6 +43,17 @@ module.exports = async function handler(req, res) {
     try {
       console.log('POST request received:', req.body);
       
+      // First, ensure role column exists in members table
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN role VARCHAR(20) DEFAULT 'member'
+        `;
+        console.log('Added role column to members table');
+      } catch (error) {
+        console.log('Role column already exists or error:', error.message);
+      }
+      
       const { name, description, device_id } = req.body;
       
       if (!name || name.trim().length === 0) {
