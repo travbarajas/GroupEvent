@@ -1,7 +1,8 @@
-import { sql } from '../lib/db';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { neon } from '@neondatabase/serverless';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+const sql = neon(process.env.DATABASE_URL);
+
+export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const { id } = req.query;
@@ -11,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         SELECT g.*, i.invite_code
         FROM groups g
         LEFT JOIN invites i ON g.id = i.group_id
-        WHERE g.id = ${id as string}
+        WHERE g.id = ${id}
         LIMIT 1
       `;
 

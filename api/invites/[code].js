@@ -1,7 +1,8 @@
-import { sql } from '../lib/db';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { neon } from '@neondatabase/serverless';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+const sql = neon(process.env.DATABASE_URL);
+
+export default async function handler(req, res) {
   const { code } = req.query;
 
   if (req.method === 'GET') {
@@ -11,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         SELECT i.*, g.name as group_name, g.description as group_description, g.member_count
         FROM invites i
         JOIN groups g ON i.group_id = g.id
-        WHERE i.invite_code = ${code as string}
+        WHERE i.invite_code = ${code}
       `;
 
       if (!invite) {
@@ -48,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         SELECT i.*, g.id as group_id
         FROM invites i
         JOIN groups g ON i.group_id = g.id
-        WHERE i.invite_code = ${code as string}
+        WHERE i.invite_code = ${code}
       `;
 
       if (!invite) {
