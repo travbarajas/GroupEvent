@@ -7,45 +7,52 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <script>
-        // Debug: log user agent
-        console.log('User Agent:', navigator.userAgent);
-        
-        // Check if we're in Snapchat browser and try to redirect to Safari
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isSnapchat = userAgent.includes('snapchat');
-        
-        console.log('Is Snapchat:', isSnapchat);
-        
-        if (isSnapchat) {
-            // Try to force open in Safari
-            const currentUrl = window.location.href;
-            console.log('Snapchat detected, trying to open in Safari:', currentUrl);
+        // Detect if we're in an in-app browser and try to open externally
+        function tryOpenExternally() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isInApp = userAgent.includes('snapchat') || 
+                           userAgent.includes('fban') || 
+                           userAgent.includes('fbav') || 
+                           userAgent.includes('instagram') || 
+                           userAgent.includes('twitter') ||
+                           userAgent.includes('tiktok');
             
-            // Try different iOS Safari opening methods
-            window.location.href = 'safari-' + currentUrl;
-            
-            // Show instructions after a brief delay if redirect doesn't work
-            setTimeout(() => {
-                document.body.innerHTML = `
-                    <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
-                        <h2>🔗 Open in Safari</h2>
-                        <p>Please open this link in Safari for the best experience:</p>
-                        <ol style="text-align: left; max-width: 300px; margin: 20px auto;">
-                            <li>Tap the share button (↗️)</li>
-                            <li>Select "Open in Safari"</li>
-                        </ol>
-                        <p style="margin-top: 30px;">
-                            <a href="${currentUrl}" style="color: #2563eb; text-decoration: none; font-weight: bold; background: #f0f0f0; padding: 8px 16px; border-radius: 4px;">
-                                Continue Here Anyway →
-                            </a>
-                        </p>
-                    </div>
-                `;
-            }, 500);
-        } else {
-            // Not Snapchat - proceed with normal invite processing
-            console.log('Not Snapchat, proceeding normally');
-            
+            if (isInApp) {
+                // Try to open in external browser
+                const currentUrl = window.location.href;
+                
+                // For iOS devices, try to use universal link patterns
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    // Try Safari
+                    window.location.href = 'x-web-search://?url=' + encodeURIComponent(currentUrl);
+                    
+                    // Fallback - show instructions
+                    setTimeout(() => {
+                        document.body.innerHTML = `
+                            <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
+                                <h2>Open in Browser</h2>
+                                <p>For the best experience, please open this link in your browser:</p>
+                                <ol style="text-align: left; max-width: 300px; margin: 20px auto;">
+                                    <li>Tap the "..." or share button</li>
+                                    <li>Select "Open in Safari" or "Open in Browser"</li>
+                                </ol>
+                                <p style="margin-top: 30px;">
+                                    <a href="${currentUrl}" style="color: #2563eb; text-decoration: none; font-weight: bold;">
+                                        Continue Anyway →
+                                    </a>
+                                </p>
+                            </div>
+                        `;
+                    }, 1000);
+                    return true;
+                }
+            }
+            return false;
+        }
+    </script>
+    <script>
+        // First try to open externally if in in-app browser
+        if (!tryOpenExternally()) {
             // Extract invite code from URL and redirect to main app
             const path = window.location.pathname;
             console.log('Join page path:', path);
