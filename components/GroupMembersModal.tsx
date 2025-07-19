@@ -212,7 +212,6 @@ const styles = StyleSheet.create({
   memberNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 2,
   },
   memberName: {
@@ -231,7 +230,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    marginLeft: 8,
+    marginLeft: 4,
+    marginRight: 8,
   },
   editButtonText: {
     color: '#ffffff',
@@ -248,16 +248,19 @@ const styles = StyleSheet.create({
   creatorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#fbbf24',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    minWidth: 70,
   },
   creatorText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#1a1a1a',
     marginLeft: 4,
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',

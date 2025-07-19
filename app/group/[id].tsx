@@ -118,7 +118,9 @@ export default function GroupDetailScreen() {
     try {
       await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture });
       setShowProfileModal(false);
-      await fetchGroupProfile(); // Refresh group profile
+      
+      // Refresh all data to show updated username everywhere
+      await handleRefresh();
     } catch (error) {
       console.error('Failed to update profile:', error);
     }
