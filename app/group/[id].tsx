@@ -230,25 +230,20 @@ export default function GroupDetailScreen() {
         {/* Group profile display for testing */}
         {groupProfile && (
           <View style={styles.usernameTestContainer}>
-            <Text style={styles.usernameTestLabel}>Your profile in this group:</Text>
-            <View style={styles.profileDisplayRow}>
-              {groupProfile.profile_picture && (
-                <Text style={styles.profileAvatar}>{groupProfile.profile_picture}</Text>
-              )}
-              <Text style={styles.usernameTestValue}>
-                {groupProfile.username || 'Not set'}
-              </Text>
-            </View>
+            <Text style={styles.usernameTestLabel}>Your username in this group:</Text>
+            <Text style={styles.usernameTestValue}>
+              {groupProfile.username || 'Not set'}
+            </Text>
             {!groupProfile.has_username && (
               <TouchableOpacity 
                 style={styles.setUsernameButton} 
                 onPress={() => setShowProfileModal(true)}
               >
-                <Text style={styles.setUsernameButtonText}>Set Profile</Text>
+                <Text style={styles.setUsernameButtonText}>Set Username</Text>
               </TouchableOpacity>
             )}
             <Text style={styles.usernameTestNote}>
-              (Username and avatar are specific to this group)
+              (Username is specific to this group)
             </Text>
           </View>
         )}
@@ -460,15 +455,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     fontStyle: 'italic',
-  },
-  profileDisplayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  profileAvatar: {
-    fontSize: 24,
-    marginRight: 8,
   },
   scrollContainer: {
     flex: 1,

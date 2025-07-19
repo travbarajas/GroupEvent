@@ -7,10 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
-  Image,
-  ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -21,29 +18,20 @@ interface ProfileSetupModalProps {
   groupName?: string;
 }
 
-const defaultAvatars = [
-  '😀', '😎', '🤠', '🥸', '🤩', '🥳', '😇', '🤓',
-  '🙂', '😊', '😁', '😆', '😂', '🤣', '😋', '😛',
-  '🤔', '🙄', '😴', '🤯', '🥶', '🥵', '😱', '🤗',
-  '🦸', '🦹', '🧙', '🧚', '🧛', '🧜', '🧞', '🧝',
-];
 
 export default function ProfileSetupModal({ visible, onComplete, onSkip, groupName }: ProfileSetupModalProps) {
   const [username, setUsername] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState(defaultAvatars[0]);
 
   const handleComplete = () => {
     if (username.trim()) {
-      onComplete(username.trim(), selectedAvatar);
+      onComplete(username.trim(), ''); // No profile picture for now
       setUsername('');
-      setSelectedAvatar(defaultAvatars[0]);
     }
   };
 
   const handleSkip = () => {
     onSkip();
     setUsername('');
-    setSelectedAvatar(defaultAvatars[0]);
   };
 
   return (
@@ -56,54 +44,29 @@ export default function ProfileSetupModal({ visible, onComplete, onSkip, groupNa
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Set Up Your Profile</Text>
+            <Text style={styles.modalTitle}>Set Your Username</Text>
             <Text style={styles.modalSubtitle}>
-              {groupName ? `Choose a username and avatar for "${groupName}"` : 'Choose a username and avatar for this group'}
+              {groupName ? `Choose a username for "${groupName}"` : 'Choose a username for this group'}
             </Text>
           </View>
           
-          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-            {/* Avatar Selection */}
-            <View style={styles.avatarSection}>
-              <Text style={styles.sectionLabel}>Choose Avatar</Text>
-              <View style={styles.selectedAvatarContainer}>
-                <Text style={styles.selectedAvatar}>{selectedAvatar}</Text>
-              </View>
-              
-              <View style={styles.avatarGrid}>
-                {defaultAvatars.map((avatar, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.avatarOption,
-                      selectedAvatar === avatar && styles.avatarOptionSelected
-                    ]}
-                    onPress={() => setSelectedAvatar(avatar)}
-                  >
-                    <Text style={styles.avatarText}>{avatar}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Username Input */}
-            <View style={styles.usernameSection}>
-              <Text style={styles.sectionLabel}>Username</Text>
-              <TextInput
-                style={styles.textInput}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Enter your username..."
-                placeholderTextColor="#6b7280"
-                maxLength={20}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Text style={styles.inputHelper}>
-                {username.length}/20 characters
-              </Text>
-            </View>
-          </ScrollView>
+          <View style={styles.modalBody}>
+            <Text style={styles.inputLabel}>Username</Text>
+            <TextInput
+              style={styles.textInput}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Enter your username..."
+              placeholderTextColor="#6b7280"
+              maxLength={20}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus={true}
+            />
+            <Text style={styles.inputHelper}>
+              {username.length}/20 characters
+            </Text>
+          </View>
           
           <View style={styles.modalButtons}>
             <TouchableOpacity 
@@ -123,7 +86,7 @@ export default function ProfileSetupModal({ visible, onComplete, onSkip, groupNa
               <Text style={[
                 styles.completeButtonText,
                 !username.trim() && styles.completeButtonTextDisabled
-              ]}>Complete Setup</Text>
+              ]}>Save Username</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -143,9 +106,8 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
-    width: '100%',
+    width: width - 40,
     maxWidth: 400,
-    maxHeight: '80%',
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
@@ -167,57 +129,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modalBody: {
-    flex: 1,
     padding: 20,
   },
-  avatarSection: {
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
-  },
-  selectedAvatarContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  selectedAvatar: {
-    fontSize: 60,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 40,
-    width: 80,
-    height: 80,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    lineHeight: 80,
-  },
-  avatarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  avatarOption: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  avatarOptionSelected: {
-    borderColor: '#2563eb',
-    backgroundColor: '#1e40af',
-  },
-  avatarText: {
-    fontSize: 20,
-  },
-  usernameSection: {
-    marginBottom: 24,
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#e5e7eb',
+    marginBottom: 8,
   },
   textInput: {
     backgroundColor: '#2a2a2a',
