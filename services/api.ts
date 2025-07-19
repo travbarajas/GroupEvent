@@ -100,7 +100,7 @@ export class ApiService {
   // Per-group profile endpoints
   static async updateGroupProfile(groupId: string, data: { username: string; profile_picture?: string }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/profile`, {
+    return this.request(`/groups/${groupId}`, {
       method: 'PUT',
       body: JSON.stringify({ ...data, device_id }),
     });
@@ -108,7 +108,7 @@ export class ApiService {
 
   static async getGroupProfile(groupId: string): Promise<{ username: string | null; profile_picture: string | null; has_username: boolean }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/profile?device_id=${device_id}`);
+    return this.request(`/groups/${groupId}?device_id=${device_id}&profile=true`);
   }
 
   // Health check
