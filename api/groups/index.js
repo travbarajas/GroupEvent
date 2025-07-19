@@ -5,7 +5,7 @@ const sql = neon(process.env.DATABASE_URL);
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
@@ -14,10 +14,33 @@ module.exports = async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      const { device_id } = req.query;
+      const { device_id, user_info } = req.query;
       
       if (!device_id) {
         return res.status(400).json({ error: 'device_id is required' });
+      }
+
+      // If user_info parameter is present, return user info instead of groups
+      if (user_info === 'true') {
+        const [member] = await sql`
+          SELECT username, 
+                 CASE WHEN username IS NOT NULL AND LENGTH(TRIM(username)) > 0 
+                      THEN true 
+                      ELSE false 
+                 END as has_username
+          FROM members 
+          WHERE device_id = ${device_id} 
+          LIMIT 1
+        `;
+        
+        if (!member) {
+          return res.status(200).json({ 
+            username: null, 
+            has_username: false 
+          });
+        }
+        
+        return res.status(200).json(member);
       }
 
       // Only return groups where the user is a member
@@ -119,6 +142,28 @@ module.exports = async function handler(req, res) {
         details: error.message,
         type: error.constructor.name
       });
+    }
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      const { device_id, username } = req.body;
+      
+      if (!device_id || !username) {
+        return res.status(400).json({ error: 'device_id and username are required' });
+      }
+
+      // Update username for this device across all groups they're in
+      await sql`
+        UPDATE members 
+        SET username = ${username.trim()}
+        WHERE device_id = ${device_id}
+      `;
+      
+      return res.status(200).json({ success: true, message: 'Username updated successfully' });
+    } catch (error) {
+      console.error('Error updating username:', error);
+      return res.status(500).json({ error: 'Failed to update username' });
     }
   }
 

@@ -100,15 +100,15 @@ export class ApiService {
   // Username endpoints
   static async updateUsername(username: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request('/members/username', {
-      method: 'POST',
+    return this.request('/groups', {
+      method: 'PUT',
       body: JSON.stringify({ device_id, username }),
     });
   }
 
   static async getUserInfo(): Promise<{ username: string | null; has_username: boolean }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/members/me?device_id=${device_id}`);
+    return this.request(`/groups?device_id=${device_id}&user_info=true`);
   }
 
   // Health check
