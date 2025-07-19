@@ -97,13 +97,18 @@ export class ApiService {
     return this.request(`/groups/${groupId}/permissions?device_id=${device_id}`);
   }
 
-  // Username endpoint
+  // Username endpoints
   static async updateUsername(username: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request('/members/username', {
       method: 'POST',
       body: JSON.stringify({ device_id, username }),
     });
+  }
+
+  static async getUserInfo(): Promise<{ username: string | null; has_username: boolean }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/members/me?device_id=${device_id}`);
   }
 
   // Health check

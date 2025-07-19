@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups } from '@/contexts/GroupsContext';
 import { ApiService } from '@/services/api';
 import InviteModal from '@/components/InviteModal';
+import UsernameModal from '@/components/UsernameModal';
 
 const { width } = Dimensions.get('window');
 const squareSize = (width - 48) / 2; // Account for padding and gap
@@ -26,8 +27,10 @@ export default function GroupDetailScreen() {
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<any>(null);
+  const [userInfo, setUserInfo] = useState<any>(null);
   
   const group = getGroup(id as string);
   
@@ -35,6 +38,7 @@ export default function GroupDetailScreen() {
     if (id) {
       fetchInviteCode();
       fetchPermissions();
+      fetchUserInfo();
     }
   }, [id]);
 
@@ -58,15 +62,44 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const fetchUserInfo = async () => {
+    try {
+      const userInfoData = await ApiService.getUserInfo();
+      setUserInfo(userInfoData);
+      
+      // Check if user needs to set username
+      if (!userInfoData.has_username) {
+        setShowUsernameModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user info:', error);
+    }
+  };
+
 
   const handleRefresh = async () => {
     try {
       await loadGroups(); // Refresh the groups list
       await fetchInviteCode(); // Refresh invite code
       await fetchPermissions(); // Refresh permissions
+      await fetchUserInfo(); // Refresh user info
     } catch (error) {
       console.error('Failed to refresh group data:', error);
     }
+  };
+
+  const handleUsernameSetup = async (username: string) => {
+    try {
+      await ApiService.updateUsername(username);
+      setShowUsernameModal(false);
+      await fetchUserInfo(); // Refresh user info
+    } catch (error) {
+      console.error('Failed to update username:', error);
+    }
+  };
+
+  const handleUsernameSkip = () => {
+    setShowUsernameModal(false);
   };
   
   const generateInviteLink = (groupId: string) => {
@@ -193,6 +226,24 @@ export default function GroupDetailScreen() {
         <Text style={styles.groupName}>{group.name}</Text>
         <Text style={styles.groupDescription}>Ready to plan some events together!</Text>
         <Text style={styles.groupMemberCount}>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</Text>
+        
+        {/* Username display for testing */}
+        {userInfo && (
+          <View style={styles.usernameTestContainer}>
+            <Text style={styles.usernameTestLabel}>Your username: </Text>
+            <Text style={styles.usernameTestValue}>
+              {userInfo.username || 'Not set'}
+            </Text>
+            {!userInfo.has_username && (
+              <TouchableOpacity 
+                style={styles.setUsernameButton} 
+                onPress={() => setShowUsernameModal(true)}
+              >
+                <Text style={styles.setUsernameButtonText}>Set Username</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
       
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -233,6 +284,12 @@ export default function GroupDetailScreen() {
         onClose={() => setShowInviteModal(false)}
         groupName={group.name}
         inviteLink={generateInviteLink(group.id)}
+      />
+
+      <UsernameModal
+        visible={showUsernameModal}
+        onComplete={handleUsernameSetup}
+        onSkip={handleUsernameSkip}
       />
 
       {/* Leave Group Modal */}
@@ -358,6 +415,37 @@ const styles = StyleSheet.create({
   groupMemberCount: {
     fontSize: 14,
     color: '#9ca3af',
+  },
+  usernameTestContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  usernameTestLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginBottom: 4,
+  },
+  usernameTestValue: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  setUsernameButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  setUsernameButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   scrollContainer: {
     flex: 1,

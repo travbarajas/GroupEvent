@@ -28,10 +28,11 @@ export default function GroupsTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<any>(null);
   const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
 
-  // Check for invite parameter on load
+  // Check for invite parameter and user info on load
   useEffect(() => {
     const checkForInvite = async () => {
       try {
@@ -77,8 +78,30 @@ export default function GroupsTab() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch user info on component mount
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const userInfoData = await ApiService.getUserInfo();
+        setUserInfo(userInfoData);
+      } catch (error) {
+        console.error('Failed to fetch user info:', error);
+        // If no user info found, that's okay - user hasn't joined any groups yet
+        setUserInfo({ username: null, has_username: false });
+      }
+    };
+
+    fetchUserInfo();
+  }, [groups]); // Re-fetch when groups change
+
   const handleCreateGroup = async () => {
     if (groupName.trim()) {
+      // Check if user has username before creating group
+      if (userInfo && !userInfo.has_username) {
+        setShowUsernameModal(true);
+        return;
+      }
+
       try {
         await createGroup(groupName.trim());
         setGroupName('');
@@ -110,13 +133,27 @@ export default function GroupsTab() {
       await ApiService.updateUsername(username);
       setShowUsernameModal(false);
       
-      // Navigate to pending group if exists
+      // Update user info
+      setUserInfo({ username, has_username: true });
+      
+      // Navigate to pending group if exists (from invite)
       if (pendingGroupId) {
         router.push({
           pathname: '/group/[id]',
           params: { id: pendingGroupId }
         });
         setPendingGroupId(null);
+      } else {
+        // If no pending group, user was trying to create a group
+        if (groupName.trim()) {
+          try {
+            await createGroup(groupName.trim());
+            setGroupName('');
+            setShowCreateModal(false);
+          } catch (error) {
+            console.error('Failed to create group after username setup:', error);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to update username:', error);
