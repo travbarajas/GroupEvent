@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups, Group } from '../../contexts/GroupsContext';
 import { ApiService } from '../../services/api';
+import ProfileSetupModal from '../../components/ProfileSetupModal';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,8 @@ export default function GroupsTab() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
 
@@ -58,11 +61,19 @@ export default function GroupsTab() {
               window.history.replaceState({}, '', url.toString());
             }
             
-            // Navigate to the group
-            router.push({
-              pathname: '/group/[id]',
-              params: { id: groupData.group_id }
-            });
+            // Check if user has a profile, if not show profile setup
+            try {
+              await ApiService.getProfile();
+              // Profile exists, navigate to group
+              router.push({
+                pathname: '/group/[id]',
+                params: { id: groupData.group_id }
+              });
+            } catch (profileError) {
+              // No profile, show profile setup modal first
+              setPendingGroupId(groupData.group_id);
+              setShowProfileModal(true);
+            }
           }
         }
       } catch (error: any) {
@@ -102,6 +113,37 @@ export default function GroupsTab() {
       console.error('Failed to refresh groups:', error);
     }
     setRefreshing(false);
+  };
+
+  const handleProfileSetup = async (username: string, profilePicture: string) => {
+    try {
+      await ApiService.createOrUpdateProfile({ username, profile_picture: profilePicture });
+      setShowProfileModal(false);
+      
+      // Navigate to pending group if exists
+      if (pendingGroupId) {
+        router.push({
+          pathname: '/group/[id]',
+          params: { id: pendingGroupId }
+        });
+        setPendingGroupId(null);
+      }
+    } catch (error) {
+      console.error('Failed to create profile:', error);
+    }
+  };
+
+  const handleProfileSkip = () => {
+    setShowProfileModal(false);
+    
+    // Navigate to pending group if exists
+    if (pendingGroupId) {
+      router.push({
+        pathname: '/group/[id]',
+        params: { id: pendingGroupId }
+      });
+      setPendingGroupId(null);
+    }
   };
 
   const handleGroupPress = (group: Group) => {
@@ -231,6 +273,12 @@ export default function GroupsTab() {
           </View>
         </View>
       </Modal>
+
+      <ProfileSetupModal
+        visible={showProfileModal}
+        onComplete={handleProfileSetup}
+        onSkip={handleProfileSkip}
+      />
     </View>
   );
 }

@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups } from '@/contexts/GroupsContext';
 import { ApiService } from '@/services/api';
 import InviteModal from '@/components/InviteModal';
+import ProfileSetupModal from '@/components/ProfileSetupModal';
+import GroupMembersModal from '@/components/GroupMembersModal';
 
 const { width } = Dimensions.get('window');
 const squareSize = (width - 48) / 2; // Account for padding and gap
@@ -26,8 +28,12 @@ export default function GroupDetailScreen() {
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
   
   const group = getGroup(id as string);
   
@@ -35,6 +41,8 @@ export default function GroupDetailScreen() {
     if (id) {
       fetchInviteCode();
       fetchPermissions();
+      fetchUserProfile();
+      fetchMembers();
     }
   }, [id]);
 
@@ -58,14 +66,50 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await ApiService.getProfile();
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      // Show profile setup modal if no profile exists
+      setShowProfileModal(true);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const membersData = await ApiService.getGroupMembers(id as string);
+      setMembers(membersData);
+    } catch (error) {
+      console.error('Failed to fetch members:', error);
+    }
+  };
+
   const handleRefresh = async () => {
     try {
       await loadGroups(); // Refresh the groups list
       await fetchInviteCode(); // Refresh invite code
       await fetchPermissions(); // Refresh permissions
+      await fetchMembers(); // Refresh members
     } catch (error) {
       console.error('Failed to refresh group data:', error);
     }
+  };
+
+  const handleProfileSetup = async (username: string, profilePicture: string) => {
+    try {
+      await ApiService.createOrUpdateProfile({ username, profile_picture: profilePicture });
+      setShowProfileModal(false);
+      await fetchUserProfile();
+      await fetchMembers(); // Refresh members to show updated profile
+    } catch (error) {
+      console.error('Failed to create profile:', error);
+    }
+  };
+
+  const handleProfileSkip = () => {
+    setShowProfileModal(false);
   };
   
   const generateInviteLink = (groupId: string) => {
@@ -181,8 +225,8 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={styles.headerLeaveButton} onPress={handleLeaveGroup}>
-            <Ionicons name="close" size={20} color="#ef4444" />
+          <TouchableOpacity style={styles.headerMenuButton} onPress={() => setShowMembersModal(true)}>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -234,46 +278,20 @@ export default function GroupDetailScreen() {
         inviteLink={generateInviteLink(group.id)}
       />
 
-      {/* Leave Group Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showLeaveModal}
-        onRequestClose={() => setShowLeaveModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.leaveModalContent}>
-            <View style={styles.leaveModalHeader}>
-              <Ionicons name="warning" size={24} color="#ef4444" />
-              <Text style={styles.leaveModalTitle}>Leave Group</Text>
-            </View>
-            
-            <View style={styles.leaveModalBody}>
-              <Text style={styles.leaveModalText}>
-                Are you sure you want to leave "{group.name}"?
-              </Text>
-              <Text style={styles.leaveModalSubtext}>
-                This action cannot be undone.
-              </Text>
-            </View>
-            
-            <View style={styles.leaveModalButtons}>
-              <TouchableOpacity 
-                style={styles.cancelButton} 
-                onPress={() => setShowLeaveModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.leaveButton} 
-                onPress={confirmLeaveGroup}
-              >
-                <Text style={styles.leaveButtonText}>Leave Group</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ProfileSetupModal
+        visible={showProfileModal}
+        onComplete={handleProfileSetup}
+        onSkip={handleProfileSkip}
+      />
+
+      <GroupMembersModal
+        visible={showMembersModal}
+        onClose={() => setShowMembersModal(false)}
+        members={members}
+        groupName={group.name}
+        onLeaveGroup={confirmLeaveGroup}
+        currentUserRole={permissions?.role}
+      />
     </View>
   );
 }
@@ -326,10 +344,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  headerLeaveButton: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#ef4444',
+  headerMenuButton: {
+    backgroundColor: '#2a2a2a',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -496,86 +512,6 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: '#2563eb',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Leave Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  leaveModalContent: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    width: '100%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  leaveModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  leaveModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginLeft: 8,
-  },
-  leaveModalBody: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  leaveModalText: {
-    fontSize: 16,
-    color: '#e5e7eb',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  leaveModalSubtext: {
-    fontSize: 14,
-    color: '#9ca3af',
-    textAlign: 'center',
-  },
-  leaveModalButtons: {
-    flexDirection: 'row',
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#2a2a2a',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#2a2a2a',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  cancelButtonText: {
-    color: '#e5e7eb',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  leaveButton: {
-    flex: 1,
-    backgroundColor: '#ef4444',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  leaveButtonText: {
-    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },

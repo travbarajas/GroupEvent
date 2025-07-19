@@ -2,58 +2,25 @@
 <html>
 <head>
     <title>Join Group - GroupEvent</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
-        // Extract invite code first
+        // Extract invite code from URL and redirect to main app
         const path = window.location.pathname;
         console.log('Join page path:', path);
         
         const codeMatch = path.match(/join\/([^\/]+)/);
         const code = codeMatch ? codeMatch[1] : null;
-        const redirectUrl = code ? `/?invite=${code}` : '/';
         
-        // Check if we're in Snapchat and try to redirect to Safari
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isSnapchat = userAgent.includes('snapchat');
+        console.log('Extracted invite code:', code);
         
-        if (isSnapchat && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            console.log('Snapchat detected, showing Safari button');
-            
-            const fullInviteUrl = window.location.origin + redirectUrl;
-            
-            // Show a nice "Open in Safari" page
-            document.body.innerHTML = `
-                <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center; background: #0a0a0a; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; justify-content: center;">
-                    <div style="max-width: 400px; margin: 0 auto;">
-                        <h1 style="color: #60a5fa; margin-bottom: 20px; font-size: 24px;">🎉 Almost there!</h1>
-                        <p style="margin-bottom: 30px; font-size: 18px; line-height: 1.4;">
-                            You've been invited to join a GroupEvent group!
-                        </p>
-                        <p style="margin-bottom: 40px; font-size: 16px; color: #9ca3af;">
-                            For the best experience (and to stay logged in as the same person), please open this in Safari:
-                        </p>
-                        
-                        <a href="${fullInviteUrl}" 
-                           style="display: inline-block; background: #2563eb; color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 18px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
-                            📱 Open in Safari
-                        </a>
-                        
-                        <p style="font-size: 14px; color: #6b7280; margin-top: 20px;">
-                            Tap the button above, then select "Open in Safari" from the menu
-                        </p>
-                        
-                        <p style="margin-top: 30px;">
-                            <a href="${fullInviteUrl}" style="color: #9ca3af; text-decoration: none; font-size: 14px;">
-                                Or continue in Snapchat (not recommended) →
-                            </a>
-                        </p>
-                    </div>
-                </div>
-            `;
+        if (code) {
+            // Redirect to main app with invite code as query parameter
+            const redirectUrl = `/?invite=${code}`;
+            console.log('Redirecting to:', redirectUrl);
+            window.location.href = redirectUrl;
         } else {
-            // Not Snapchat or not iOS - use reliable meta refresh
-            console.log('Using meta refresh redirect to:', redirectUrl);
-            document.write(`<meta http-equiv="refresh" content="0; url=${redirectUrl}" />`);
+            // No code found, redirect to home
+            console.log('No code found, redirecting to home');
+            window.location.href = '/';
         }
     </script>
 </head>
@@ -61,7 +28,7 @@
     <p>Processing invite...</p>
     <p id="debug"></p>
     <script>
-        document.getElementById('debug').textContent = 'Processing: ' + window.location.pathname;
+        document.getElementById('debug').textContent = 'Path: ' + window.location.pathname;
     </script>
 </body>
 </html>
