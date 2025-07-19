@@ -52,8 +52,8 @@ export default function GroupsTab() {
             await loadGroups();
             
             // Clear the invite parameter from URL to prevent re-processing
-            if (typeof window !== 'undefined' && window.history) {
-              const url = new URL(window.location);
+            if (typeof window !== 'undefined' && window.history && window.location) {
+              const url = new URL(window.location.href);
               url.searchParams.delete('invite');
               window.history.replaceState({}, '', url.toString());
             }
