@@ -18,8 +18,8 @@
         
         if (isSnapchat && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
             console.log('Snapchat detected, trying Safari redirect');
-            // Try to open in Safari - use safari:// with just domain to avoid length issues
-            window.location.href = 'safari://' + window.location.host;
+            // Try to open in Safari using the working method
+            window.location.href = 'x-web-search://?url=' + encodeURIComponent(window.location.origin + redirectUrl);
             
             // Fallback instructions if redirect doesn't work
             setTimeout(() => {
