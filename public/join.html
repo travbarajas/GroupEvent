@@ -17,31 +17,37 @@
         const isSnapchat = userAgent.includes('snapchat');
         
         if (isSnapchat && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            console.log('Snapchat detected, forcing Safari redirect');
+            console.log('Snapchat detected, showing Safari button');
             
             const fullInviteUrl = window.location.origin + redirectUrl;
             
-            // Attempt to open in Safari using window.open (most reliable method)
-            const newWindow = window.open(fullInviteUrl, '_blank');
-            
-            // Fallback: Redirect in same tab if popup is blocked
-            setTimeout(() => {
-                if (!newWindow || newWindow.closed) {
-                    console.log('Popup blocked, redirecting in same tab');
-                    window.location.href = fullInviteUrl;
-                } else {
-                    console.log('Successfully opened in new tab/Safari');
-                }
-            }, 500);
-            
-            // Show message while redirect happens
+            // Show a nice "Open in Safari" page
             document.body.innerHTML = `
-                <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
-                    <h2>🚀 Opening in Safari...</h2>
-                    <p>Redirecting to the best experience!</p>
-                    <p style="margin-top: 20px; font-size: 14px; color: #666;">
-                        If nothing happens, <a href="${fullInviteUrl}" style="color: #2563eb;">tap here</a>
-                    </p>
+                <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center; background: #0a0a0a; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="max-width: 400px; margin: 0 auto;">
+                        <h1 style="color: #60a5fa; margin-bottom: 20px; font-size: 24px;">🎉 Almost there!</h1>
+                        <p style="margin-bottom: 30px; font-size: 18px; line-height: 1.4;">
+                            You've been invited to join a GroupEvent group!
+                        </p>
+                        <p style="margin-bottom: 40px; font-size: 16px; color: #9ca3af;">
+                            For the best experience (and to stay logged in as the same person), please open this in Safari:
+                        </p>
+                        
+                        <a href="${fullInviteUrl}" 
+                           style="display: inline-block; background: #2563eb; color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 18px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
+                            📱 Open in Safari
+                        </a>
+                        
+                        <p style="font-size: 14px; color: #6b7280; margin-top: 20px;">
+                            Tap the button above, then select "Open in Safari" from the menu
+                        </p>
+                        
+                        <p style="margin-top: 30px;">
+                            <a href="${fullInviteUrl}" style="color: #9ca3af; text-decoration: none; font-size: 14px;">
+                                Or continue in Snapchat (not recommended) →
+                            </a>
+                        </p>
+                    </div>
                 </div>
             `;
         } else {
