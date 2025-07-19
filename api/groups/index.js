@@ -54,21 +54,15 @@ module.exports = async function handler(req, res) {
         console.log('Role column already exists or error:', error.message);
       }
 
-      // Ensure profiles table exists
+      // Ensure username column exists in members table
       try {
         await sql`
-          CREATE TABLE IF NOT EXISTS profiles (
-            id VARCHAR(50) PRIMARY KEY,
-            device_id VARCHAR(255) UNIQUE NOT NULL,
-            username VARCHAR(50) NOT NULL,
-            profile_picture TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
+          ALTER TABLE members 
+          ADD COLUMN username VARCHAR(50)
         `;
-        console.log('Profiles table created or already exists');
+        console.log('Added username column to members table');
       } catch (error) {
-        console.log('Error creating profiles table:', error.message);
+        console.log('Username column already exists or error:', error.message);
       }
       
       const { name, description, device_id } = req.body;

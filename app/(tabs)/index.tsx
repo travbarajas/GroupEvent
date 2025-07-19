@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups, Group } from '../../contexts/GroupsContext';
 import { ApiService } from '../../services/api';
-import ProfileSetupModal from '../../components/ProfileSetupModal';
+import UsernameModal from '../../components/UsernameModal';
 
 const { width } = Dimensions.get('window');
 
@@ -26,7 +26,7 @@ export default function GroupsTab() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
@@ -61,19 +61,9 @@ export default function GroupsTab() {
               window.history.replaceState({}, '', url.toString());
             }
             
-            // Check if user has a profile, if not show profile setup
-            try {
-              await ApiService.getProfile();
-              // Profile exists, navigate to group
-              router.push({
-                pathname: '/group/[id]',
-                params: { id: groupData.group_id }
-              });
-            } catch (profileError) {
-              // No profile, show profile setup modal first
-              setPendingGroupId(groupData.group_id);
-              setShowProfileModal(true);
-            }
+            // Show username setup modal for new users
+            setPendingGroupId(groupData.group_id);
+            setShowUsernameModal(true);
           }
         }
       } catch (error: any) {
@@ -115,10 +105,10 @@ export default function GroupsTab() {
     setRefreshing(false);
   };
 
-  const handleProfileSetup = async (username: string, profilePicture: string) => {
+  const handleUsernameSetup = async (username: string) => {
     try {
-      await ApiService.createOrUpdateProfile({ username, profile_picture: profilePicture });
-      setShowProfileModal(false);
+      await ApiService.updateUsername(username);
+      setShowUsernameModal(false);
       
       // Navigate to pending group if exists
       if (pendingGroupId) {
@@ -129,12 +119,12 @@ export default function GroupsTab() {
         setPendingGroupId(null);
       }
     } catch (error) {
-      console.error('Failed to create profile:', error);
+      console.error('Failed to update username:', error);
     }
   };
 
-  const handleProfileSkip = () => {
-    setShowProfileModal(false);
+  const handleUsernameSkip = () => {
+    setShowUsernameModal(false);
     
     // Navigate to pending group if exists
     if (pendingGroupId) {
@@ -274,10 +264,10 @@ export default function GroupsTab() {
         </View>
       </Modal>
 
-      <ProfileSetupModal
-        visible={showProfileModal}
-        onComplete={handleProfileSetup}
-        onSkip={handleProfileSkip}
+      <UsernameModal
+        visible={showUsernameModal}
+        onComplete={handleUsernameSetup}
+        onSkip={handleUsernameSkip}
       />
     </View>
   );

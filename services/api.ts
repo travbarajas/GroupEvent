@@ -97,23 +97,13 @@ export class ApiService {
     return this.request(`/groups/${groupId}/permissions?device_id=${device_id}`);
   }
 
-  // Profile endpoints
-  static async getProfile(): Promise<any> {
+  // Username endpoint
+  static async updateUsername(username: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/profiles?device_id=${device_id}`);
-  }
-
-  static async createOrUpdateProfile(data: { username: string; profile_picture?: string }): Promise<any> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request('/profiles', {
+    return this.request('/members/username', {
       method: 'POST',
-      body: JSON.stringify({ ...data, device_id }),
+      body: JSON.stringify({ device_id, username }),
     });
-  }
-
-  static async getGroupMembers(groupId: string): Promise<any[]> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/members?device_id=${device_id}`);
   }
 
   // Health check
