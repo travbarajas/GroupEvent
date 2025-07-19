@@ -17,6 +17,7 @@ import { useGroups } from '@/contexts/GroupsContext';
 import { ApiService } from '@/services/api';
 import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
+import GroupMembersModal from '@/components/GroupMembersModal';
 
 const { width } = Dimensions.get('window');
 const squareSize = (width - 48) / 2; // Account for padding and gap
@@ -28,9 +29,11 @@ export default function GroupDetailScreen() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<any>(null);
   const [groupProfile, setGroupProfile] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
   
   const group = getGroup(id as string);
   
@@ -39,6 +42,7 @@ export default function GroupDetailScreen() {
       fetchInviteCode();
       fetchPermissions();
       fetchGroupProfile();
+      fetchMembers();
     }
   }, [id]);
 
@@ -76,6 +80,15 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const fetchMembers = async () => {
+    try {
+      const membersData = await ApiService.getGroupMembers(id as string);
+      setMembers(membersData);
+    } catch (error) {
+      console.error('Failed to fetch members:', error);
+    }
+  };
+
 
   const handleRefresh = async () => {
     try {
@@ -83,6 +96,7 @@ export default function GroupDetailScreen() {
       await fetchInviteCode(); // Refresh invite code
       await fetchPermissions(); // Refresh permissions
       await fetchGroupProfile(); // Refresh group profile
+      await fetchMembers(); // Refresh members
     } catch (error) {
       console.error('Failed to refresh group data:', error);
     }
@@ -215,8 +229,8 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={styles.headerLeaveButton} onPress={handleLeaveGroup}>
-            <Ionicons name="close" size={20} color="#ef4444" />
+          <TouchableOpacity style={styles.headerMenuButton} onPress={() => setShowMembersModal(true)}>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -294,6 +308,15 @@ export default function GroupDetailScreen() {
         onComplete={handleProfileSetup}
         onSkip={handleProfileSkip}
         groupName={group.name}
+      />
+
+      <GroupMembersModal
+        visible={showMembersModal}
+        onClose={() => setShowMembersModal(false)}
+        members={members}
+        groupName={group.name}
+        onLeaveGroup={confirmLeaveGroup}
+        currentUserRole={permissions?.role}
       />
 
       {/* Leave Group Modal */}
@@ -388,10 +411,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  headerLeaveButton: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#ef4444',
+  headerMenuButton: {
+    backgroundColor: '#2a2a2a',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,

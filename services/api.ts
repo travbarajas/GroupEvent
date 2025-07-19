@@ -111,6 +111,11 @@ export class ApiService {
     return this.request(`/groups/${groupId}?device_id=${device_id}&profile=true`);
   }
 
+  static async getGroupMembers(groupId: string): Promise<any[]> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/members?device_id=${device_id}`);
+  }
+
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');

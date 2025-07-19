@@ -18,7 +18,7 @@ interface Member {
   role: string;
   username?: string;
   profile_picture?: string;
-  needs_profile: boolean;
+  has_username: boolean;
 }
 
 interface GroupMembersModalProps {
@@ -53,8 +53,8 @@ export default function GroupMembersModal({
         <Text style={styles.memberName}>
           {member.username || `User ${member.device_id.substring(0, 8)}...`}
         </Text>
-        {member.needs_profile && (
-          <Text style={styles.memberStatus}>Profile not set up</Text>
+        {!member.has_username && (
+          <Text style={styles.memberStatus}>Username not set</Text>
         )}
       </View>
       
