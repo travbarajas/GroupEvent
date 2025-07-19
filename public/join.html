@@ -23,8 +23,8 @@
                 
                 // For iOS devices, try to use universal link patterns
                 if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                    // Try Safari - use window.open to trigger external browser
-                    window.open(currentUrl, '_blank');
+                    // Try Safari
+                    window.location.href = 'x-web-search://?url=' + encodeURIComponent(currentUrl);
                     
                     // Fallback - show instructions
                     setTimeout(() => {
