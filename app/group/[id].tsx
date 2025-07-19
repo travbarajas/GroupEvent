@@ -230,7 +230,7 @@ export default function GroupDetailScreen() {
         {/* Username display for testing */}
         {userInfo && (
           <View style={styles.usernameTestContainer}>
-            <Text style={styles.usernameTestLabel}>Your username: </Text>
+            <Text style={styles.usernameTestLabel}>Your display name (global): </Text>
             <Text style={styles.usernameTestValue}>
               {userInfo.username || 'Not set'}
             </Text>
@@ -242,6 +242,9 @@ export default function GroupDetailScreen() {
                 <Text style={styles.setUsernameButtonText}>Set Username</Text>
               </TouchableOpacity>
             )}
+            <Text style={styles.usernameTestNote}>
+              (This username appears in all your groups)
+            </Text>
           </View>
         )}
       </View>
@@ -446,6 +449,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  usernameTestNote: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
   },
   scrollContainer: {
     flex: 1,

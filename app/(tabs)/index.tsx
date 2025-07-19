@@ -96,13 +96,26 @@ export default function GroupsTab() {
 
   const handleCreateGroup = async () => {
     if (groupName.trim()) {
-      // Check if user has username before creating group
-      if (userInfo && !userInfo.has_username) {
-        setShowUsernameModal(true);
-        return;
-      }
-
       try {
+        // Check if user has username before creating group
+        let currentUserInfo = userInfo;
+        if (!currentUserInfo) {
+          // Fetch user info if not loaded yet
+          try {
+            currentUserInfo = await ApiService.getUserInfo();
+            setUserInfo(currentUserInfo);
+          } catch (error) {
+            // If no user info found, user hasn't joined any groups yet - no username needed for first group
+            currentUserInfo = { username: null, has_username: false };
+            setUserInfo(currentUserInfo);
+          }
+        }
+
+        if (currentUserInfo && !currentUserInfo.has_username) {
+          setShowUsernameModal(true);
+          return;
+        }
+
         await createGroup(groupName.trim());
         setGroupName('');
         setShowCreateModal(false);
