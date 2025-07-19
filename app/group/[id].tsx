@@ -34,6 +34,7 @@ export default function GroupDetailScreen() {
   const [permissions, setPermissions] = useState<any>(null);
   const [groupProfile, setGroupProfile] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
   
   const group = getGroup(id as string);
   
@@ -43,8 +44,19 @@ export default function GroupDetailScreen() {
       fetchPermissions();
       fetchGroupProfile();
       fetchMembers();
+      getCurrentDeviceId();
     }
   }, [id]);
+
+  const getCurrentDeviceId = async () => {
+    try {
+      const { DeviceIdManager } = await import('@/utils/deviceId');
+      const deviceId = await DeviceIdManager.getDeviceId();
+      setCurrentDeviceId(deviceId);
+    } catch (error) {
+      console.error('Failed to get device ID:', error);
+    }
+  };
 
   const fetchInviteCode = async () => {
     try {
@@ -114,6 +126,11 @@ export default function GroupDetailScreen() {
 
   const handleProfileSkip = () => {
     setShowProfileModal(false);
+  };
+
+  const handleEditUsername = () => {
+    setShowMembersModal(false);
+    setShowProfileModal(true);
   };
   
   const generateInviteLink = (groupId: string) => {
@@ -317,6 +334,8 @@ export default function GroupDetailScreen() {
         groupName={group.name}
         onLeaveGroup={confirmLeaveGroup}
         currentUserRole={permissions?.role}
+        currentUserDeviceId={currentDeviceId}
+        onEditUsername={handleEditUsername}
       />
 
       {/* Leave Group Modal */}

@@ -28,6 +28,8 @@ interface GroupMembersModalProps {
   groupName: string;
   onLeaveGroup: () => void;
   currentUserRole?: string;
+  currentUserDeviceId?: string;
+  onEditUsername?: () => void;
 }
 
 export default function GroupMembersModal({ 
@@ -36,38 +38,55 @@ export default function GroupMembersModal({
   members, 
   groupName, 
   onLeaveGroup,
-  currentUserRole 
+  currentUserRole,
+  currentUserDeviceId,
+  onEditUsername
 }: GroupMembersModalProps) {
   
-  const MemberItem = ({ member }: { member: Member }) => (
-    <View style={styles.memberItem}>
-      <View style={styles.memberAvatar}>
-        {member.profile_picture ? (
-          <Text style={styles.avatarEmoji}>{member.profile_picture}</Text>
-        ) : (
-          <Ionicons name="person" size={20} color="#9ca3af" />
-        )}
-      </View>
-      
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>
-          {member.username || `User ${member.device_id.substring(0, 8)}...`}
-        </Text>
-        {!member.has_username && (
-          <Text style={styles.memberStatus}>Username not set</Text>
-        )}
-      </View>
-      
-      <View style={styles.memberRole}>
-        {member.role === 'creator' && (
-          <View style={styles.creatorBadge}>
-            <Ionicons name="star" size={12} color="#fbbf24" />
-            <Text style={styles.creatorText}>Creator</Text>
+  const MemberItem = ({ member }: { member: Member }) => {
+    const isCurrentUser = member.device_id === currentUserDeviceId;
+    
+    return (
+      <View style={styles.memberItem}>
+        <View style={styles.memberAvatar}>
+          {member.profile_picture ? (
+            <Text style={styles.avatarEmoji}>{member.profile_picture}</Text>
+          ) : (
+            <Ionicons name="person" size={20} color="#9ca3af" />
+          )}
+        </View>
+        
+        <View style={styles.memberInfo}>
+          <View style={styles.memberNameRow}>
+            <Text style={styles.memberName}>
+              {member.username || `User ${member.device_id.substring(0, 8)}...`}
+              {isCurrentUser && <Text style={styles.youLabel}> (You)</Text>}
+            </Text>
+            {isCurrentUser && onEditUsername && (
+              <TouchableOpacity 
+                style={styles.editButton} 
+                onPress={onEditUsername}
+              >
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+          {!member.has_username && (
+            <Text style={styles.memberStatus}>Username not set</Text>
+          )}
+        </View>
+        
+        <View style={styles.memberRole}>
+          {member.role === 'creator' && (
+            <View style={styles.creatorBadge}>
+              <Ionicons name="star" size={12} color="#fbbf24" />
+              <Text style={styles.creatorText}>Creator</Text>
+            </View>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <Modal
@@ -190,11 +209,34 @@ const styles = StyleSheet.create({
   memberInfo: {
     flex: 1,
   },
+  memberNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
   memberName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 2,
+    flex: 1,
+  },
+  youLabel: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#9ca3af',
+  },
+  editButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  editButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   memberStatus: {
     fontSize: 12,
