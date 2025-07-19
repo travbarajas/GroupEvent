@@ -24,7 +24,7 @@
                 // For iOS devices, try to use universal link patterns
                 if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
                     // Try Safari
-                    window.location.href = 'x-web-search://?url=' + encodeURIComponent(currentUrl);
+                    window.location.href = currentUrl.replace('https://', 'safari-https://');
                     
                     // Fallback - show instructions
                     setTimeout(() => {
