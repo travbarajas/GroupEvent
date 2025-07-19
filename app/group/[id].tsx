@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups } from '@/contexts/GroupsContext';
 import { ApiService } from '@/services/api';
 import InviteModal from '@/components/InviteModal';
-import UsernameModal from '@/components/UsernameModal';
+import ProfileSetupModal from '@/components/ProfileSetupModal';
 
 const { width } = Dimensions.get('window');
 const squareSize = (width - 48) / 2; // Account for padding and gap
@@ -27,10 +27,10 @@ export default function GroupDetailScreen() {
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<any>(null);
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const [groupProfile, setGroupProfile] = useState<any>(null);
   
   const group = getGroup(id as string);
   
@@ -38,7 +38,7 @@ export default function GroupDetailScreen() {
     if (id) {
       fetchInviteCode();
       fetchPermissions();
-      fetchUserInfo();
+      fetchGroupProfile();
     }
   }, [id]);
 
@@ -62,17 +62,17 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const fetchUserInfo = async () => {
+  const fetchGroupProfile = async () => {
     try {
-      const userInfoData = await ApiService.getUserInfo();
-      setUserInfo(userInfoData);
+      const profileData = await ApiService.getGroupProfile(id as string);
+      setGroupProfile(profileData);
       
-      // Check if user needs to set username
-      if (!userInfoData.has_username) {
-        setShowUsernameModal(true);
+      // Check if user needs to set profile for this group
+      if (!profileData.has_username) {
+        setShowProfileModal(true);
       }
     } catch (error) {
-      console.error('Failed to fetch user info:', error);
+      console.error('Failed to fetch group profile:', error);
     }
   };
 
@@ -82,24 +82,24 @@ export default function GroupDetailScreen() {
       await loadGroups(); // Refresh the groups list
       await fetchInviteCode(); // Refresh invite code
       await fetchPermissions(); // Refresh permissions
-      await fetchUserInfo(); // Refresh user info
+      await fetchGroupProfile(); // Refresh group profile
     } catch (error) {
       console.error('Failed to refresh group data:', error);
     }
   };
 
-  const handleUsernameSetup = async (username: string) => {
+  const handleProfileSetup = async (username: string, profilePicture: string) => {
     try {
-      await ApiService.updateUsername(username);
-      setShowUsernameModal(false);
-      await fetchUserInfo(); // Refresh user info
+      await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture });
+      setShowProfileModal(false);
+      await fetchGroupProfile(); // Refresh group profile
     } catch (error) {
-      console.error('Failed to update username:', error);
+      console.error('Failed to update profile:', error);
     }
   };
 
-  const handleUsernameSkip = () => {
-    setShowUsernameModal(false);
+  const handleProfileSkip = () => {
+    setShowProfileModal(false);
   };
   
   const generateInviteLink = (groupId: string) => {
@@ -227,23 +227,28 @@ export default function GroupDetailScreen() {
         <Text style={styles.groupDescription}>Ready to plan some events together!</Text>
         <Text style={styles.groupMemberCount}>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</Text>
         
-        {/* Username display for testing */}
-        {userInfo && (
+        {/* Group profile display for testing */}
+        {groupProfile && (
           <View style={styles.usernameTestContainer}>
-            <Text style={styles.usernameTestLabel}>Your display name (global): </Text>
-            <Text style={styles.usernameTestValue}>
-              {userInfo.username || 'Not set'}
-            </Text>
-            {!userInfo.has_username && (
+            <Text style={styles.usernameTestLabel}>Your profile in this group:</Text>
+            <View style={styles.profileDisplayRow}>
+              {groupProfile.profile_picture && (
+                <Text style={styles.profileAvatar}>{groupProfile.profile_picture}</Text>
+              )}
+              <Text style={styles.usernameTestValue}>
+                {groupProfile.username || 'Not set'}
+              </Text>
+            </View>
+            {!groupProfile.has_username && (
               <TouchableOpacity 
                 style={styles.setUsernameButton} 
-                onPress={() => setShowUsernameModal(true)}
+                onPress={() => setShowProfileModal(true)}
               >
-                <Text style={styles.setUsernameButtonText}>Set Username</Text>
+                <Text style={styles.setUsernameButtonText}>Set Profile</Text>
               </TouchableOpacity>
             )}
             <Text style={styles.usernameTestNote}>
-              (This username appears in all your groups)
+              (Username and avatar are specific to this group)
             </Text>
           </View>
         )}
@@ -289,10 +294,11 @@ export default function GroupDetailScreen() {
         inviteLink={generateInviteLink(group.id)}
       />
 
-      <UsernameModal
-        visible={showUsernameModal}
-        onComplete={handleUsernameSetup}
-        onSkip={handleUsernameSkip}
+      <ProfileSetupModal
+        visible={showProfileModal}
+        onComplete={handleProfileSetup}
+        onSkip={handleProfileSkip}
+        groupName={group.name}
       />
 
       {/* Leave Group Modal */}
@@ -454,6 +460,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     fontStyle: 'italic',
+  },
+  profileDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  profileAvatar: {
+    fontSize: 24,
+    marginRight: 8,
   },
   scrollContainer: {
     flex: 1,

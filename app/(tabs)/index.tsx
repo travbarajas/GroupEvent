@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups, Group } from '../../contexts/GroupsContext';
 import { ApiService } from '../../services/api';
-import UsernameModal from '../../components/UsernameModal';
+import ProfileSetupModal from '../../components/ProfileSetupModal';
 
 const { width } = Dimensions.get('window');
 
@@ -26,9 +26,9 @@ export default function GroupsTab() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const [pendingGroupName, setPendingGroupName] = useState<string>('');
   const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
 
@@ -62,9 +62,10 @@ export default function GroupsTab() {
               window.history.replaceState({}, '', url.toString());
             }
             
-            // Show username setup modal for new users
+            // Show profile setup modal for this group
             setPendingGroupId(groupData.group_id);
-            setShowUsernameModal(true);
+            setPendingGroupName(groupData.name || 'the group');
+            setShowProfileModal(true);
           }
         }
       } catch (error: any) {
@@ -78,47 +79,19 @@ export default function GroupsTab() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Fetch user info on component mount
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const userInfoData = await ApiService.getUserInfo();
-        setUserInfo(userInfoData);
-      } catch (error) {
-        console.error('Failed to fetch user info:', error);
-        // If no user info found, that's okay - user hasn't joined any groups yet
-        setUserInfo({ username: null, has_username: false });
-      }
-    };
-
-    fetchUserInfo();
-  }, [groups]); // Re-fetch when groups change
 
   const handleCreateGroup = async () => {
     if (groupName.trim()) {
       try {
-        // Check if user has username before creating group
-        let currentUserInfo = userInfo;
-        if (!currentUserInfo) {
-          // Fetch user info if not loaded yet
-          try {
-            currentUserInfo = await ApiService.getUserInfo();
-            setUserInfo(currentUserInfo);
-          } catch (error) {
-            // If no user info found, user hasn't joined any groups yet - no username needed for first group
-            currentUserInfo = { username: null, has_username: false };
-            setUserInfo(currentUserInfo);
-          }
-        }
-
-        if (currentUserInfo && !currentUserInfo.has_username) {
-          setShowUsernameModal(true);
-          return;
-        }
-
-        await createGroup(groupName.trim());
+        const newGroup = await createGroup(groupName.trim());
         setGroupName('');
         setShowCreateModal(false);
+        
+        // Navigate to the new group where they'll be prompted to set their profile
+        router.push({
+          pathname: '/group/[id]',
+          params: { id: newGroup.id }
+        });
       } catch (error) {
         console.error('Failed to create group:', error);
         // You could add error handling UI here
@@ -141,40 +114,27 @@ export default function GroupsTab() {
     setRefreshing(false);
   };
 
-  const handleUsernameSetup = async (username: string) => {
+  const handleProfileSetup = async (username: string, profilePicture: string) => {
     try {
-      await ApiService.updateUsername(username);
-      setShowUsernameModal(false);
-      
-      // Update user info
-      setUserInfo({ username, has_username: true });
-      
-      // Navigate to pending group if exists (from invite)
       if (pendingGroupId) {
+        await ApiService.updateGroupProfile(pendingGroupId, { username, profile_picture: profilePicture });
+        setShowProfileModal(false);
+        
+        // Navigate to the group
         router.push({
           pathname: '/group/[id]',
           params: { id: pendingGroupId }
         });
         setPendingGroupId(null);
-      } else {
-        // If no pending group, user was trying to create a group
-        if (groupName.trim()) {
-          try {
-            await createGroup(groupName.trim());
-            setGroupName('');
-            setShowCreateModal(false);
-          } catch (error) {
-            console.error('Failed to create group after username setup:', error);
-          }
-        }
+        setPendingGroupName('');
       }
     } catch (error) {
-      console.error('Failed to update username:', error);
+      console.error('Failed to update profile:', error);
     }
   };
 
-  const handleUsernameSkip = () => {
-    setShowUsernameModal(false);
+  const handleProfileSkip = () => {
+    setShowProfileModal(false);
     
     // Navigate to pending group if exists
     if (pendingGroupId) {
@@ -183,6 +143,7 @@ export default function GroupsTab() {
         params: { id: pendingGroupId }
       });
       setPendingGroupId(null);
+      setPendingGroupName('');
     }
   };
 
@@ -314,10 +275,11 @@ export default function GroupsTab() {
         </View>
       </Modal>
 
-      <UsernameModal
-        visible={showUsernameModal}
-        onComplete={handleUsernameSetup}
-        onSkip={handleUsernameSkip}
+      <ProfileSetupModal
+        visible={showProfileModal}
+        onComplete={handleProfileSetup}
+        onSkip={handleProfileSkip}
+        groupName={pendingGroupName}
       />
     </View>
   );

@@ -87,6 +87,17 @@ module.exports = async function handler(req, res) {
       } catch (error) {
         console.log('Username column already exists or error:', error.message);
       }
+
+      // Ensure profile_picture column exists in members table
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN profile_picture TEXT
+        `;
+        console.log('Added profile_picture column to members table');
+      } catch (error) {
+        console.log('Profile_picture column already exists or error:', error.message);
+      }
       
       const { name, description, device_id } = req.body;
       

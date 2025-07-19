@@ -18,6 +18,7 @@ interface ProfileSetupModalProps {
   visible: boolean;
   onComplete: (username: string, profilePicture: string) => void;
   onSkip: () => void;
+  groupName?: string;
 }
 
 const defaultAvatars = [
@@ -27,7 +28,7 @@ const defaultAvatars = [
   '🦸', '🦹', '🧙', '🧚', '🧛', '🧜', '🧞', '🧝',
 ];
 
-export default function ProfileSetupModal({ visible, onComplete, onSkip }: ProfileSetupModalProps) {
+export default function ProfileSetupModal({ visible, onComplete, onSkip, groupName }: ProfileSetupModalProps) {
   const [username, setUsername] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(defaultAvatars[0]);
 
@@ -57,7 +58,7 @@ export default function ProfileSetupModal({ visible, onComplete, onSkip }: Profi
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Set Up Your Profile</Text>
             <Text style={styles.modalSubtitle}>
-              Choose a username and avatar to get started
+              {groupName ? `Choose a username and avatar for "${groupName}"` : 'Choose a username and avatar for this group'}
             </Text>
           </View>
           
