@@ -251,4 +251,76 @@ export class GroupService {
       return null;
     }
   }
+
+  // Availability methods
+  static async getGroupAvailability(groupId: string, startDate?: string, endDate?: string): Promise<{
+    availability: any[];
+    totalMembers: number;
+  }> {
+    let endpoint = `/availability?groupId=${groupId}`;
+    if (startDate) endpoint += `&startDate=${startDate}`;
+    if (endDate) endpoint += `&endDate=${endDate}`;
+    
+    return this.request(endpoint);
+  }
+
+  static async saveUserAvailability(
+    groupId: string,
+    slots: Array<{
+      date: string;
+      startHour: number;
+      endHour: number;
+    }>
+  ): Promise<any> {
+    const deviceId = await DeviceIdManager.getDeviceId();
+    
+    return this.request('/availability', {
+      method: 'POST',
+      body: JSON.stringify({
+        groupId,
+        memberId: deviceId, // Using device ID as member ID for now
+        deviceId,
+        slots
+      }),
+    });
+  }
+
+  static async updateUserAvailability(
+    groupId: string,
+    slots: Array<{
+      id?: string;
+      date: string;
+      startHour: number;
+      endHour: number;
+    }>
+  ): Promise<any> {
+    const deviceId = await DeviceIdManager.getDeviceId();
+    
+    return this.request('/availability', {
+      method: 'PUT',
+      body: JSON.stringify({
+        groupId,
+        memberId: deviceId,
+        deviceId,
+        slots
+      }),
+    });
+  }
+
+  static async deleteUserAvailability(
+    groupId: string,
+    slotIds: string[]
+  ): Promise<any> {
+    const deviceId = await DeviceIdManager.getDeviceId();
+    
+    return this.request('/availability', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        groupId,
+        memberId: deviceId,
+        deviceId,
+        slotIds
+      }),
+    });
+  }
 }

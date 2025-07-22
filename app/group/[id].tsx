@@ -19,6 +19,7 @@ import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
+import CalendarModal from '@/components/CalendarModal';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -58,6 +59,7 @@ export default function GroupDetailScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<GroupPermissions | null>(null);
   const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
@@ -278,7 +280,7 @@ export default function GroupDetailScreen() {
   const sampleEvents: any[] = [];
 
   const CalendarSquare = () => (
-    <TouchableOpacity style={styles.square} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.square} activeOpacity={0.8} onPress={() => setShowCalendarModal(true)}>
       <View style={styles.squareHeader}>
         <Ionicons name="calendar" size={24} color="#60a5fa" />
         <Text style={styles.squareTitle}>Calendar</Text>
@@ -388,29 +390,8 @@ export default function GroupDetailScreen() {
       {/* Group Info Block - Full Width */}
       <View style={styles.groupInfoBlock}>
         <Text style={styles.groupName}>{group.name}</Text>
-        <Text style={styles.groupDescription}>Ready to plan some events together!</Text>
         <Text style={styles.groupMemberCount}>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</Text>
         
-        {/* Group profile display for testing */}
-        {groupProfile && (
-          <View style={styles.usernameTestContainer}>
-            <Text style={styles.usernameTestLabel}>Your username in this group:</Text>
-            <Text style={styles.usernameTestValue}>
-              {groupProfile.username || 'Not set'}
-            </Text>
-            {!groupProfile.has_username && (
-              <TouchableOpacity 
-                style={styles.setUsernameButton} 
-                onPress={() => setShowProfileModal(true)}
-              >
-                <Text style={styles.setUsernameButtonText}>Set Username</Text>
-              </TouchableOpacity>
-            )}
-            <Text style={styles.usernameTestNote}>
-              (Username is specific to this group)
-            </Text>
-          </View>
-        )}
       </View>
       
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -428,12 +409,12 @@ export default function GroupDetailScreen() {
           ))}
           
           {/* Add Event Block */}
-          <TouchableOpacity style={styles.addEventBlock} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.addEventBlock} activeOpacity={0.8} onPress={() => router.push('/(tabs)/events')}>
             <View style={styles.addEventContent}>
               <View style={styles.addEventIconContainer}>
                 <Ionicons name="add" size={20} color="#ffffff" />
               </View>
-              <Text style={styles.addEventText}>Create New Event</Text>
+              <Text style={styles.addEventText}>Add Event from Events Tab</Text>
             </View>
           </TouchableOpacity>
           
@@ -483,6 +464,14 @@ export default function GroupDetailScreen() {
           onSave={handleEventSave}
         />
       )}
+
+      <CalendarModal
+        visible={showCalendarModal}
+        onClose={() => setShowCalendarModal(false)}
+        groupName={group?.name || ''}
+        groupId={id as string}
+        memberCount={group?.memberCount || 0}
+      />
 
       {/* Leave Group Modal */}
       <Modal
@@ -605,42 +594,6 @@ const styles = StyleSheet.create({
   groupMemberCount: {
     fontSize: 14,
     color: '#9ca3af',
-  },
-  usernameTestContainer: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  usernameTestLabel: {
-    fontSize: 14,
-    color: '#9ca3af',
-    marginBottom: 4,
-  },
-  usernameTestValue: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  setUsernameButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  setUsernameButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  usernameTestNote: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontStyle: 'italic',
   },
   scrollContainer: {
     flex: 1,
