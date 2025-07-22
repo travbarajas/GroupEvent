@@ -128,6 +128,14 @@ export class ApiService {
     });
   }
 
+  static async updateGroupProfile(groupId: string, data: { username?: string; profile_picture?: string }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...data, device_id }),
+    });
+  }
+
   // Events endpoints
   static async getGroupEvents(groupId: string): Promise<{ events: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();

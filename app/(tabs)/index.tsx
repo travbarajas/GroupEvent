@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 import { useGroups, Group } from '../../contexts/GroupsContext';
 import { ApiService } from '../../services/api';
 import ProfileSetupModal from '../../components/ProfileSetupModal';
@@ -36,9 +37,10 @@ export default function GroupsTab() {
   useEffect(() => {
     const checkForInvite = async () => {
       try {
-        if (typeof window !== 'undefined' && window.location) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const inviteCode = urlParams.get('invite');
+        const url = await Linking.getInitialURL();
+        if (url) {
+          const urlObj = Linking.parse(url);
+          const inviteCode = urlObj.queryParams?.invite as string;
           console.log('Checking for invite code:', inviteCode);
           if (inviteCode) {
             console.log('Processing invite code:', inviteCode);

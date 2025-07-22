@@ -28,6 +28,10 @@ interface GroupsContextType {
   sourceLayout: any;
   setSelectedEvent: (event: Event | null) => void;
   setSourceLayout: (layout: any) => void;
+  savedEvents: Event[];
+  setSavedEvents: React.Dispatch<React.SetStateAction<Event[]>>;
+  toggleSaveEvent: (event: Event) => void;
+  isEventSaved: (eventId: number) => boolean;
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined);
@@ -48,6 +52,7 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [sourceLayout, setSourceLayout] = useState<any>(null);
+  const [savedEvents, setSavedEvents] = useState<Event[]>([]);
 
   const loadGroups = async () => {
     try {
@@ -89,6 +94,21 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
     return groups.find(group => group.id === id);
   };
 
+  const toggleSaveEvent = (event: Event) => {
+    setSavedEvents(prev => {
+      const isAlreadySaved = prev.some(savedEvent => savedEvent.id === event.id);
+      if (isAlreadySaved) {
+        return prev.filter(savedEvent => savedEvent.id !== event.id);
+      } else {
+        return [...prev, event];
+      }
+    });
+  };
+
+  const isEventSaved = (eventId: number): boolean => {
+    return savedEvents.some(event => event.id === eventId);
+  };
+
   useEffect(() => {
     loadGroups();
   }, []);
@@ -102,6 +122,10 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
     sourceLayout,
     setSelectedEvent,
     setSourceLayout,
+    savedEvents,
+    setSavedEvents,
+    toggleSaveEvent,
+    isEventSaved,
   };
 
   return (

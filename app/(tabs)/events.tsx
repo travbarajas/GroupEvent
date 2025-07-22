@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useGroups, Event } from '../../contexts/GroupsContext';
+import { router } from 'expo-router';
+import { useGroups, Event, Group } from '../../contexts/GroupsContext';
+import GroupSelectionModal from '../../components/GroupSelectionModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,14 +34,29 @@ const EventIcon = ({ type }: { type: Event['type'] }) => {
   );
 };
 
-const EventBlock = ({ event, onPress }: { event: Event; onPress: (event: Event, layout: any) => void }) => {
+const EventBlock = ({ event, onPress, onAddToGroup }: { 
+  event: Event; 
+  onPress: (event: Event, layout: any) => void;
+  onAddToGroup: (event: Event) => void;
+}) => {
   const blockRef = useRef<View>(null);
+  const { toggleSaveEvent, isEventSaved } = useGroups();
 
   const handlePress = () => {
     blockRef.current?.measure((x, y, width, height, pageX, pageY) => {
       onPress(event, { x: pageX, y: pageY, width, height });
     });
   };
+
+  const handleSaveEvent = () => {
+    toggleSaveEvent(event);
+  };
+
+  const handleAddToGroup = () => {
+    onAddToGroup(event);
+  };
+
+  const isSaved = isEventSaved(event.id);
 
   return (
     <TouchableOpacity 
@@ -50,17 +67,19 @@ const EventBlock = ({ event, onPress }: { event: Event; onPress: (event: Event, 
     >
       <View style={styles.eventContent}>
         <View style={styles.leftContent}>
-          <View style={styles.headerRow}>
-            <View style={styles.iconContainer}>
-              <EventIcon type={event.type} />
+          <View style={styles.topSection}>
+            <View style={styles.headerRow}>
+              <View style={styles.iconContainer}>
+                <EventIcon type={event.type} />
+              </View>
+              <View style={styles.titleDateContainer}>
+                <Text style={styles.eventTitle}>{event.name}</Text>
+                <Text style={styles.eventDate}>{event.date}</Text>
+              </View>
             </View>
-            <View style={styles.titleDateContainer}>
-              <Text style={styles.eventTitle}>{event.name}</Text>
-              <Text style={styles.eventDate}>{event.date}</Text>
-            </View>
+            
+            <Text style={styles.description}>{event.description}</Text>
           </View>
-          
-          <Text style={styles.description}>{event.description}</Text>
           
           <View style={styles.detailsRow}>
             <Text style={styles.time}>{event.time}</Text>
@@ -70,11 +89,18 @@ const EventBlock = ({ event, onPress }: { event: Event; onPress: (event: Event, 
         </View>
         
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="add" size={20} color="#d1d5db" />
+          <TouchableOpacity 
+            style={[styles.actionButton, isSaved && styles.savedButton]} 
+            onPress={handleSaveEvent}
+          >
+            <Ionicons 
+              name={isSaved ? "heart" : "heart-outline"} 
+              size={20} 
+              color={isSaved ? "#ef4444" : "#d1d5db"} 
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="share-outline" size={20} color="#d1d5db" />
+          <TouchableOpacity style={styles.actionButton} onPress={handleAddToGroup}>
+            <Ionicons name="add" size={20} color="#d1d5db" />
           </TouchableOpacity>
         </View>
       </View>
@@ -86,10 +112,28 @@ const EventBlock = ({ event, onPress }: { event: Event; onPress: (event: Event, 
 export default function EventsTab() {
   const { setSelectedEvent, setSourceLayout } = useGroups();
   const insets = useSafeAreaInsets();
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
 
   const handleEventPress = (event: Event, layout: any) => {
     setSourceLayout(layout);
     setSelectedEvent(event);
+  };
+
+  const handleAddToGroup = (event: Event) => {
+    setSelectedEventForGroup(event);
+    setShowGroupModal(true);
+  };
+
+  const handleGroupSelected = (group: Group, event: Event) => {
+    // Navigate to group page with event data
+    router.push({
+      pathname: '/group/[id]',
+      params: { 
+        id: group.id,
+        pendingEvent: JSON.stringify(event)
+      }
+    });
   };
 
   const events: Event[] = [
@@ -133,6 +177,9 @@ export default function EventsTab() {
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Events</Text>
+          <TouchableOpacity style={styles.refreshButton} onPress={() => {}}>
+            <Ionicons name="refresh" size={20} color="#60a5fa" />
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -142,9 +189,17 @@ export default function EventsTab() {
             key={event.id} 
             event={event} 
             onPress={handleEventPress}
+            onAddToGroup={handleAddToGroup}
           />
         ))}
       </ScrollView>
+      
+      <GroupSelectionModal
+        visible={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        event={selectedEventForGroup!}
+        onGroupSelected={handleGroupSelected}
+      />
     </View>
   );
 }
@@ -163,6 +218,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 18,
@@ -184,8 +242,13 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    minHeight: 120,
   },
   leftContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  topSection: {
     flex: 1,
   },
   headerRow: {
@@ -217,7 +280,6 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: '#e5e7eb',
-    marginBottom: 8,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -249,5 +311,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#3a3a3a',
+  },
+  savedButton: {
+    backgroundColor: '#1f2937',
+    borderColor: '#ef4444',
+  },
+  refreshButton: {
+    padding: 6,
   },
 });

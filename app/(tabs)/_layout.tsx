@@ -24,12 +24,14 @@ const EventIcon = ({ type }: { type: Event['type'] }) => {
   );
 };
 
-const ExpandedEventModal = ({ event, visible, onClose, sourceLayout }: {
+const ExpandedEventModal = ({ event, visible, onClose, sourceLayout, onSaveEvent }: {
   event: Event | null;
   visible: boolean;
   onClose: () => void;
   sourceLayout: any;
+  onSaveEvent: () => void;
 }) => {
+  const { isEventSaved } = useGroups();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
   const translateXAnim = useRef(new Animated.Value(0)).current;
@@ -134,10 +136,23 @@ const ExpandedEventModal = ({ event, visible, onClose, sourceLayout }: {
         
         {/* Bottom Buttons */}
         <View style={styles.modalBottomButtons}>
-          <TouchableOpacity style={styles.modalAddButton}>
+          <TouchableOpacity 
+            style={[
+              styles.modalButton, 
+              event && isEventSaved(event.id) && styles.modalSavedButton
+            ]}
+            onPress={onSaveEvent}
+          >
+            <Ionicons 
+              name={event && isEventSaved(event.id) ? "heart" : "heart-outline"} 
+              size={20} 
+              color={event && isEventSaved(event.id) ? "#ef4444" : "#ffffff"} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.modalButton}>
             <Ionicons name="add" size={20} color="#ffffff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.modalShareButton}>
+          <TouchableOpacity style={styles.modalButton}>
             <Ionicons name="arrow-redo" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
@@ -147,12 +162,18 @@ const ExpandedEventModal = ({ event, visible, onClose, sourceLayout }: {
 };
 
 export default function TabLayout() {
-  const { selectedEvent, sourceLayout, setSelectedEvent, setSourceLayout } = useGroups();
+  const { selectedEvent, sourceLayout, setSelectedEvent, setSourceLayout, toggleSaveEvent, isEventSaved } = useGroups();
   const pathname = usePathname();
   
   const handleCloseModal = () => {
     setSelectedEvent(null);
     setSourceLayout(null);
+  };
+
+  const handleSaveEvent = () => {
+    if (selectedEvent) {
+      toggleSaveEvent(selectedEvent);
+    }
   };
 
   // Only show modal when on events tab
@@ -188,6 +209,15 @@ export default function TabLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="saved"
+          options={{
+            title: 'Saved',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
+            ),
+          }}
+        />
       </Tabs>
       
       <ExpandedEventModal 
@@ -195,6 +225,7 @@ export default function TabLayout() {
         visible={shouldShowModal}
         onClose={handleCloseModal}
         sourceLayout={sourceLayout}
+        onSaveEvent={handleSaveEvent}
       />
     </>
   );
@@ -206,17 +237,18 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    justifyContent: 'center',
+    bottom: 100,
+    justifyContent: 'flex-start',
     alignItems: 'center',
     backgroundColor: 'transparent',
     zIndex: 1000,
+    paddingTop: 60,
   },
   modalContent: {
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
-    width: width - 40,
-    height: height * 0.6,
+    width: width - 20,
+    height: height - 220,
     borderWidth: 1,
     borderColor: '#3a3a3a',
   },
@@ -270,28 +302,22 @@ const styles = StyleSheet.create({
   modalBottomButtons: {
     flexDirection: 'row',
     padding: 16,
-    gap: 12,
+    gap: 8,
     borderTopWidth: 1,
     borderTopColor: '#2a2a2a',
   },
-  modalAddButton: {
+  modalButton: {
     flex: 1,
     backgroundColor: '#2a2a2a',
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#3a3a3a',
   },
-  modalShareButton: {
-    flex: 1,
-    backgroundColor: '#2a2a2a',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
+  modalSavedButton: {
+    backgroundColor: '#1f2937',
+    borderColor: '#ef4444',
   },
 });
