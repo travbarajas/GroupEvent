@@ -7,18 +7,23 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useGroups, Event } from '../../contexts/GroupsContext';
+import { router } from 'expo-router';
+import { useGroups, Event, Group } from '../../contexts/GroupsContext';
+import GroupSelectionModal from '../../components/GroupSelectionModal';
 
 const { width } = Dimensions.get('window');
 
-const EventCard = ({ event, onPress, onUnsave }: { 
+const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: { 
   event: Event; 
   onPress: () => void;
   onUnsave: () => void;
+  onAddToGroup: () => void;
+  onShare: () => void;
 }) => {
   const getTypeColor = (type: Event['type']) => {
     const colors = {
@@ -46,19 +51,30 @@ const EventCard = ({ event, onPress, onUnsave }: {
         <View style={[styles.eventTypeIcon, { backgroundColor: getTypeColor(event.type) }]}>
           <Ionicons name={getTypeIcon(event.type)} size={16} color="#ffffff" />
         </View>
-        <TouchableOpacity style={styles.unsaveButton} onPress={onUnsave}>
-          <Ionicons name="heart" size={20} color="#ef4444" />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.shareButton} onPress={onShare}>
+            <Ionicons name="share-outline" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} onPress={onAddToGroup}>
+            <Ionicons name="add" size={18} color="#60a5fa" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.unsaveButton} onPress={onUnsave}>
+            <Ionicons name="heart" size={20} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <View style={styles.eventContent}>
         <Text style={styles.eventName}>{event.name}</Text>
         <Text style={styles.eventDate}>{event.date}</Text>
-        <Text style={styles.eventTime}>{event.time}</Text>
-        <Text style={styles.eventDistance}>{event.distance}</Text>
         <Text style={styles.eventDescription} numberOfLines={2}>
           {event.description}
         </Text>
+        <View style={styles.eventDetailsRow}>
+          <Text style={styles.eventTime}>{event.time}</Text>
+          <Text style={styles.eventDistance}>{event.distance}</Text>
+          <Text style={styles.eventPrice}>{event.price || 'Free'}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -67,14 +83,44 @@ const EventCard = ({ event, onPress, onUnsave }: {
 export default function SavedTab() {
   const insets = useSafeAreaInsets();
   const { savedEvents, setSavedEvents, setSelectedEvent, setSourceLayout } = useGroups();
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
 
   const handleEventPress = (event: Event) => {
     setSelectedEvent(event);
-    // Could add source layout logic here if needed
   };
 
   const handleUnsaveEvent = (eventId: number) => {
     setSavedEvents(prev => prev.filter(event => event.id !== eventId));
+  };
+
+  const handleAddToGroup = (event: Event) => {
+    setSelectedEventForGroup(event);
+    setShowGroupModal(true);
+  };
+
+  const handleGroupSelected = (group: Group, event: Event) => {
+    // Navigate to group page with event data
+    router.push({
+      pathname: '/group/[id]',
+      params: { 
+        id: group.id,
+        pendingEvent: JSON.stringify(event)
+      }
+    });
+  };
+
+  const handleShareEvent = async (event: Event) => {
+    try {
+      const shareContent = {
+        message: `Check out this event: ${event.name}\n\nDate: ${event.date}\nTime: ${event.time}\nLocation: ${event.distance}\nPrice: ${event.price || 'Free'}\n\n${event.description}`,
+        title: event.name,
+      };
+      
+      await Share.share(shareContent);
+    } catch (error) {
+      console.error('Error sharing event:', error);
+    }
   };
 
   return (
@@ -117,11 +163,20 @@ export default function SavedTab() {
                 event={event}
                 onPress={() => handleEventPress(event)}
                 onUnsave={() => handleUnsaveEvent(event.id)}
+                onAddToGroup={() => handleAddToGroup(event)}
+                onShare={() => handleShareEvent(event)}
               />
             ))}
           </View>
         )}
       </ScrollView>
+      
+      <GroupSelectionModal
+        visible={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        event={selectedEventForGroup!}
+        onGroupSelected={handleGroupSelected}
+      />
     </View>
   );
 }
@@ -209,39 +264,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  shareButton: {
+    padding: 6,
+    backgroundColor: '#374151',
+    borderRadius: 6,
+  },
+  addButton: {
+    padding: 6,
+    backgroundColor: '#1e3a8a',
+    borderRadius: 6,
+  },
   unsaveButton: {
     padding: 4,
   },
   eventContent: {
-    padding: 16,
+    padding: 12,
   },
   eventName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   eventDate: {
     fontSize: 14,
     color: '#9ca3af',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   eventTime: {
     fontSize: 14,
     color: '#fb923c',
     fontWeight: '500',
-    marginBottom: 4,
   },
   eventDistance: {
     fontSize: 14,
     color: '#f87171',
     fontWeight: '500',
-    marginBottom: 8,
+  },
+  eventPrice: {
+    fontSize: 14,
+    color: '#4ade80',
+    fontWeight: '500',
   },
   eventDescription: {
     fontSize: 14,
     color: '#e5e7eb',
-    lineHeight: 20,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  eventDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 16,
   },
   refreshButton: {
     padding: 6,

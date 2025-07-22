@@ -14,7 +14,8 @@
       "WebFetch(domain:group-event.vercel.app)",
       "Bash(npm run build:*)",
       "Bash(npm run:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

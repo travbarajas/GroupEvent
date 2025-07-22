@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -42,6 +42,20 @@ export default function GroupMembersModal({
   currentUserDeviceId,
   onEditUsername
 }: GroupMembersModalProps) {
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  
+  const handleLeavePress = () => {
+    setShowLeaveConfirmation(true);
+  };
+
+  const handleConfirmLeave = () => {
+    setShowLeaveConfirmation(false);
+    onLeaveGroup();
+  };
+
+  const handleCancelLeave = () => {
+    setShowLeaveConfirmation(false);
+  };
   
   const MemberItem = ({ member }: { member: Member }) => {
     const isCurrentUser = member.device_id === currentUserDeviceId;
@@ -79,7 +93,6 @@ export default function GroupMembersModal({
         <View style={styles.memberRole}>
           {member.role === 'creator' && (
             <View style={styles.creatorBadge}>
-              <Ionicons name="star" size={12} color="#fbbf24" />
               <Text style={styles.creatorText}>Creator</Text>
             </View>
           )}
@@ -125,7 +138,7 @@ export default function GroupMembersModal({
           <View style={styles.modalFooter}>
             <TouchableOpacity 
               style={styles.leaveButton} 
-              onPress={onLeaveGroup}
+              onPress={handleLeavePress}
             >
               <Ionicons name="exit-outline" size={20} color="#ffffff" />
               <Text style={styles.leaveButtonText}>Leave Group</Text>
@@ -133,6 +146,47 @@ export default function GroupMembersModal({
           </View>
         </View>
       </View>
+
+      {/* Leave Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showLeaveConfirmation}
+        onRequestClose={handleCancelLeave}
+      >
+        <View style={styles.confirmationOverlay}>
+          <View style={styles.confirmationContent}>
+            <View style={styles.confirmationHeader}>
+              <Ionicons name="warning" size={24} color="#ef4444" />
+              <Text style={styles.confirmationTitle}>Leave Group</Text>
+            </View>
+            
+            <View style={styles.confirmationBody}>
+              <Text style={styles.confirmationText}>
+                Are you sure you want to leave "{groupName}"?
+              </Text>
+              <Text style={styles.confirmationSubtext}>
+                This action cannot be undone.
+              </Text>
+            </View>
+            
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={handleCancelLeave}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmLeaveButton} 
+                onPress={handleConfirmLeave}
+              >
+                <Text style={styles.confirmLeaveButtonText}>Leave Group</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -140,7 +194,7 @@ export default function GroupMembersModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -193,6 +247,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+    minHeight: 56,
   },
   memberAvatar: {
     width: 40,
@@ -230,8 +285,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    marginLeft: 4,
-    marginRight: 8,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
   },
   editButtonText: {
     color: '#ffffff',
@@ -243,24 +300,23 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   memberRole: {
-    alignItems: 'flex-end',
-  },
-  creatorBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 80,
+  },
+  creatorBadge: {
     backgroundColor: '#fbbf24',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 70,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 24,
   },
   creatorText: {
+    color: '#1a1a1a',
     fontSize: 12,
     fontWeight: '600',
-    color: '#1a1a1a',
-    marginLeft: 4,
-    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',
@@ -286,6 +342,86 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   leaveButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Confirmation modal styles
+  confirmationOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmationContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  confirmationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  confirmationTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  confirmationBody: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  confirmationText: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  confirmationSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  confirmationButtons: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  cancelButtonText: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmLeaveButton: {
+    flex: 1,
+    backgroundColor: '#ef4444',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmLeaveButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',

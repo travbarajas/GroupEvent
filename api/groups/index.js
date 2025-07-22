@@ -1,5 +1,9 @@
 const { neon } = require('@neondatabase/serverless');
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
 const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
@@ -14,7 +18,42 @@ module.exports = async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      const { device_id, user_info } = req.query;
+      const { device_id, user_info, events, group_id } = req.query;
+
+      // If events parameter is present, return group events
+      if (events === 'true' && group_id && device_id) {
+        // Check if user is a member of this group
+        const [membership] = await sql`
+          SELECT 1 FROM members WHERE group_id = ${group_id} AND device_id = ${device_id}
+        `;
+
+        if (!membership) {
+          return res.status(403).json({ error: 'You are not a member of this group' });
+        }
+
+        // Get all events for this group
+        try {
+          const groupEvents = await sql`
+            SELECT 
+              e.id,
+              e.custom_name,
+              e.original_event_data,
+              e.created_at,
+              e.created_by_device_id,
+              m.username as created_by_username
+            FROM group_events e
+            LEFT JOIN members m ON e.created_by_device_id = m.device_id AND m.group_id = ${group_id}
+            WHERE e.group_id = ${group_id}
+            ORDER BY e.created_at DESC
+          `;
+          
+          return res.status(200).json({ events: groupEvents });
+        } catch (error) {
+          console.error('Error fetching group events:', error);
+          // If table doesn't exist yet, return empty events
+          return res.status(200).json({ events: [] });
+        }
+      }
       
       if (!device_id) {
         return res.status(400).json({ error: 'device_id is required' });
@@ -65,7 +104,78 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       console.log('POST request received:', req.body);
-      
+
+      // Check if this is an event save request
+      console.log('Checking for event save request. Body contains:', Object.keys(req.body));
+      console.log('Body values:', {
+        has_original_event: !!req.body.original_event,
+        has_group_id: !!req.body.group_id,
+        group_id_value: req.body.group_id,
+        original_event_exists: typeof req.body.original_event
+      });
+      if (req.body.original_event && req.body.group_id) {
+        console.log('Detected event save request');
+        const { group_id, device_id, custom_name, original_event } = req.body;
+        
+        if (!group_id) {
+          return res.status(400).json({ error: 'group_id is required' });
+        }
+        
+        if (!device_id) {
+          return res.status(400).json({ error: 'device_id is required' });
+        }
+
+        if (!original_event) {
+          return res.status(400).json({ error: 'original_event data is required' });
+        }
+
+        // Check if user is a member of this group
+        const [membership] = await sql`
+          SELECT 1 FROM members WHERE group_id = ${group_id} AND device_id = ${device_id}
+        `;
+
+        if (!membership) {
+          return res.status(403).json({ error: 'You are not a member of this group' });
+        }
+
+        // Ensure group_events table exists
+        try {
+          await sql`
+            CREATE TABLE IF NOT EXISTS group_events (
+              id VARCHAR(255) PRIMARY KEY,
+              group_id VARCHAR(255) NOT NULL,
+              custom_name TEXT,
+              original_event_data JSONB NOT NULL,
+              created_by_device_id VARCHAR(255) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+            )
+          `;
+          console.log('Ensured group_events table exists');
+        } catch (error) {
+          console.log('Table creation error:', error.message);
+        }
+
+        const eventId = `event_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+        
+        console.log('Attempting to save event:', { eventId, group_id, custom_name });
+        
+        // Save event to group
+        const [savedEvent] = await sql`
+          INSERT INTO group_events (id, group_id, custom_name, original_event_data, created_by_device_id)
+          VALUES (${eventId}, ${group_id}, ${custom_name || null}, ${JSON.stringify(original_event)}, ${device_id})
+          RETURNING *
+        `;
+        
+        console.log('Event saved successfully:', savedEvent);
+        
+        return res.status(201).json({ 
+          success: true,
+          event: savedEvent
+        });
+      }
+
+      // If we get here, this is a group creation request, not an event save request
       // First, ensure role column exists in members table
       try {
         await sql`

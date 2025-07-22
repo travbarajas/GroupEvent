@@ -19,7 +19,6 @@ import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
-import CalendarModal from '@/components/CalendarModal';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -59,7 +58,6 @@ export default function GroupDetailScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<GroupPermissions | null>(null);
   const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
@@ -280,13 +278,13 @@ export default function GroupDetailScreen() {
   const sampleEvents: any[] = [];
 
   const CalendarSquare = () => (
-    <TouchableOpacity style={styles.square} activeOpacity={0.8} onPress={() => setShowCalendarModal(true)}>
+    <TouchableOpacity style={styles.square} activeOpacity={0.8}>
       <View style={styles.squareHeader}>
         <Ionicons name="calendar" size={24} color="#60a5fa" />
         <Text style={styles.squareTitle}>Calendar</Text>
       </View>
       <View style={styles.squareContent}>
-        <Text style={styles.squareDescription}>Schedule & availability</Text>
+        <Text style={styles.squareDescription}>Coming soon</Text>
       </View>
     </TouchableOpacity>
   );
@@ -465,13 +463,6 @@ export default function GroupDetailScreen() {
         />
       )}
 
-      <CalendarModal
-        visible={showCalendarModal}
-        onClose={() => setShowCalendarModal(false)}
-        groupName={group?.name || ''}
-        groupId={id as string}
-        memberCount={group?.memberCount || 0}
-      />
 
       {/* Leave Group Modal */}
       <Modal

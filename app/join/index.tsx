@@ -11,35 +11,48 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 import { ApiService } from '@/services/api';
 import { useGroups } from '@/contexts/GroupsContext';
+
+interface InviteGroupData {
+  id: string;
+  name: string;
+  description?: string;
+  member_count: number;
+  creator_name?: string;
+}
 
 export default function JoinGroupScreen() {
   const { loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
-  const [groupData, setGroupData] = useState<any>(null);
+  const [groupData, setGroupData] = useState<InviteGroupData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
   useEffect(() => {
-    // Get code from URL hash or query params
-    const getInviteCode = () => {
-      if (typeof window !== 'undefined') {
-        const url = window.location.href;
+    // Get code from URL using Expo Linking
+    const getInviteCode = async () => {
+      const url = await Linking.getInitialURL();
+      if (url) {
         const codeMatch = url.match(/join\/([^?&]+)/);
         return codeMatch ? codeMatch[1] : null;
       }
       return null;
     };
 
-    const code = getInviteCode();
-    if (code) {
-      processInvite(code);
-    } else {
-      setError('No invite code found in URL');
-      setLoading(false);
-    }
+    const processCode = async () => {
+      const code = await getInviteCode();
+      if (code) {
+        processInvite(code);
+      } else {
+        setError('No invite code found in URL');
+        setLoading(false);
+      }
+    };
+
+    processCode();
   }, []);
 
   const processInvite = async (code: string) => {
@@ -72,7 +85,7 @@ export default function JoinGroupScreen() {
       // Navigate to the group
       router.replace({
         pathname: '/group/[id]',
-        params: { id: groupData.group_id }
+        params: { id: groupData.id }
       });
     } catch (error: any) {
       setError(error.message || 'Failed to join group');
@@ -137,10 +150,10 @@ export default function JoinGroupScreen() {
             </View>
             
             <Text style={styles.title}>You're Invited!</Text>
-            <Text style={styles.groupName}>{groupData?.group_name}</Text>
+            <Text style={styles.groupName}>{groupData?.name}</Text>
             
-            {groupData?.group_description && (
-              <Text style={styles.description}>{groupData.group_description}</Text>
+            {groupData?.description && (
+              <Text style={styles.description}>{groupData.description}</Text>
             )}
             
             <View style={styles.memberInfo}>

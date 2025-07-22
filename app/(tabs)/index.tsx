@@ -181,11 +181,16 @@ export default function GroupsTab() {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Extended Header */}
+      {/* Header */}
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Groups</Text>
-          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Groups</Text>
+            <Text style={styles.headerSubtitle}>
+              {groups.length} group{groups.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
             <Ionicons name="refresh" size={20} color="#60a5fa" />
           </TouchableOpacity>
         </View>
@@ -297,18 +302,26 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#1a1a1a',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerTextContainer: {
+    flex: 1,
+  },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: 'bold',
     color: '#ffffff',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#9ca3af',
   },
   refreshButton: {
     padding: 6,
