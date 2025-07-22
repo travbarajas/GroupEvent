@@ -169,6 +169,18 @@ export class ApiService {
     return this.request(`/groups/${groupId}/permissions?device_id=${device_id}`);
   }
 
+  // User profile endpoints (consolidated)
+  static async getUserInfo(deviceId: string): Promise<{ username: string | null; has_username: boolean }> {
+    return this.request(`/members?action=me&device_id=${deviceId}`);
+  }
+
+  static async updateUserProfile(deviceId: string, username: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/members?action=username', {
+      method: 'POST',
+      body: JSON.stringify({ device_id: deviceId, username }),
+    });
+  }
+
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');

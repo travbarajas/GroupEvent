@@ -19,6 +19,7 @@ import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
+import WeeklyCalendar from '@/components/WeeklyCalendar';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -58,6 +59,7 @@ export default function GroupDetailScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<GroupPermissions | null>(null);
   const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
@@ -278,13 +280,13 @@ export default function GroupDetailScreen() {
   const sampleEvents: any[] = [];
 
   const CalendarSquare = () => (
-    <TouchableOpacity style={styles.square} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.square} activeOpacity={0.8} onPress={() => setShowCalendarModal(true)}>
       <View style={styles.squareHeader}>
         <Ionicons name="calendar" size={24} color="#60a5fa" />
         <Text style={styles.squareTitle}>Calendar</Text>
       </View>
       <View style={styles.squareContent}>
-        <Text style={styles.squareDescription}>Coming soon</Text>
+        <Text style={styles.squareDescription}>Schedule & availability</Text>
       </View>
     </TouchableOpacity>
   );
@@ -463,6 +465,12 @@ export default function GroupDetailScreen() {
         />
       )}
 
+      <WeeklyCalendar
+        visible={showCalendarModal}
+        onClose={() => setShowCalendarModal(false)}
+        groupName={group?.name || ''}
+        groupId={id as string}
+      />
 
       {/* Leave Group Modal */}
       <Modal
