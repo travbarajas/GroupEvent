@@ -5,6 +5,37 @@ import { DeviceIdManager } from '@/utils/deviceId';
 // Configuration
 const API_BASE_URL = 'https://group-event.vercel.app/api';  // Always use production for now
 
+// Types
+export interface Group {
+  id: string;
+  name: string;
+  description?: string;
+  creatorId: string;
+  createdAt: string;
+  memberCount: number;
+  members?: Member[];
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+  deviceId: string;
+  groupId: string;
+  joinedAt: string;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+  creatorId: string;
+}
+
+export interface JoinGroupRequest {
+  name: string;
+  avatar?: string;
+  deviceId: string;
+}
 
 
 // API Service Class
@@ -68,6 +99,16 @@ export class ApiService {
     return this.request(`/groups/${groupId}`);
   }
 
+  static async getGroupProfile(groupId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}?profile=true&device_id=${device_id}`);
+  }
+
+  static async getGroupMembers(groupId: string): Promise<any[]> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/members?device_id=${device_id}`);
+  }
+
   static async leaveGroup(groupId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}/leave`, {
@@ -76,10 +117,33 @@ export class ApiService {
     });
   }
 
+  static async getMemberByDevice(groupId: string, deviceId: string): Promise<{ member: Member }> {
+    return this.request(`/groups/${groupId}/members/device/${deviceId}`);
+  }
 
-  // Events endpoints (placeholder for later)
+  static async updateMember(memberId: string, data: { name?: string; avatar?: string }): Promise<{ member: Member }> {
+    return this.request(`/members/${memberId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Events endpoints
   static async getGroupEvents(groupId: string): Promise<{ events: any[] }> {
-    return this.request(`/groups/${groupId}/events`);
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/members?events=true&device_id=${device_id}`);
+  }
+
+  static async saveEventToGroup(groupId: string, customName: string, originalEvent: any): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        custom_name: customName,
+        original_event: originalEvent
+      })
+    });
   }
 
   // Permissions endpoint
@@ -97,28 +161,86 @@ export class ApiService {
     return this.request(`/groups/${groupId}/permissions?device_id=${device_id}`);
   }
 
-  // Per-group profile endpoints
-  static async updateGroupProfile(groupId: string, data: { username: string; profile_picture?: string }): Promise<any> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...data, device_id }),
-    });
-  }
-
-  static async getGroupProfile(groupId: string): Promise<{ username: string | null; profile_picture: string | null; has_username: boolean }> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}?device_id=${device_id}&profile=true`);
-  }
-
-  static async getGroupMembers(groupId: string): Promise<any[]> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/members?device_id=${device_id}`);
-  }
-
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');
   }
 }
 
+// Convenience hooks/functions for common operations
+export class GroupService {
+  // Create group and return the creator's member info
+  static async createGroupWithCreator(name: string, description?: string): Promise<{
+    group: Group;
+    joinLink: string;
+    creatorMember: Member;
+  }> {
+    const deviceId = await DeviceIdManager.getDeviceId();
+    
+    // Create the group
+    const { group, joinLink } = await ApiService.createGroup({
+      name,
+      description,
+      creatorId: deviceId,
+    });
+
+    // Join as the creator
+    const { member: creatorMember } = await ApiService.joinGroup(group.id, {
+      name: 'Group Creator', // Default name, can be changed later
+      avatar: 'crown',
+      deviceId,
+    });
+
+    return { group, joinLink, creatorMember };
+  }
+
+  // Check if user is already a member, join if not
+  static async joinOrReconnectToGroup(groupId: string, userData?: { name: string; avatar?: string }): Promise<{
+    group: Group;
+    member: Member;
+    isReturningUser: boolean;
+  }> {
+    const deviceId = await DeviceIdManager.getDeviceId();
+    
+    try {
+      // Try to find existing membership
+      const { member } = await ApiService.getMemberByDevice(groupId, deviceId);
+      const group = await ApiService.getGroup(groupId);
+      
+      return {
+        group,
+        member,
+        isReturningUser: true,
+      };
+    } catch (error) {
+      // Not a member yet, need to join
+      if (!userData) {
+        throw new Error('User data required for new members');
+      }
+      
+      const { member } = await ApiService.joinGroup(groupId, {
+        ...userData,
+        deviceId,
+      });
+      
+      const group = await ApiService.getGroup(groupId);
+      
+      return {
+        group,
+        member,
+        isReturningUser: false,
+      };
+    }
+  }
+
+  // Get current user's member info for a group
+  static async getCurrentMember(groupId: string): Promise<Member | null> {
+    try {
+      const deviceId = await DeviceIdManager.getDeviceId();
+      const { member } = await ApiService.getMemberByDevice(groupId, deviceId);
+      return member;
+    } catch (error) {
+      return null;
+    }
+  }
+}

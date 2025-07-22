@@ -18,23 +18,54 @@ import { ApiService } from '@/services/api';
 import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
+import EventCustomizationModal from '@/components/EventCustomizationModal';
+
+interface GroupPermissions {
+  is_member: boolean;
+  is_creator: boolean;
+  role: string;
+  permissions: {
+    can_invite: boolean;
+    can_leave: boolean;
+    can_delete_group: boolean;
+  };
+}
+
+interface GroupProfile {
+  username: string | null;
+  profile_picture: string | null;
+  has_username: boolean;
+}
+
+interface GroupMember {
+  member_id: string;
+  device_id: string;
+  role: string;
+  username?: string;
+  profile_picture?: string;
+  has_username: boolean;
+}
 
 const { width } = Dimensions.get('window');
 const squareSize = (width - 48) / 2; // Account for padding and gap
 
 export default function GroupDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, pendingEvent } = useLocalSearchParams();
   const { getGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
-  const [permissions, setPermissions] = useState<any>(null);
-  const [groupProfile, setGroupProfile] = useState<any>(null);
-  const [members, setMembers] = useState<any[]>([]);
+  const [permissions, setPermissions] = useState<GroupPermissions | null>(null);
+  const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
+  const [isEditingFromMembers, setIsEditingFromMembers] = useState(false);
+  const [pendingEventData, setPendingEventData] = useState<any>(null);
+  const [groupEvents, setGroupEvents] = useState<any[]>([]);
   
   const group = getGroup(id as string);
   
@@ -44,9 +75,23 @@ export default function GroupDetailScreen() {
       fetchPermissions();
       fetchGroupProfile();
       fetchMembers();
+      fetchGroupEvents();
       getCurrentDeviceId();
     }
   }, [id]);
+
+  useEffect(() => {
+    // Handle pending event from navigation
+    if (pendingEvent) {
+      try {
+        const eventData = JSON.parse(pendingEvent as string);
+        setPendingEventData(eventData);
+        setShowEventModal(true);
+      } catch (error) {
+        console.error('Failed to parse pending event:', error);
+      }
+    }
+  }, [pendingEvent]);
 
   const getCurrentDeviceId = async () => {
     try {
@@ -101,6 +146,15 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const fetchGroupEvents = async () => {
+    try {
+      const eventsData = await ApiService.getGroupEvents(id as string);
+      setGroupEvents(eventsData.events || []);
+    } catch (error) {
+      console.error('Failed to fetch group events:', error);
+    }
+  };
+
 
   const handleRefresh = async () => {
     try {
@@ -109,6 +163,7 @@ export default function GroupDetailScreen() {
       await fetchPermissions(); // Refresh permissions
       await fetchGroupProfile(); // Refresh group profile
       await fetchMembers(); // Refresh members
+      await fetchGroupEvents(); // Refresh group events
     } catch (error) {
       console.error('Failed to refresh group data:', error);
     }
@@ -131,8 +186,52 @@ export default function GroupDetailScreen() {
   };
 
   const handleEditUsername = () => {
+    setIsEditingFromMembers(true);
     setShowMembersModal(false);
     setShowProfileModal(true);
+  };
+
+  const handleProfileComplete = async (username: string, profilePicture: string) => {
+    try {
+      await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture });
+      setShowProfileModal(false);
+      
+      // Refresh all data to show updated username everywhere
+      await handleRefresh();
+      
+      // If we came from editing in members modal, reopen it
+      if (isEditingFromMembers) {
+        setIsEditingFromMembers(false);
+        setTimeout(() => {
+          setShowMembersModal(true);
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
+  };
+
+  const handleEventSave = async (customName: string, originalEvent: any) => {
+    try {
+      console.log('Saving event to group:', { customName, originalEvent, groupId: id });
+      
+      // Save event to group via API
+      await ApiService.saveEventToGroup(id as string, customName, originalEvent);
+      
+      // Close the modal and clear pending data
+      setShowEventModal(false);
+      setPendingEventData(null);
+      
+      // Clear the pendingEvent param from the URL
+      router.replace({ pathname: '/group/[id]', params: { id: id as string } });
+      
+      // Refresh the group to show the new event
+      await handleRefresh();
+      
+      console.log('Event saved successfully to group');
+    } catch (error) {
+      console.error('Failed to save event to group:', error);
+    }
   };
   
   const generateInviteLink = (groupId: string) => {
@@ -202,29 +301,58 @@ export default function GroupDetailScreen() {
     </TouchableOpacity>
   );
 
-  const EventBlock = ({ event }: { event: any }) => (
-    <TouchableOpacity style={styles.eventBlock} activeOpacity={0.8}>
-      <View style={styles.eventContent}>
-        <View style={styles.eventLeft}>
-          <View style={styles.eventIconContainer}>
-            <Ionicons 
-              name={event.status === 'confirmed' ? 'checkmark-circle' : 'time'} 
-              size={20} 
-              color={event.status === 'confirmed' ? '#4ade80' : '#fb923c'} 
-            />
+  const EventBlock = ({ event }: { event: any }) => {
+    const originalEvent = event.original_event_data;
+    const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
+    
+    return (
+      <TouchableOpacity style={styles.eventBlock} activeOpacity={0.8}>
+        <View style={styles.eventContent}>
+          <View style={styles.eventLeft}>
+            <View style={styles.eventIconContainer}>
+              <Ionicons 
+                name="calendar-outline" 
+                size={20} 
+                color="#60a5fa" 
+              />
+            </View>
+            <View style={styles.eventInfo}>
+              <Text style={styles.eventName}>{displayName}</Text>
+              <Text style={styles.eventDate}>
+                {originalEvent?.date || 'No date'} • {originalEvent?.time || 'No time'}
+              </Text>
+              <Text style={styles.eventParticipants}>
+                Added by {event.created_by_username || 'Unknown'}
+              </Text>
+            </View>
           </View>
-          <View style={styles.eventInfo}>
-            <Text style={styles.eventName}>{event.name}</Text>
-            <Text style={styles.eventDate}>{event.date}</Text>
-            <Text style={styles.eventParticipants}>{event.participantCount} people</Text>
+          <View style={styles.eventArrow}>
+            <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
           </View>
         </View>
-        <View style={styles.eventArrow}>
-          <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+      </TouchableOpacity>
+    );
+  };
+
+  if (!group) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <View style={styles.leftButtons}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#ffffff', fontSize: 16 }}>Loading group...</Text>
         </View>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -292,7 +420,7 @@ export default function GroupDetailScreen() {
         {/* Events Section */}
         <View style={styles.eventsSection}>
           <Text style={styles.sectionTitle}>Events</Text>
-          {sampleEvents.map(event => (
+          {groupEvents.map(event => (
             <EventBlock key={event.id} event={event} />
           ))}
           
@@ -306,10 +434,10 @@ export default function GroupDetailScreen() {
             </View>
           </TouchableOpacity>
           
-          {sampleEvents.length === 0 && (
+          {groupEvents.length === 0 && (
             <View style={styles.noEventsContainer}>
               <Text style={styles.noEventsText}>No events yet</Text>
-              <Text style={styles.noEventsSubtext}>Create your first event to get started!</Text>
+              <Text style={styles.noEventsSubtext}>Add events from the Events tab!</Text>
             </View>
           )}
         </View>
@@ -324,7 +452,7 @@ export default function GroupDetailScreen() {
 
       <ProfileSetupModal
         visible={showProfileModal}
-        onComplete={handleProfileSetup}
+        onComplete={isEditingFromMembers ? handleProfileComplete : handleProfileSetup}
         onSkip={handleProfileSkip}
         groupName={group.name}
       />
@@ -339,6 +467,19 @@ export default function GroupDetailScreen() {
         currentUserDeviceId={currentDeviceId}
         onEditUsername={handleEditUsername}
       />
+
+      {pendingEventData && (
+        <EventCustomizationModal
+          visible={showEventModal}
+          onClose={() => {
+            setShowEventModal(false);
+            setPendingEventData(null);
+            router.replace({ pathname: '/group/[id]', params: { id: id as string } });
+          }}
+          event={pendingEventData}
+          onSave={handleEventSave}
+        />
+      )}
 
       {/* Leave Group Modal */}
       <Modal
