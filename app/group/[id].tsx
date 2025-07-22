@@ -318,6 +318,9 @@ export default function GroupDetailScreen() {
             </View>
             <View style={styles.eventInfo}>
               <Text style={styles.eventName}>{displayName}</Text>
+              {event.custom_name && event.custom_name.trim() && (
+                <Text style={styles.originalEventName}>{originalEvent?.name}</Text>
+              )}
               <Text style={styles.eventDate}>
                 {originalEvent?.date || 'No date'} • {originalEvent?.time || 'No time'}
               </Text>
@@ -729,6 +732,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
+    marginBottom: 2,
+  },
+  originalEventName: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontStyle: 'italic',
     marginBottom: 2,
   },
   eventDate: {

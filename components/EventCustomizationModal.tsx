@@ -88,7 +88,12 @@ export default function EventCustomizationModal({
                 <Ionicons name={getEventTypeIcon(event.type)} size={16} color="#ffffff" />
               </View>
               <View style={styles.eventPreviewInfo}>
-                <Text style={styles.originalEventName}>{event.name}</Text>
+                <Text style={styles.customNameDisplay}>
+                  {customName.trim() || event.name}
+                </Text>
+                {customName.trim() && (
+                  <Text style={styles.originalNameDisplay}>{event.name}</Text>
+                )}
                 <Text style={styles.eventDetails}>{event.date} • {event.time}</Text>
               </View>
             </View>
@@ -110,14 +115,6 @@ export default function EventCustomizationModal({
               <Text style={styles.inputHelper}>
                 {customName.length}/50 characters
               </Text>
-              
-              {customName.trim() && (
-                <View style={styles.namePreview}>
-                  <Text style={styles.previewLabel}>Preview:</Text>
-                  <Text style={styles.customNamePreview}>{customName.trim()}</Text>
-                  <Text style={styles.originalNamePreview}>{event.name}</Text>
-                </View>
-              )}
             </View>
           </View>
           
@@ -217,10 +214,16 @@ const styles = StyleSheet.create({
   eventPreviewInfo: {
     flex: 1,
   },
-  originalEventName: {
+  customNameDisplay: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+    marginBottom: 2,
+  },
+  originalNameDisplay: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontStyle: 'italic',
     marginBottom: 4,
   },
   eventDetails: {
@@ -252,28 +255,6 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     marginBottom: 16,
-  },
-  namePreview: {
-    backgroundColor: '#374151',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#4b5563',
-  },
-  previewLabel: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginBottom: 6,
-  },
-  customNamePreview: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  originalNamePreview: {
-    fontSize: 14,
-    color: '#9ca3af',
   },
   modalFooter: {
     flexDirection: 'row',
