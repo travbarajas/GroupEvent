@@ -261,7 +261,7 @@ export class GroupService {
     if (startDate) endpoint += `&startDate=${startDate}`;
     if (endDate) endpoint += `&endDate=${endDate}`;
     
-    return this.request(endpoint);
+    return ApiService.request(endpoint);
   }
 
   static async saveUserAvailability(
@@ -274,11 +274,10 @@ export class GroupService {
   ): Promise<any> {
     const deviceId = await DeviceIdManager.getDeviceId();
     
-    return this.request('/availability', {
+    return ApiService.request('/availability', {
       method: 'POST',
       body: JSON.stringify({
         groupId,
-        memberId: deviceId, // Using device ID as member ID for now
         deviceId,
         slots
       }),
@@ -296,11 +295,10 @@ export class GroupService {
   ): Promise<any> {
     const deviceId = await DeviceIdManager.getDeviceId();
     
-    return this.request('/availability', {
+    return ApiService.request('/availability', {
       method: 'PUT',
       body: JSON.stringify({
         groupId,
-        memberId: deviceId,
         deviceId,
         slots
       }),
@@ -313,11 +311,10 @@ export class GroupService {
   ): Promise<any> {
     const deviceId = await DeviceIdManager.getDeviceId();
     
-    return this.request('/availability', {
+    return ApiService.request('/availability', {
       method: 'DELETE',
       body: JSON.stringify({
         groupId,
-        memberId: deviceId,
         deviceId,
         slotIds
       }),
