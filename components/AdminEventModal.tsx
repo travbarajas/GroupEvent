@@ -74,12 +74,23 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     setIsSubmitting(true);
     try {
       const eventData = {
-        ...formData,
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        date: formData.date.trim() || null,
+        time: formData.time.trim() || null,
+        location: formData.location.trim() || null,
+        venue_name: formData.venue_name.trim() || null,
         price: formData.is_free ? 0 : parseFloat(formData.price) || 0,
-        date: formData.date || null,
-        time: formData.time || null,
+        currency: formData.currency.trim() || 'USD',
+        is_free: formData.is_free,
+        category: formData.category || null,
+        tags: [],
+        max_attendees: null,
+        min_attendees: null,
+        attendance_required: false,
       };
 
+      console.log('Creating event with data:', eventData);
       await ApiService.createGlobalEvent(eventData);
       
       Alert.alert('Success', 'Event created successfully!', [

@@ -103,6 +103,11 @@ module.exports = async function handler(req, res) {
 
       const eventId = `EVT_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
       
+      // Clean up data - convert empty strings to null for date/time fields
+      const cleanDate = date && date.trim() ? date : null;
+      const cleanTime = time && time.trim() ? time : null;
+      const cleanTags = tags || [];
+      
       // Create event in global registry
       const [newEvent] = await sql`
         INSERT INTO events (
@@ -111,9 +116,9 @@ module.exports = async function handler(req, res) {
           max_attendees, min_attendees, attendance_required
         )
         VALUES (
-          ${eventId}, ${name}, ${description}, ${date}, ${time}, 
-          ${location}, ${venue_name}, ${price}, ${currency}, ${is_free}, 
-          ${category}, ${tags}, ${max_attendees}, ${min_attendees}, ${attendance_required}
+          ${eventId}, ${name}, ${description || null}, ${cleanDate}, ${cleanTime}, 
+          ${location || null}, ${venue_name || null}, ${price || 0}, ${currency}, ${is_free}, 
+          ${category || null}, ${cleanTags}, ${max_attendees || null}, ${min_attendees || null}, ${attendance_required}
         )
         RETURNING *
       `;
@@ -122,7 +127,11 @@ module.exports = async function handler(req, res) {
 
     } catch (error) {
       console.error('Error creating event:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error('Request body:', req.body);
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message 
+      });
     }
   }
 
