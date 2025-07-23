@@ -135,6 +135,7 @@ export default function EventsTab() {
       setIsLoading(true);
       
       const { events: apiEvents } = await ApiService.getAllEvents();
+      console.log('API Response:', { apiEvents, length: apiEvents?.length });
       
       if (apiEvents && apiEvents.length > 0) {
         // Convert API events to the format expected by the UI
