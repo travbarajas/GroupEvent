@@ -245,10 +245,8 @@ export class ApiService {
     });
   }
 
-  static async getEvent(eventId: string): Promise<Event | LegacyEvent> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/events/${eventId}?device_id=${device_id}`);
-  }
+  // Note: Individual event endpoint removed to stay under Vercel function limit
+  // Events are fetched through group context instead
 
   // Permissions endpoint
   static async getPermissions(groupId: string): Promise<{
