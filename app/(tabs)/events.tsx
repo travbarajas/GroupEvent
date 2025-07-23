@@ -120,7 +120,7 @@ const EventCard = ({ event, onPress, onAddToGroup, onShare }: {
 
 
 export default function EventsTab() {
-  const { setSelectedEvent, setSourceLayout } = useGroups();
+  const { setSelectedEvent, setSourceLayout, isLoaded } = useGroups();
   const insets = useSafeAreaInsets();
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
@@ -260,17 +260,23 @@ export default function EventsTab() {
       </View>
       
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.eventsGrid}>
-          {events.map(event => (
-            <EventCard 
-              key={event.id} 
-              event={event} 
-              onPress={() => handleEventPress(event)}
-              onAddToGroup={handleAddToGroup}
-              onShare={handleShareEvent}
-            />
-          ))}
-        </View>
+        {!isLoaded ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading saved events...</Text>
+          </View>
+        ) : (
+          <View style={styles.eventsGrid}>
+            {events.map(event => (
+              <EventCard 
+                key={event.id} 
+                event={event} 
+                onPress={() => handleEventPress(event)}
+                onAddToGroup={handleAddToGroup}
+                onShare={handleShareEvent}
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
       
       <GroupSelectionModal
@@ -345,6 +351,16 @@ const styles = StyleSheet.create({
   },
   eventsGrid: {
     gap: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#9ca3af',
   },
   eventCard: {
     backgroundColor: '#1a1a1a',

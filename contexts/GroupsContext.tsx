@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiService } from '@/services/api';
 
 export interface Group {
@@ -32,6 +33,7 @@ interface GroupsContextType {
   setSavedEvents: React.Dispatch<React.SetStateAction<Event[]>>;
   toggleSaveEvent: (event: Event) => void;
   isEventSaved: (eventId: number) => boolean;
+  isLoaded: boolean;
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined);
@@ -48,11 +50,41 @@ interface GroupsProviderProps {
   children: ReactNode;
 }
 
+const SAVED_EVENTS_KEY = '@saved_events';
+
 export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [sourceLayout, setSourceLayout] = useState<any>(null);
   const [savedEvents, setSavedEvents] = useState<Event[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load saved events from AsyncStorage on app start
+  useEffect(() => {
+    loadSavedEvents();
+  }, []);
+
+  const loadSavedEvents = async () => {
+    try {
+      const savedEventsJson = await AsyncStorage.getItem(SAVED_EVENTS_KEY);
+      if (savedEventsJson) {
+        const events = JSON.parse(savedEventsJson);
+        setSavedEvents(events);
+      }
+    } catch (error) {
+      console.error('Failed to load saved events:', error);
+    } finally {
+      setIsLoaded(true);
+    }
+  };
+
+  const saveSavedEvents = async (events: Event[]) => {
+    try {
+      await AsyncStorage.setItem(SAVED_EVENTS_KEY, JSON.stringify(events));
+    } catch (error) {
+      console.error('Failed to save events:', error);
+    }
+  };
 
   const loadGroups = async () => {
     try {
@@ -97,11 +129,18 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   const toggleSaveEvent = (event: Event) => {
     setSavedEvents(prev => {
       const isAlreadySaved = prev.some(savedEvent => savedEvent.id === event.id);
+      let newSavedEvents;
+      
       if (isAlreadySaved) {
-        return prev.filter(savedEvent => savedEvent.id !== event.id);
+        newSavedEvents = prev.filter(savedEvent => savedEvent.id !== event.id);
       } else {
-        return [...prev, event];
+        newSavedEvents = [...prev, event];
       }
+      
+      // Persist to AsyncStorage
+      saveSavedEvents(newSavedEvents);
+      
+      return newSavedEvents;
     });
   };
 
@@ -126,6 +165,7 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
     setSavedEvents,
     toggleSaveEvent,
     isEventSaved,
+    isLoaded,
   };
 
   return (
