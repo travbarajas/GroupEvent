@@ -39,6 +39,13 @@ export default function RootLayout() {
               presentation: 'card'
             }} 
           />
+          <Stack.Screen 
+            name="event/[id]" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider>

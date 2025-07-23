@@ -16,6 +16,68 @@ export interface Group {
   members?: Member[];
 }
 
+// Legacy event structure (keep as-is for existing events)
+export interface LegacyEvent {
+  id: string;
+  custom_name: string;
+  original_event_data: {
+    name: string;
+    description: string;
+    date: string;
+    time: string;
+    location?: string;
+    [key: string]: any; // Allow other fields
+  };
+  created_by_device_id: string;
+  created_by_username: string;
+  created_at: string;
+}
+
+// New improved event structure
+export interface Event {
+  // Core identifiers
+  id: string;
+  group_id: string;
+  custom_name: string;
+  
+  // Event details (separate fields for easy access)
+  name: string;
+  description: string;
+  
+  // Time & Location
+  date: string;           // ISO date string
+  time: string;           // Time string  
+  timezone?: string;      // For proper time handling
+  location?: string;
+  venue_name?: string;
+  
+  // Pricing
+  price?: number;         // Numeric for easy calculations
+  currency?: string;      // USD, EUR, etc.
+  is_free: boolean;
+  
+  // Categorization
+  category?: string;      // dinner, concert, sports, etc.
+  tags?: string[];        // searchable tags
+  
+  // Attendance & Social
+  max_attendees?: number;
+  min_attendees?: number;
+  attendance_required: boolean;
+  
+  // Metadata
+  created_by_device_id: string;
+  created_by_username: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Keep original for reference/migration
+  original_event_data?: any;
+  
+  // Schema version for handling both types
+  schema_version: 'legacy' | 'v2';
+}
+
 export interface Member {
   id: string;
   name: string;
@@ -136,7 +198,7 @@ export class ApiService {
     });
   }
 
-  // Events endpoints
+  // Events endpoints (Legacy - for backward compatibility)
   static async getGroupEvents(groupId: string): Promise<{ events: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}/members?events=true&device_id=${device_id}`);
@@ -152,6 +214,40 @@ export class ApiService {
         original_event: originalEvent
       })
     });
+  }
+
+  // New Event Registry System
+  static async getAllEvents(): Promise<{ events: Event[] }> {
+    return this.request('/events');
+  }
+
+  static async createGlobalEvent(eventData: Partial<Event>): Promise<Event> {
+    return this.request('/events', {
+      method: 'POST',
+      body: JSON.stringify(eventData)
+    });
+  }
+
+  static async getGroupEventsV2(groupId: string): Promise<{ events: any[] }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events-v2?device_id=${device_id}`);
+  }
+
+  static async addEventToGroup(groupId: string, eventId: string, customName?: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events-v2`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        event_id: eventId,
+        custom_name: customName
+      })
+    });
+  }
+
+  static async getEvent(eventId: string): Promise<Event | LegacyEvent> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/events/${eventId}?device_id=${device_id}`);
   }
 
   // Permissions endpoint

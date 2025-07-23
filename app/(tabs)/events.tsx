@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useGroups, Event, Group } from '../../contexts/GroupsContext';
+import { ApiService, Event as ApiEvent } from '../../services/api';
 import GroupSelectionModal from '../../components/GroupSelectionModal';
 
 const { width, height } = Dimensions.get('window');
@@ -122,6 +123,127 @@ export default function EventsTab() {
   const insets = useSafeAreaInsets();
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    try {
+      setIsLoading(true);
+      // For now, let's create some sample events in the registry if none exist
+      // In production, events would be created through an admin interface or external APIs
+      await createSampleEventsIfNeeded();
+      
+      const { events: apiEvents } = await ApiService.getAllEvents();
+      
+      // Convert API events to the format expected by the UI
+      const formattedEvents: Event[] = apiEvents.map(apiEvent => ({
+        id: parseInt(apiEvent.id.replace('EVT_', '')), // Convert back to number for compatibility
+        name: apiEvent.name,
+        date: apiEvent.date || 'TBD',
+        description: apiEvent.description || '',
+        time: apiEvent.time || 'TBD',
+        price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
+        distance: '5 miles away', // This would come from location calculation
+        type: (apiEvent.category as Event['type']) || 'music'
+      }));
+      
+      setEvents(formattedEvents);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+      // Fallback to hardcoded events if API fails
+      setEvents(getFallbackEvents());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createSampleEventsIfNeeded = async () => {
+    try {
+      const { events: existingEvents } = await ApiService.getAllEvents();
+      
+      if (existingEvents.length === 0) {
+        // Create sample events
+        const sampleEvents = [
+          {
+            name: "Summer Music Festival",
+            description: "Live bands, food trucks, and craft beer",
+            date: "2024-07-19",
+            time: "14:00",
+            location: "Downtown Park",
+            price: 15,
+            currency: "USD",
+            is_free: false,
+            category: "festival"
+          },
+          {
+            name: "Jazz Night at Blue Note",
+            description: "Local jazz quartet performing classics",
+            date: "2024-07-18",
+            time: "19:00",
+            location: "Blue Note Club",
+            price: 20,
+            currency: "USD",
+            is_free: false,
+            category: "music"
+          },
+          {
+            name: "Hiking at Auburn State Park",
+            description: "Morning hike with scenic views",
+            date: "2024-07-21",
+            time: "08:00",
+            location: "Auburn State Park",
+            price: 5,
+            currency: "USD",
+            is_free: false,
+            category: "outdoor"
+          }
+        ];
+
+        for (const event of sampleEvents) {
+          await ApiService.createGlobalEvent(event);
+        }
+      }
+    } catch (error) {
+      console.log('Could not create sample events:', error);
+    }
+  };
+
+  const getFallbackEvents = (): Event[] => [
+    {
+      id: 1,
+      name: "Summer Music Festival",
+      date: "Sat, July 19",
+      description: "Live bands, food trucks, and craft beer",
+      time: "2:00 PM",
+      price: "$15 per person",
+      distance: "12 miles away",
+      type: "festival"
+    },
+    {
+      id: 2,
+      name: "Jazz Night at Blue Note",
+      date: "Fri, July 18",
+      description: "Local jazz quartet performing classics",
+      time: "7:00 PM",
+      price: "$20 cover",
+      distance: "3 miles away",
+      type: "music"
+    },
+    {
+      id: 3,
+      name: "Hiking at Auburn State Park",
+      date: "Sun, July 21",
+      description: "Morning hike with scenic views",
+      time: "8:00 AM",
+      price: "$5 parking",
+      distance: "25 miles away",
+      type: "outdoor"
+    }
+  ];
 
   const handleEventPress = (event: Event) => {
     setSelectedEvent(event);
@@ -156,38 +278,6 @@ export default function EventsTab() {
     });
   };
 
-  const events: Event[] = [
-    {
-      id: 1,
-      name: "Summer Music Festival",
-      date: "Sat, July 19",
-      description: "Live bands, food trucks, and craft beer",
-      time: "2:00 PM",
-      price: "$15 per person",
-      distance: "12 miles away",
-      type: "festival"
-    },
-    {
-      id: 2,
-      name: "Jazz Night at Blue Note",
-      date: "Fri, July 18",
-      description: "Local jazz quartet performing classics",
-      time: "7:00 PM",
-      price: "$20 cover",
-      distance: "3 miles away",
-      type: "music"
-    },
-    {
-      id: 3,
-      name: "Hiking at Auburn State Park",
-      date: "Sun, July 21",
-      description: "Morning hike with scenic views",
-      time: "8:00 AM",
-      price: "$5 parking",
-      distance: "25 miles away",
-      type: "outdoor"
-    }
-  ];
 
   return (
     <View style={styles.container}>
@@ -202,7 +292,7 @@ export default function EventsTab() {
               {events.length} event{events.length === 1 ? '' : 's'} available
             </Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={() => {}}>
+          <TouchableOpacity style={styles.refreshButton} onPress={loadEvents}>
             <Ionicons name="refresh" size={20} color="#60a5fa" />
           </TouchableOpacity>
         </View>

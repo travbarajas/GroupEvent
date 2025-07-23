@@ -19,6 +19,7 @@ import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
+import ExpenseTracker from '@/components/ExpenseTracker';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -58,6 +59,7 @@ export default function GroupDetailScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showExpenseTracker, setShowExpenseTracker] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<GroupPermissions | null>(null);
   const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
@@ -290,13 +292,13 @@ export default function GroupDetailScreen() {
   );
 
   const MoneySquare = () => (
-    <TouchableOpacity style={styles.square} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.square} activeOpacity={0.8} onPress={() => setShowExpenseTracker(true)}>
       <View style={styles.squareHeader}>
         <Ionicons name="card" size={24} color="#4ade80" />
         <Text style={styles.squareTitle}>Money</Text>
       </View>
       <View style={styles.squareContent}>
-        <Text style={styles.squareDescription}>Budget & expenses</Text>
+        <Text style={styles.squareDescription}>Track & split expenses</Text>
       </View>
     </TouchableOpacity>
   );
@@ -305,8 +307,18 @@ export default function GroupDetailScreen() {
     const originalEvent = event.original_event_data;
     const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
     
+    const handleEventPress = () => {
+      router.push({
+        pathname: '/event/[id]',
+        params: { 
+          id: event.id,
+          groupId: id as string
+        }
+      });
+    };
+    
     return (
-      <TouchableOpacity style={styles.eventBlock} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.eventBlock} activeOpacity={0.8} onPress={handleEventPress}>
         <View style={styles.eventContent}>
           <View style={styles.eventLeft}>
             <View style={styles.eventIconContainer}>
@@ -463,6 +475,13 @@ export default function GroupDetailScreen() {
         />
       )}
 
+      <ExpenseTracker
+        visible={showExpenseTracker}
+        onClose={() => setShowExpenseTracker(false)}
+        groupName={group?.name || ''}
+        groupId={id as string}
+        members={members}
+      />
 
       {/* Leave Group Modal */}
       <Modal
