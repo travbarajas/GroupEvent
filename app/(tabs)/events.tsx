@@ -133,27 +133,29 @@ export default function EventsTab() {
   const loadEvents = async () => {
     try {
       setIsLoading(true);
-      // For now, let's create some sample events in the registry if none exist
-      // In production, events would be created through an admin interface or external APIs
-      await createSampleEventsIfNeeded();
       
       const { events: apiEvents } = await ApiService.getAllEvents();
       
-      // Convert API events to the format expected by the UI
-      const formattedEvents: Event[] = apiEvents.map(apiEvent => ({
-        id: parseInt(apiEvent.id.replace('EVT_', '')), // Convert back to number for compatibility
-        name: apiEvent.name,
-        date: apiEvent.date || 'TBD',
-        description: apiEvent.description || '',
-        time: apiEvent.time || 'TBD',
-        price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
-        distance: '5 miles away', // This would come from location calculation
-        type: (apiEvent.category as Event['type']) || 'music'
-      }));
-      
-      setEvents(formattedEvents);
+      if (apiEvents && apiEvents.length > 0) {
+        // Convert API events to the format expected by the UI
+        const formattedEvents: Event[] = apiEvents.map(apiEvent => ({
+          id: parseInt(apiEvent.id.replace('EVT_', '')) || Math.random(), // Convert back to number for compatibility
+          name: apiEvent.name,
+          date: apiEvent.date || 'TBD',
+          description: apiEvent.description || '',
+          time: apiEvent.time || 'TBD',
+          price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
+          distance: '5 miles away', // This would come from location calculation
+          type: (apiEvent.category as Event['type']) || 'music'
+        }));
+        
+        setEvents(formattedEvents);
+      } else {
+        // No events in database, use fallback
+        setEvents(getFallbackEvents());
+      }
     } catch (error) {
-      console.error('Failed to load events:', error);
+      console.log('API not available, using fallback events');
       // Fallback to hardcoded events if API fails
       setEvents(getFallbackEvents());
     } finally {
@@ -161,56 +163,6 @@ export default function EventsTab() {
     }
   };
 
-  const createSampleEventsIfNeeded = async () => {
-    try {
-      const { events: existingEvents } = await ApiService.getAllEvents();
-      
-      if (existingEvents.length === 0) {
-        // Create sample events
-        const sampleEvents = [
-          {
-            name: "Summer Music Festival",
-            description: "Live bands, food trucks, and craft beer",
-            date: "2024-07-19",
-            time: "14:00",
-            location: "Downtown Park",
-            price: 15,
-            currency: "USD",
-            is_free: false,
-            category: "festival"
-          },
-          {
-            name: "Jazz Night at Blue Note",
-            description: "Local jazz quartet performing classics",
-            date: "2024-07-18",
-            time: "19:00",
-            location: "Blue Note Club",
-            price: 20,
-            currency: "USD",
-            is_free: false,
-            category: "music"
-          },
-          {
-            name: "Hiking at Auburn State Park",
-            description: "Morning hike with scenic views",
-            date: "2024-07-21",
-            time: "08:00",
-            location: "Auburn State Park",
-            price: 5,
-            currency: "USD",
-            is_free: false,
-            category: "outdoor"
-          }
-        ];
-
-        for (const event of sampleEvents) {
-          await ApiService.createGlobalEvent(event);
-        }
-      }
-    } catch (error) {
-      console.log('Could not create sample events:', error);
-    }
-  };
 
   const getFallbackEvents = (): Event[] => [
     {
