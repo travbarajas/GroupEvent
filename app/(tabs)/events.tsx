@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { useGroups, Event, Group } from '../../contexts/GroupsContext';
 import { ApiService, Event as ApiEvent } from '../../services/api';
 import GroupSelectionModal from '../../components/GroupSelectionModal';
+import AdminEventModal from '../../components/AdminEventModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -125,6 +126,7 @@ export default function EventsTab() {
   const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -245,9 +247,15 @@ export default function EventsTab() {
               {events.length} event{events.length === 1 ? '' : 's'} available
             </Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={loadEvents}>
-            <Ionicons name="refresh" size={20} color="#60a5fa" />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.adminButton} onPress={() => setShowAdminModal(true)}>
+              <Ionicons name="add" size={18} color="#ffffff" />
+              <Text style={styles.adminButtonText}>Admin</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.refreshButton} onPress={loadEvents}>
+              <Ionicons name="refresh" size={20} color="#60a5fa" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       
@@ -270,6 +278,12 @@ export default function EventsTab() {
         onClose={() => setShowGroupModal(false)}
         event={selectedEventForGroup!}
         onGroupSelected={handleGroupSelected}
+      />
+
+      <AdminEventModal
+        visible={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onEventCreated={loadEvents}
       />
     </View>
   );
@@ -305,6 +319,25 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 16,
     color: '#9ca3af',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adminButton: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6,
+  },
+  adminButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   scrollContainer: {
     flex: 1,
