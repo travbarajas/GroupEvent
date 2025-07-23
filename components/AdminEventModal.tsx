@@ -71,13 +71,27 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       return;
     }
 
+    // Validate date format if provided
+    const dateValue = formData.date.trim();
+    if (dateValue && !/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      Alert.alert('Error', 'Date must be in YYYY-MM-DD format (e.g., 2024-07-23)');
+      return;
+    }
+
+    // Validate time format if provided
+    const timeValue = formData.time.trim();
+    if (timeValue && !/^\d{2}:\d{2}$/.test(timeValue)) {
+      Alert.alert('Error', 'Time must be in HH:MM format (e.g., 14:30)');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const eventData = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
-        date: formData.date.trim() || null,
-        time: formData.time.trim() || null,
+        date: dateValue || null,
+        time: timeValue || null,
         location: formData.location.trim() || null,
         venue_name: formData.venue_name.trim() || null,
         price: formData.is_free ? 0 : parseFloat(formData.price) || 0,
