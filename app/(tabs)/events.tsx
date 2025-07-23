@@ -167,32 +167,32 @@ export default function EventsTab() {
   const getFallbackEvents = (): Event[] => [
     {
       id: 1,
-      name: "Summer Music Festival",
-      date: "Sat, July 19",
-      description: "Live bands, food trucks, and craft beer",
-      time: "2:00 PM",
-      price: "$15 per person",
-      distance: "12 miles away",
+      name: "FALLBACK - Summer Music Festival",
+      date: "FALLBACK - Sat, July 19",
+      description: "FALLBACK - Live bands, food trucks, and craft beer",
+      time: "FALLBACK - 2:00 PM",
+      price: "FALLBACK - $15 per person",
+      distance: "FALLBACK - 12 miles away",
       type: "festival"
     },
     {
       id: 2,
-      name: "Jazz Night at Blue Note",
-      date: "Fri, July 18",
-      description: "Local jazz quartet performing classics",
-      time: "7:00 PM",
-      price: "$20 cover",
-      distance: "3 miles away",
+      name: "FALLBACK - Jazz Night at Blue Note",
+      date: "FALLBACK - Fri, July 18",
+      description: "FALLBACK - Local jazz quartet performing classics",
+      time: "FALLBACK - 7:00 PM",
+      price: "FALLBACK - $20 cover",
+      distance: "FALLBACK - 3 miles away",
       type: "music"
     },
     {
       id: 3,
-      name: "Hiking at Auburn State Park",
-      date: "Sun, July 21",
-      description: "Morning hike with scenic views",
-      time: "8:00 AM",
-      price: "$5 parking",
-      distance: "25 miles away",
+      name: "FALLBACK - Hiking at Auburn State Park",
+      date: "FALLBACK - Sun, July 21",
+      description: "FALLBACK - Morning hike with scenic views",
+      time: "FALLBACK - 8:00 AM",
+      price: "FALLBACK - $5 parking",
+      distance: "FALLBACK - 25 miles away",
       type: "outdoor"
     }
   ];
