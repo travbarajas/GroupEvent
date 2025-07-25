@@ -21,6 +21,9 @@ module.exports = async function handler(req, res) {
       const { id } = req.query;
       const { device_id, name, description, date, time, location } = req.body;
       
+      // Debug logging
+      console.log('Received data:', { device_id, name, description, date, time, location });
+      
       if (!device_id || !name || !date) {
         return res.status(400).json({ error: 'device_id, name, and date are required' });
       }
@@ -107,8 +110,8 @@ module.exports = async function handler(req, res) {
         const originalEventData = {
           name: name,
           description: description || '',
-          date: date,
-          time: time,
+          date: date || '',
+          time: time || '',
           location: location || '',
           venue_name: '',
           price: 0,
