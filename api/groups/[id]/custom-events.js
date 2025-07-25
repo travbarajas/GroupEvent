@@ -26,9 +26,16 @@ module.exports = async function handler(req, res) {
       }
 
       // Check if user is a member of this group
-      const [membership] = await sql`
-        SELECT username FROM members WHERE group_id = ${id} AND device_id = ${device_id}
-      `;
+      let membership;
+      try {
+        const membershipResult = await sql`
+          SELECT username FROM members WHERE group_id = ${id} AND device_id = ${device_id}
+        `;
+        membership = membershipResult[0];
+      } catch (membershipError) {
+        console.error('Error checking membership:', membershipError);
+        return res.status(500).json({ error: 'Error checking group membership' });
+      }
 
       if (!membership) {
         return res.status(403).json({ error: 'You are not a member of this group' });
@@ -86,43 +93,50 @@ module.exports = async function handler(req, res) {
       }
 
       // Create the custom event directly in the group's event table
-      const [newEvent] = await sql`
-        INSERT INTO group_events (
-          id,
-          group_id,
-          name, 
-          description, 
-          date, 
-          time, 
-          location,
-          is_free,
-          category,
-          custom_name,
-          added_by_device_id,
-          added_by_username,
-          source_type,
-          created_at,
-          updated_at
-        )
-        VALUES (
-          ${customEventId},
-          ${id},
-          ${name}, 
-          ${description || ''}, 
-          ${date}, 
-          ${time}, 
-          ${location || ''},
-          true,
-          'custom',
-          ${name},
-          ${device_id},
-          ${membership.username || 'Unknown'},
-          'custom',
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP
-        )
-        RETURNING *
-      `;
+      let newEvent;
+      try {
+        const eventResult = await sql`
+          INSERT INTO group_events (
+            id,
+            group_id,
+            name, 
+            description, 
+            date, 
+            time, 
+            location,
+            is_free,
+            category,
+            custom_name,
+            added_by_device_id,
+            added_by_username,
+            source_type,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            ${customEventId},
+            ${id},
+            ${name}, 
+            ${description || ''}, 
+            ${date}, 
+            ${time}, 
+            ${location || ''},
+            true,
+            'custom',
+            ${name},
+            ${device_id},
+            ${membership.username || 'Unknown'},
+            'custom',
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+          )
+          RETURNING *
+        `;
+        newEvent = eventResult[0];
+      } catch (insertError) {
+        console.error('Error creating event:', insertError);
+        return res.status(500).json({ error: 'Error creating event: ' + insertError.message });
+      }
       
       return res.status(201).json({ 
         success: true, 
