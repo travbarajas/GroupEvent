@@ -128,7 +128,6 @@ module.exports = async function handler(req, res) {
             custom_name,
             original_event_data,
             created_by_device_id,
-            created_by_username,
             created_at
           )
           VALUES (
@@ -137,7 +136,6 @@ module.exports = async function handler(req, res) {
             ${name},
             ${JSON.stringify(originalEventData)},
             ${device_id},
-            ${membership.username || 'Unknown'},
             CURRENT_TIMESTAMP
           )
           RETURNING *
