@@ -201,17 +201,18 @@ export class ApiService {
   // Events endpoints (Legacy - for backward compatibility)
   static async getGroupEvents(groupId: string): Promise<{ events: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/members?events=true&device_id=${device_id}`);
+    return this.request(`/groups/${groupId}/events?device_id=${device_id}`);
   }
 
   static async saveEventToGroup(groupId: string, customName: string, originalEvent: any): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/members`, {
+    return this.request(`/groups/${groupId}/events`, {
       method: 'POST',
       body: JSON.stringify({
         device_id,
+        event_id: originalEvent.id,
         custom_name: customName,
-        original_event: originalEvent
+        source_event: originalEvent
       })
     });
   }

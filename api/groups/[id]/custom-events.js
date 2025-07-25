@@ -27,51 +27,69 @@ module.exports = async function handler(req, res) {
 
       // Check if user is a member of this group
       const [membership] = await sql`
-        SELECT 1 FROM members WHERE group_id = ${id} AND device_id = ${device_id}
+        SELECT username FROM members WHERE group_id = ${id} AND device_id = ${device_id}
       `;
 
       if (!membership) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Generate a unique event ID for custom events
-      const customEventId = `CUSTOM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Generate a unique event ID for this group
+      const customEventId = `${id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Create tables if they don't exist (same as events-v2.js)
+      // Create group_events table if it doesn't exist
       try {
         await sql`
-          CREATE TABLE IF NOT EXISTS group_event_refs (
-            group_id VARCHAR(255),
-            event_id VARCHAR(255),
+          CREATE TABLE IF NOT EXISTS group_events (
+            id VARCHAR(255) PRIMARY KEY,
+            group_id VARCHAR(255) NOT NULL,
+            name VARCHAR(500) NOT NULL,
+            description TEXT,
+            date DATE,
+            time TIME,
+            location VARCHAR(500),
+            venue_name VARCHAR(500),
+            price DECIMAL(10,2),
+            currency VARCHAR(3) DEFAULT 'USD',
+            is_free BOOLEAN DEFAULT true,
+            category VARCHAR(100) DEFAULT 'custom',
+            tags TEXT[],
+            max_attendees INTEGER,
+            min_attendees INTEGER,
+            attendance_required BOOLEAN DEFAULT false,
+            
+            -- Group-specific data
             custom_name VARCHAR(500),
             added_by_device_id VARCHAR(255) NOT NULL,
+            added_by_username VARCHAR(255),
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (group_id, event_id),
-            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-          )
-        `;
-
-        await sql`
-          CREATE TABLE IF NOT EXISTS group_event_data (
-            group_id VARCHAR(255),
-            event_id VARCHAR(255),
-            attendance_going TEXT[],
-            attendance_maybe TEXT[],
-            attendance_not_going TEXT[],
-            expenses JSONB,
+            
+            -- Event data (attendance, expenses, etc.)
+            attendance_going TEXT[] DEFAULT '{}',
+            attendance_maybe TEXT[] DEFAULT '{}',
+            attendance_not_going TEXT[] DEFAULT '{}',
+            expenses JSONB DEFAULT '{}',
             notes TEXT,
+            
+            -- Source tracking
+            source_type VARCHAR(50) DEFAULT 'custom', -- 'custom' or 'global'
+            source_event_id VARCHAR(255), -- reference to global event if copied
+            
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (group_id, event_id)
+            
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
           )
         `;
       } catch (error) {
         console.log('Table creation:', error.message);
       }
 
-      // Create the custom event in the global events table
+      // Create the custom event directly in the group's event table
       const [newEvent] = await sql`
-        INSERT INTO events (
-          id, 
+        INSERT INTO group_events (
+          id,
+          group_id,
           name, 
           description, 
           date, 
@@ -79,11 +97,16 @@ module.exports = async function handler(req, res) {
           location,
           is_free,
           category,
+          custom_name,
+          added_by_device_id,
+          added_by_username,
+          source_type,
           created_at,
           updated_at
         )
         VALUES (
-          ${customEventId}, 
+          ${customEventId},
+          ${id},
           ${name}, 
           ${description || ''}, 
           ${date}, 
@@ -91,29 +114,19 @@ module.exports = async function handler(req, res) {
           ${location || ''},
           true,
           'custom',
+          ${name},
+          ${device_id},
+          ${membership.username || 'Unknown'},
+          'custom',
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         )
         RETURNING *
       `;
-
-      // Add event reference to group (custom events use the event name as custom_name)
-      const [eventRef] = await sql`
-        INSERT INTO group_event_refs (group_id, event_id, custom_name, added_by_device_id)
-        VALUES (${id}, ${customEventId}, ${name}, ${device_id})
-        RETURNING *
-      `;
-
-      // Initialize empty group event data
-      await sql`
-        INSERT INTO group_event_data (group_id, event_id, attendance_going, attendance_maybe, attendance_not_going, expenses)
-        VALUES (${id}, ${customEventId}, '{}', '{}', '{}', '{}')
-      `;
       
       return res.status(201).json({ 
         success: true, 
-        event: newEvent,
-        event_ref: eventRef 
+        event: newEvent
       });
 
     } catch (error) {
