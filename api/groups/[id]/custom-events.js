@@ -44,52 +44,60 @@ module.exports = async function handler(req, res) {
       // Generate a unique event ID for this group
       const customEventId = `${id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Create group_events table if it doesn't exist
+      // Create group_events table if it doesn't exist, or add missing columns
       try {
+        // First create the table if it doesn't exist
         await sql`
           CREATE TABLE IF NOT EXISTS group_events (
             id VARCHAR(255) PRIMARY KEY,
             group_id VARCHAR(255) NOT NULL,
-            name VARCHAR(500) NOT NULL,
-            description TEXT,
-            date DATE,
-            time TIME,
-            location VARCHAR(500),
-            venue_name VARCHAR(500),
-            price DECIMAL(10,2),
-            currency VARCHAR(3) DEFAULT 'USD',
-            is_free BOOLEAN DEFAULT true,
-            category VARCHAR(100) DEFAULT 'custom',
-            tags TEXT[],
-            max_attendees INTEGER,
-            min_attendees INTEGER,
-            attendance_required BOOLEAN DEFAULT false,
-            
-            -- Group-specific data
-            custom_name VARCHAR(500),
-            added_by_device_id VARCHAR(255) NOT NULL,
-            added_by_username VARCHAR(255),
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            
-            -- Event data (attendance, expenses, etc.)
-            attendance_going TEXT[] DEFAULT '{}',
-            attendance_maybe TEXT[] DEFAULT '{}',
-            attendance_not_going TEXT[] DEFAULT '{}',
-            expenses JSONB DEFAULT '{}',
-            notes TEXT,
-            
-            -- Source tracking
-            source_type VARCHAR(50) DEFAULT 'custom', -- 'custom' or 'global'
-            source_event_id VARCHAR(255), -- reference to global event if copied
-            
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            
             FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
           )
         `;
+
+        // Add columns one by one to handle existing tables
+        const columns = [
+          'name VARCHAR(500)',
+          'description TEXT',
+          'date DATE',
+          'time TIME',
+          'location VARCHAR(500)',
+          'venue_name VARCHAR(500)',
+          'price DECIMAL(10,2)',
+          'currency VARCHAR(3) DEFAULT \'USD\'',
+          'is_free BOOLEAN DEFAULT true',
+          'category VARCHAR(100) DEFAULT \'custom\'',
+          'tags TEXT[]',
+          'max_attendees INTEGER',
+          'min_attendees INTEGER',
+          'attendance_required BOOLEAN DEFAULT false',
+          'custom_name VARCHAR(500)',
+          'added_by_device_id VARCHAR(255)',
+          'added_by_username VARCHAR(255)',
+          'added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+          'attendance_going TEXT[] DEFAULT \'{}\'',
+          'attendance_maybe TEXT[] DEFAULT \'{}\'',
+          'attendance_not_going TEXT[] DEFAULT \'{}\'',
+          'expenses JSONB DEFAULT \'{}\'',
+          'notes TEXT',
+          'source_type VARCHAR(50) DEFAULT \'custom\'',
+          'source_event_id VARCHAR(255)',
+          'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+          'updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+        ];
+
+        for (const column of columns) {
+          try {
+            await sql`ALTER TABLE group_events ADD COLUMN ${sql.unsafe(column)}`;
+          } catch (columnError) {
+            // Column already exists, ignore
+            if (!columnError.message.includes('already exists')) {
+              console.log('Column add error:', columnError.message);
+            }
+          }
+        }
       } catch (error) {
-        console.log('Table creation:', error.message);
+        console.log('Table setup error:', error.message);
       }
 
       // Create the custom event directly in the group's event table
