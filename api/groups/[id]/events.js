@@ -83,39 +83,46 @@ module.exports = async function handler(req, res) {
       }
 
       // Get all events for this group from the group_events table
-      const events = await sql`
-        SELECT 
-          id,
-          group_id,
-          name,
-          description,
-          date,
-          time,
-          location,
-          venue_name,
-          price,
-          currency,
-          is_free,
-          category,
-          tags,
-          max_attendees,
-          min_attendees,
-          attendance_required,
-          custom_name,
-          added_by_device_id as created_by_device_id,
-          added_by_username as created_by_username,
-          added_at as created_at,
-          attendance_going,
-          attendance_maybe,
-          attendance_not_going,
-          expenses,
-          notes,
-          source_type,
-          source_event_id
-        FROM group_events 
-        WHERE group_id = ${id}
-        ORDER BY added_at DESC
-      `;
+      let events = [];
+      try {
+        events = await sql`
+          SELECT 
+            id,
+            group_id,
+            name,
+            description,
+            date,
+            time,
+            location,
+            venue_name,
+            price,
+            currency,
+            is_free,
+            category,
+            tags,
+            max_attendees,
+            min_attendees,
+            attendance_required,
+            custom_name,
+            added_by_device_id as created_by_device_id,
+            added_by_username as created_by_username,
+            added_at as created_at,
+            attendance_going,
+            attendance_maybe,
+            attendance_not_going,
+            expenses,
+            notes,
+            source_type,
+            source_event_id
+          FROM group_events 
+          WHERE group_id = ${id}
+          ORDER BY added_at DESC
+        `;
+      } catch (queryError) {
+        console.log('Query failed, table may not exist yet:', queryError.message);
+        // Return empty events array if table doesn't exist
+        events = [];
+      }
 
       // Transform events to match the expected format for backward compatibility
       const transformedEvents = events.map(event => ({

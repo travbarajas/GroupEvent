@@ -201,7 +201,14 @@ export class ApiService {
   // Events endpoints (Legacy - for backward compatibility)
   static async getGroupEvents(groupId: string): Promise<{ events: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/events?device_id=${device_id}`);
+    try {
+      // Try new group_events table first
+      return await this.request(`/groups/${groupId}/events?device_id=${device_id}`);
+    } catch (error) {
+      console.log('New events endpoint failed, falling back to legacy:', error);
+      // Fall back to legacy system
+      return this.request(`/groups/${groupId}/members?events=true&device_id=${device_id}`);
+    }
   }
 
   static async saveEventToGroup(groupId: string, customName: string, originalEvent: any): Promise<any> {
