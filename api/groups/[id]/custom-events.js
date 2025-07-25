@@ -103,18 +103,30 @@ module.exports = async function handler(req, res) {
       // Create the custom event directly in the group's event table
       let newEvent;
       try {
+        // Create the original_event_data structure to match existing schema
+        const originalEventData = {
+          name: name,
+          description: description || '',
+          date: date,
+          time: time,
+          location: location || '',
+          venue_name: '',
+          price: 0,
+          currency: 'USD',
+          is_free: true,
+          category: 'custom',
+          tags: [],
+          max_attendees: null,
+          min_attendees: null,
+          attendance_required: false
+        };
+
         const eventResult = await sql`
           INSERT INTO group_events (
             id,
             group_id,
-            name, 
-            description, 
-            date, 
-            time, 
-            location,
-            is_free,
-            category,
             custom_name,
+            original_event_data,
             added_by_device_id,
             added_by_username,
             source_type,
@@ -124,14 +136,8 @@ module.exports = async function handler(req, res) {
           VALUES (
             ${customEventId},
             ${id},
-            ${name}, 
-            ${description || ''}, 
-            ${date}, 
-            ${time}, 
-            ${location || ''},
-            true,
-            'custom',
             ${name},
+            ${JSON.stringify(originalEventData)},
             ${device_id},
             ${membership.username || 'Unknown'},
             'custom',
