@@ -20,6 +20,7 @@ import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
+import { calendarCache } from '@/utils/calendarCache';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -79,6 +80,9 @@ export default function GroupDetailScreen() {
       fetchMembers();
       fetchGroupEvents();
       getCurrentDeviceId();
+      
+      // Preload calendar data for faster calendar loading
+      calendarCache.preloadCalendarData(new Date());
     }
   }, [id]);
 
@@ -279,17 +283,134 @@ export default function GroupDetailScreen() {
 
   const sampleEvents: any[] = [];
 
-  const CalendarSquare = () => (
-    <TouchableOpacity style={styles.square} activeOpacity={0.8}>
-      <View style={styles.squareHeader}>
-        <Ionicons name="calendar" size={24} color="#60a5fa" />
-        <Text style={styles.squareTitle}>Calendar</Text>
-      </View>
-      <View style={styles.squareContent}>
-        <Text style={styles.squareDescription}>Coming soon</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const CalendarSquare = () => {
+    // Get next 4 days (today + 3)
+    const getNext4Days = () => {
+      const days = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 4; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayNumber = date.getDate();
+        const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        // Find events for this date
+        const dayEvents = groupEvents.filter(event => {
+          const eventDate = formatEventDate(event.original_event_data?.date);
+          return eventDate === dateString;
+        });
+        
+        days.push({
+          dayName,
+          dayNumber,
+          hasEvents: dayEvents.length > 0,
+          eventCount: dayEvents.length
+        });
+      }
+      
+      return days;
+    };
+
+    // Helper function to format event dates (same as calendar)
+    const formatEventDate = (dateString: string): string | null => {
+      if (!dateString || typeof dateString !== 'string') return null;
+      
+      try {
+        let date: Date;
+        
+        if (dateString.includes('FALLBACK')) {
+          const match = dateString.match(/(\w+),?\s+(\w+)\s+(\d+)/);
+          if (match) {
+            const [, , monthName, day] = match;
+            const currentYear = new Date().getFullYear();
+            date = new Date(`${monthName} ${day}, ${currentYear}`);
+          } else {
+            return null;
+          }
+        } else {
+          date = new Date(dateString);
+        }
+        
+        if (isNaN(date.getTime())) {
+          return null;
+        }
+        
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}`;
+      } catch (error) {
+        return null;
+      }
+    };
+
+    const next4Days = getNext4Days();
+
+    return (
+      <TouchableOpacity 
+        style={styles.square} 
+        activeOpacity={0.6}
+        onPress={() => router.push({
+          pathname: '/calendar',
+          params: { groupId: id }
+        })}
+      >
+        <View style={styles.squareHeader}>
+          <Ionicons name="calendar" size={24} color="#60a5fa" />
+          <Text style={styles.squareTitle}>Calendar</Text>
+          <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+        </View>
+        
+        {/* Separator Line */}
+        <View style={styles.calendarSeparator} />
+        
+        {/* Calendar Preview */}
+        <View style={styles.calendarPreview}>
+          {next4Days.map((day, index) => {
+            const date = new Date();
+            date.setDate(date.getDate() + index);
+            const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            
+            return (
+              <TouchableOpacity 
+                key={index} 
+                style={[
+                  styles.previewDayContainer,
+                  index === 0 && styles.previewTodayContainer,
+                  day.hasEvents && styles.previewDayWithEventsContainer
+                ]}
+                activeOpacity={0.7}
+                onPress={(e) => {
+                  e.stopPropagation(); // Prevent parent TouchableOpacity from firing
+                  router.push(`/date-events?date=${dateString}&groupId=${id}`);
+                }}
+              >
+                <Text style={styles.previewDayName}>{day.dayName}</Text>
+                <Text style={[
+                  styles.previewDayText,
+                  index === 0 && styles.previewTodayText,
+                  day.hasEvents && styles.previewDayWithEventsText
+                ]}>
+                  {day.dayNumber}
+                </Text>
+                <View style={styles.previewEventContainer}>
+                  {day.hasEvents && (
+                    <View style={styles.previewEventDot}>
+                      <Text style={styles.previewEventCount}>{day.eventCount}</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const MoneySquare = () => (
     <TouchableOpacity style={styles.square} activeOpacity={0.8} onPress={() => setShowExpenseTracker(true)}>
@@ -418,6 +539,23 @@ export default function GroupDetailScreen() {
             <EventBlock key={event.id} event={event} />
           ))}
           
+          {/* Create Event Block */}
+          <TouchableOpacity 
+            style={styles.createEventBlock} 
+            activeOpacity={0.8} 
+            onPress={() => router.push({
+              pathname: '/create-event',
+              params: { groupId: id }
+            })}
+          >
+            <View style={styles.addEventContent}>
+              <View style={styles.createEventIconContainer}>
+                <Ionicons name="create" size={20} color="#ffffff" />
+              </View>
+              <Text style={styles.createEventText}>Create Custom Event</Text>
+            </View>
+          </TouchableOpacity>
+
           {/* Add Event Block */}
           <TouchableOpacity style={styles.addEventBlock} activeOpacity={0.8} onPress={() => router.push('/(tabs)/events')}>
             <View style={styles.addEventContent}>
@@ -715,6 +853,13 @@ const styles = StyleSheet.create({
   eventArrow: {
     marginLeft: 8,
   },
+  createEventBlock: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+    marginBottom: 8,
+  },
   addEventBlock: {
     backgroundColor: '#1a1a1a',
     borderRadius: 8,
@@ -730,6 +875,14 @@ const styles = StyleSheet.create({
   },
   addEventIconContainer: {
     marginRight: 8,
+  },
+  createEventIconContainer: {
+    marginRight: 8,
+  },
+  createEventText: {
+    fontSize: 14,
+    color: '#60a5fa',
+    fontWeight: '600',
   },
   addEventText: {
     fontSize: 14,
@@ -831,5 +984,76 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  
+  // Calendar Preview Styles
+  calendarSeparator: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  calendarPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flex: 1,
+    alignItems: 'flex-start',
+    paddingVertical: 4,
+    paddingTop: 8,
+  },
+  previewDayContainer: {
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    minHeight: 65,
+    justifyContent: 'space-between',
+  },
+  previewTodayContainer: {
+    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+  },
+  previewDayWithEventsContainer: {
+    backgroundColor: 'rgba(212, 165, 116, 0.1)',
+    borderWidth: 1,
+    borderColor: '#D4A574',
+  },
+  previewDayName: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  previewDayText: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  previewTodayText: {
+    color: '#ffffff',
+  },
+  previewDayWithEventsText: {
+    color: '#D4A574',
+  },
+  previewEventContainer: {
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewEventDot: {
+    width: 18,
+    height: 14,
+    backgroundColor: '#D4A574',
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewEventCount: {
+    fontSize: 8,
+    color: '#2A1F14',
+    fontWeight: '700',
   },
 });

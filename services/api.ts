@@ -245,6 +245,34 @@ export class ApiService {
     });
   }
 
+  static async createCustomEvent(groupId: string, eventData: {
+    name: string;
+    description?: string;
+    date: Date;
+    time?: Date;
+    location?: string;
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    
+    // Format the date and time to match the expected format
+    const formattedDate = eventData.date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const formattedTime = eventData.time 
+      ? eventData.time.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+      : null;
+    
+    return this.request(`/groups/${groupId}/custom-events`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        name: eventData.name,
+        description: eventData.description || '',
+        date: formattedDate,
+        time: formattedTime,
+        location: eventData.location || ''
+      })
+    });
+  }
+
   // Note: Individual event endpoint removed to stay under Vercel function limit
   // Events are fetched through group context instead
 

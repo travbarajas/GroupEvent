@@ -321,7 +321,7 @@ export default function TabLayout() {
     }
   };
 
-  // Show modal on both events and saved tabs
+  // Show modal on both events and saved tabs, but not when search modal might be open
   const shouldShowModal = !!selectedEvent && (pathname.includes('events') || pathname.includes('saved'));
 
   return (
@@ -398,7 +398,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    zIndex: 1000,
     padding: 16,
   },
   modalContent: {

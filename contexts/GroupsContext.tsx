@@ -18,6 +18,7 @@ export interface Event {
   price: string;
   distance: string;
   type: 'festival' | 'music' | 'outdoor' | 'food';
+  tags: string[];
 }
 
 interface GroupsContextType {

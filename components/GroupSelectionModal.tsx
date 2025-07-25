@@ -39,6 +39,7 @@ export default function GroupSelectionModal({
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
+      presentationStyle="overFullScreen"
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>

@@ -30,8 +30,22 @@ export default function GroupsTab() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [pendingGroupName, setPendingGroupName] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
   const { groups, createGroup, loadGroups } = useGroups();
   const insets = useSafeAreaInsets();
+
+  // Filter groups when search query or groups change
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredGroups(groups);
+    } else {
+      const filtered = groups.filter(group => 
+        group.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredGroups(filtered);
+    }
+  }, [groups, searchQuery]);
 
   // Check for invite parameter and user info on load
   useEffect(() => {
@@ -187,12 +201,31 @@ export default function GroupsTab() {
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Groups</Text>
             <Text style={styles.headerSubtitle}>
-              {groups.length} group{groups.length === 1 ? '' : 's'}
+              {searchQuery ? `${filteredGroups.length} of ${groups.length}` : `${groups.length}`} group{groups.length === 1 ? '' : 's'} {searchQuery ? 'found' : ''}
             </Text>
           </View>
           <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
             <Ionicons name="refresh" size={20} color="#60a5fa" />
           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search groups..."
+            placeholderTextColor="#6b7280"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+              <Ionicons name="close" size={18} color="#ffffff" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
       
@@ -226,9 +259,18 @@ export default function GroupsTab() {
         </TouchableOpacity>
         
         {/* Existing Groups */}
-        {groups.map(group => (
+        {filteredGroups.map(group => (
           <GroupBlock key={group.id} group={group} />
         ))}
+        
+        {/* No results state */}
+        {filteredGroups.length === 0 && searchQuery && (
+          <View style={styles.noResultsContainer}>
+            <Ionicons name="search" size={48} color="#6b7280" />
+            <Text style={styles.noResultsText}>No groups found</Text>
+            <Text style={styles.noResultsSubtext}>Try a different search term</Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Create Group Modal */}
@@ -303,7 +345,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#1a1a1a',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
     flexDirection: 'row',
@@ -325,6 +367,36 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     padding: 6,
+  },
+  searchContainer: {
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#ffffff',
+  },
+  clearButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 8,
   },
   scrollContainer: {
     flex: 1,
@@ -481,5 +553,20 @@ const styles = StyleSheet.create({
   },
   groupArrow: {
     marginLeft: 8,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#9ca3af',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
   },
 });

@@ -15,7 +15,11 @@
       "Bash(npm run build:*)",
       "Bash(npm run:*)",
       "Bash(find:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(tail:*)",
+      "Bash(npm start)",
+      "Bash(taskkill:*)"
     ],
     "deny": []
   }

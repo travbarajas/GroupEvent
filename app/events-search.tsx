@@ -1,32 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  StyleSheet,
   Dimensions,
   Share,
   TextInput,
-  Animated,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useGroups, Event, Group } from '../../contexts/GroupsContext';
-import GroupSelectionModal from '../../components/GroupSelectionModal';
+import { useGroups, Event } from '../contexts/GroupsContext';
+import { ApiService } from '../services/api';
+import AdminEventModal from '../components/AdminEventModal';
 
 const { width } = Dimensions.get('window');
 
-const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: { 
+const EventCard = ({ event, onPress, onAddToGroup, onShare }: { 
   event: Event; 
   onPress: () => void;
-  onUnsave: () => void;
-  onAddToGroup: () => void;
-  onShare: () => void;
+  onAddToGroup: (event: Event) => void;
+  onShare: (event: Event) => void;
 }) => {
+  const { toggleSaveEvent, isEventSaved } = useGroups();
+
   const getTypeColor = (type: Event['type']) => {
     const colors = {
       festival: '#8b5cf6',
@@ -46,6 +46,20 @@ const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: {
     };
     return icons[type] || 'calendar';
   };
+
+  const handleSaveEvent = () => {
+    toggleSaveEvent(event);
+  };
+
+  const handleAddToGroup = () => {
+    onAddToGroup(event);
+  };
+
+  const handleShare = () => {
+    onShare(event);
+  };
+
+  const isSaved = isEventSaved(event.id);
 
   return (
     <TouchableOpacity style={styles.eventCard} onPress={onPress} activeOpacity={0.8}>
@@ -68,14 +82,18 @@ const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: {
           </View>
         </View>
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.shareButton} onPress={onShare}>
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
             <Ionicons name="share-outline" size={18} color="#9ca3af" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.addButton} onPress={onAddToGroup}>
+          <TouchableOpacity style={styles.addButton} onPress={handleAddToGroup}>
             <Ionicons name="add" size={18} color="#60a5fa" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.unsaveButton} onPress={onUnsave}>
-            <Ionicons name="heart" size={20} color="#ef4444" />
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveEvent}>
+            <Ionicons 
+              name={isSaved ? "heart" : "heart-outline"} 
+              size={20} 
+              color={isSaved ? "#ef4444" : "#9ca3af"} 
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -89,26 +107,30 @@ const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: {
         <View style={styles.eventDetailsRow}>
           <Text style={styles.eventTime}>{event.time}</Text>
           <Text style={styles.eventDistance}>{event.distance}</Text>
-          <Text style={styles.eventPrice}>{event.price || 'Free'}</Text>
+          <Text style={styles.eventPrice}>{event.price}</Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 };
 
-export default function SavedTab() {
+export default function EventsSearchScreen() {
+  const { isLoaded, toggleSaveEvent, isEventSaved } = useGroups();
   const insets = useSafeAreaInsets();
-  const { savedEvents, setSavedEvents } = useGroups();
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
-  // Filter events when search query, tags, or saved events change
   useEffect(() => {
-    let filtered = savedEvents || [];
+    loadEvents();
+  }, []);
+
+  // Filter events when search query, tags, or events change
+  useEffect(() => {
+    let filtered = events;
     
     // Apply search filter
     if (searchQuery.trim()) {
@@ -128,7 +150,73 @@ export default function SavedTab() {
     }
     
     setFilteredEvents(filtered);
-  }, [savedEvents, searchQuery, selectedTags]);
+  }, [events, searchQuery, selectedTags]);
+
+  const loadEvents = async () => {
+    try {
+      setIsLoading(true);
+      
+      const { events: apiEvents } = await ApiService.getAllEvents();
+      
+      if (apiEvents && apiEvents.length > 0) {
+        const formattedEvents: Event[] = apiEvents.map(apiEvent => ({
+          id: parseInt(apiEvent.id.replace('EVT_', '')) || Math.random(),
+          name: apiEvent.name,
+          date: apiEvent.date || 'TBD',
+          description: apiEvent.description || '',
+          time: apiEvent.time || 'TBD',
+          price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
+          distance: '5 miles away',
+          type: (apiEvent.category as Event['type']) || 'music',
+          tags: apiEvent.tags || []
+        }));
+        
+        setEvents(formattedEvents);
+      } else {
+        setEvents(getFallbackEvents());
+      }
+    } catch (error) {
+      setEvents(getFallbackEvents());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getFallbackEvents = (): Event[] => [
+    {
+      id: 1,
+      name: "FALLBACK - Summer Music Festival",
+      date: "FALLBACK - Sat, July 19",
+      description: "FALLBACK - Live bands, food trucks, and craft beer",
+      time: "FALLBACK - 2:00 PM",
+      price: "FALLBACK - $15 per person",
+      distance: "FALLBACK - 12 miles away",
+      type: "festival",
+      tags: ["music", "family-friendly", "outdoor"]
+    },
+    {
+      id: 2,
+      name: "FALLBACK - Jazz Night at Blue Note",
+      date: "FALLBACK - Fri, July 18",
+      description: "FALLBACK - Local jazz quartet performing classics",
+      time: "FALLBACK - 7:00 PM",
+      price: "FALLBACK - $20 cover",
+      distance: "FALLBACK - 3 miles away",
+      type: "music",
+      tags: ["music", "nightlife", "indoor"]
+    },
+    {
+      id: 3,
+      name: "FALLBACK - Hiking at Auburn State Park",
+      date: "FALLBACK - Sun, July 21",
+      description: "FALLBACK - Morning hike with scenic views",
+      time: "FALLBACK - 8:00 AM",
+      price: "FALLBACK - $5 parking",
+      distance: "FALLBACK - 25 miles away",
+      type: "outdoor",
+      tags: ["outdoor", "exercise", "family-friendly"]
+    }
+  ];
 
   const handleEventPress = (event: Event) => {
     router.push({
@@ -137,30 +225,10 @@ export default function SavedTab() {
     });
   };
 
-  const handleUnsaveEvent = (eventId: number) => {
-    setSavedEvents(prev => prev.filter(event => event.id !== eventId));
-  };
-
-  const handleAddToGroup = (event: Event) => {
-    setSelectedEventForGroup(event);
-    setShowGroupModal(true);
-  };
-
-  const handleGroupSelected = (group: Group, event: Event) => {
-    // Navigate to group page with event data
-    router.push({
-      pathname: '/group/[id]',
-      params: { 
-        id: group.id,
-        pendingEvent: JSON.stringify(event)
-      }
-    });
-  };
-
   const handleShareEvent = async (event: Event) => {
     try {
       const shareContent = {
-        message: `Check out this event: ${event.name}\n\nDate: ${event.date}\nTime: ${event.time}\nLocation: ${event.distance}\nPrice: ${event.price || 'Free'}\n\n${event.description}`,
+        message: `Check out this event: ${event.name}\n\nDate: ${event.date}\nTime: ${event.time}\nLocation: ${event.distance}\nPrice: ${event.price}\n\n${event.description}`,
         title: event.name,
       };
       
@@ -170,16 +238,23 @@ export default function SavedTab() {
     }
   };
 
+  const handleAddToGroup = (event: Event) => {
+    router.push({
+      pathname: '/group-selection',
+      params: { event: JSON.stringify(event) }
+    });
+  };
+
   // Predefined sample tags that always show
   const predefinedTags = [
     'free', 'family-friendly', 'music', 'outdoor', 'indoor', 'nightlife', 
     'food', 'exercise', 'arts', 'educational', 'social', 'entertainment'
   ];
 
-  // Get all unique tags from saved events plus predefined ones
+  // Get all unique tags from events plus predefined ones
   const getAllTags = (): string[] => {
     const tagSet = new Set<string>(predefinedTags);
-    (savedEvents || []).forEach(event => {
+    events.forEach(event => {
       (event.tags || []).forEach(tag => tagSet.add(tag));
     });
     return Array.from(tagSet).sort();
@@ -201,59 +276,40 @@ export default function SavedTab() {
   const hasActiveFilters = searchQuery.trim() || selectedTags.length > 0;
   const allTags = getAllTags() || [];
 
-  // Handle scroll for collapsing header
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
-  // Create interpolated values for smooth collapse animation
-  const searchTagsOpacity = scrollY.interpolate({
-    inputRange: [0, 50, 100],
-    outputRange: [1, 0.5, 0],
-    extrapolate: 'clamp',
-  });
-
-  const searchTagsTranslateY = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, -120], // Move fully out of view
-    extrapolate: 'clamp',
-  });
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header - Static */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Saved Events</Text>
-            <Text style={styles.headerSubtitle}>
-              {searchQuery ? `${filteredEvents.length} of ${(savedEvents || []).length}` : `${(savedEvents || []).length}`} event{(savedEvents || []).length === 1 ? '' : 's'} {searchQuery ? 'found' : 'saved'}
+        
+      {/* Search Bar and Tags - Fixed at top */}
+      <View style={[styles.searchTagsContainer, { paddingTop: insets.top + 10 }]}>
+        {/* Header with back button and actions */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <View style={styles.topBarCenter}>
+            <Text style={styles.topBarTitle}>Search Events</Text>
+            <Text style={styles.topBarSubtitle}>
+              {searchQuery ? `${filteredEvents.length} of ${events.length}` : `${events.length}`} event{events.length === 1 ? '' : 's'} {searchQuery ? 'found' : 'available'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={() => {}}>
-            <Ionicons name="refresh" size={20} color="#60a5fa" />
-          </TouchableOpacity>
+          <View style={styles.topBarActions}>
+            <TouchableOpacity style={styles.adminButton} onPress={() => setShowAdminModal(true)}>
+              <Ionicons name="add" size={18} color="#ffffff" />
+              <Text style={styles.adminButtonText}>Admin</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.refreshButton} onPress={loadEvents}>
+              <Ionicons name="refresh" size={20} color="#60a5fa" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
         
-      {/* Search Bar and Tags - Collapsible Overlay */}
-      <Animated.View style={[
-        styles.searchTagsOverlay,
-        {
-          top: insets.top + 88, // Slightly lower to clear header completely
-          opacity: searchTagsOpacity,
-          transform: [{ translateY: searchTagsTranslateY }],
-        }
-      ]}>
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
             <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search saved events..."
+              placeholder="Search events..."
               placeholderTextColor="#6b7280"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -319,37 +375,26 @@ export default function SavedTab() {
           </ScrollView>
         </View>
         </View>
-      </Animated.View>
-
-      {/* Content */}
-      <Animated.ScrollView 
+      </View>
+      
+      <ScrollView 
         style={styles.scrollContainer} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
       >
-        {(savedEvents || []).length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="heart-outline" size={64} color="#4b5563" />
-            </View>
-            <Text style={styles.emptyTitle}>No Saved Events</Text>
-            <Text style={styles.emptySubtitle}>
-              Events you like will appear here.{'\n'}
-              Tap the heart icon on any event to save it!
-            </Text>
+        {!isLoaded ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading events...</Text>
           </View>
         ) : (
           <View style={styles.eventsGrid}>
-            {filteredEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
+            {filteredEvents.map(event => (
+              <EventCard 
+                key={event.id} 
+                event={event} 
                 onPress={() => handleEventPress(event)}
-                onUnsave={() => handleUnsaveEvent(event.id)}
-                onAddToGroup={() => handleAddToGroup(event)}
-                onShare={() => handleShareEvent(event)}
+                onAddToGroup={handleAddToGroup}
+                onShare={handleShareEvent}
               />
             ))}
             {filteredEvents.length === 0 && searchQuery && (
@@ -361,13 +406,15 @@ export default function SavedTab() {
             )}
           </View>
         )}
-      </Animated.ScrollView>
+      </ScrollView>
       
-      <GroupSelectionModal
-        visible={showGroupModal}
-        onClose={() => setShowGroupModal(false)}
-        event={selectedEventForGroup!}
-        onGroupSelected={handleGroupSelected}
+      <AdminEventModal
+        visible={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onEventCreated={() => {
+          loadEvents();
+          setShowAdminModal(false);
+        }}
       />
     </View>
   );
@@ -378,75 +425,111 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a0a0a',
   },
-  headerContainer: {
+  searchTagsContainer: {
     backgroundColor: '#1a1a1a',
-    zIndex: 2000, // Higher than search overlay
-    elevation: 10, // Android shadow
-  },
-  searchTagsOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    backgroundColor: '#1a1a1a',
-    zIndex: 1000,
-    elevation: 5, // For Android shadow
-  },
-  header: {
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+  },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     justifyContent: 'space-between',
   },
-  headerTextContainer: {
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  topBarCenter: {
     flex: 1,
   },
-  headerTitle: {
-    fontSize: 28,
+  topBarTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#ffffff',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  headerSubtitle: {
-    fontSize: 16,
+  topBarSubtitle: {
+    fontSize: 14,
     color: '#9ca3af',
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  adminButton: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6,
+  },
+  adminButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#ffffff',
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 160, // Reduced space between tags and event blocks
     paddingHorizontal: 16,
     paddingBottom: 16,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-    paddingHorizontal: 32,
-  },
-  emptyIconContainer: {
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: '#9ca3af',
-    textAlign: 'center',
-    lineHeight: 22,
+    paddingTop: 16,
   },
   eventsGrid: {
     gap: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#9ca3af',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#9ca3af',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
   },
   eventCard: {
     backgroundColor: '#1a1a1a',
@@ -485,7 +568,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a8a',
     borderRadius: 6,
   },
-  unsaveButton: {
+  saveButton: {
     padding: 4,
   },
   eventContent: {
@@ -521,7 +604,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#e5e7eb',
     lineHeight: 18,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   eventDetailsRow: {
     flexDirection: 'row',
@@ -531,46 +614,6 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     padding: 6,
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#ffffff',
-  },
-  clearButton: {
-    padding: 4,
-  },
-  noResultsContainer: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  noResultsText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#9ca3af',
-    marginTop: 16,
-    marginBottom: 4,
-  },
-  noResultsSubtext: {
-    fontSize: 14,
-    color: '#6b7280',
   },
   clearAllButton: {
     backgroundColor: '#ef4444',

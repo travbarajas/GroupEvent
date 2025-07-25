@@ -31,6 +31,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     currency: 'USD',
     is_free: false,
     category: 'music',
+    tags: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,6 +46,11 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     { value: 'community', label: 'Community' },
   ];
 
+  const availableTags = [
+    'free', 'family-friendly', 'music', 'outdoor', 'indoor', 'nightlife', 
+    'food', 'exercise', 'arts', 'educational', 'social', 'entertainment'
+  ];
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -57,6 +63,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       currency: 'USD',
       is_free: false,
       category: 'music',
+      tags: [],
     });
   };
 
@@ -98,7 +105,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         currency: formData.currency.trim() || 'USD',
         is_free: formData.is_free,
         category: formData.category || null,
-        tags: [],
+        tags: formData.tags,
         max_attendees: null,
         min_attendees: null,
         attendance_required: false,
@@ -128,7 +135,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <View style={styles.container}>
@@ -262,6 +269,37 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
               </View>
             </View>
 
+            {/* Tags */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Tags</Text>
+              <View style={styles.tagSelectionContainer}>
+                {availableTags.map((tag) => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={[
+                      styles.tagSelectionChip,
+                      formData.tags.includes(tag) && styles.tagSelectionChipSelected
+                    ]}
+                    onPress={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        tags: prev.tags.includes(tag)
+                          ? prev.tags.filter(t => t !== tag)
+                          : [...prev.tags, tag]
+                      }));
+                    }}
+                  >
+                    <Text style={[
+                      styles.tagSelectionChipText,
+                      formData.tags.includes(tag) && styles.tagSelectionChipTextSelected
+                    ]}>
+                      {tag}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             {!formData.is_free && (
               <View style={styles.row}>
                 <View style={[styles.formGroup, { flex: 2, marginRight: 8 }]}>
@@ -390,6 +428,32 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
   categoryChipTextSelected: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  tagSelectionContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagSelectionChip: {
+    backgroundColor: '#2a2a2a',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#374151',
+    marginBottom: 8,
+  },
+  tagSelectionChipSelected: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  tagSelectionChipText: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  tagSelectionChipTextSelected: {
     color: '#ffffff',
     fontWeight: '600',
   },

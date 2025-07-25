@@ -46,6 +46,48 @@ export default function RootLayout() {
               presentation: 'card'
             }} 
           />
+          <Stack.Screen 
+            name="events-search" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
+          <Stack.Screen 
+            name="event-detail" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
+          <Stack.Screen 
+            name="group-selection" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
+          <Stack.Screen 
+            name="calendar" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
+          <Stack.Screen 
+            name="date-events" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
+          <Stack.Screen 
+            name="create-event" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider>
