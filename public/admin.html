@@ -313,12 +313,18 @@
 
         async function loadEvents() {
             const groupFilter = document.getElementById('groupIdFilter').value;
-            const url = `/api/admin/events${groupFilter ? `?group_id=${encodeURIComponent(groupFilter)}` : ''}`;
+            const params = new URLSearchParams();
+            params.set('admin_key', adminKey);
+            if (groupFilter) {
+                params.set('group_id', groupFilter);
+            }
+            const url = `/api/admin/events?${params.toString()}`;
             
             try {
                 const response = await fetch(url, {
                     headers: {
-                        'Authorization': `Bearer ${adminKey}`
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
                     }
                 });
 
@@ -388,7 +394,7 @@
             if (!confirm(`Delete event ${eventId}?`)) return;
             
             try {
-                const response = await fetch('/api/admin/events', {
+                const response = await fetch(`/api/admin/events?admin_key=${encodeURIComponent(adminKey)}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
@@ -413,7 +419,7 @@
             if (!confirm(`Delete all events from test group ${groupId}?`)) return;
             
             try {
-                const response = await fetch('/api/admin/events', {
+                const response = await fetch(`/api/admin/events?admin_key=${encodeURIComponent(adminKey)}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
@@ -442,7 +448,7 @@
 
         async function deleteAllEvents() {
             try {
-                const response = await fetch('/api/admin/events', {
+                const response = await fetch(`/api/admin/events?admin_key=${encodeURIComponent(adminKey)}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
