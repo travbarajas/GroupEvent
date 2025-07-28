@@ -475,6 +475,37 @@ export default function GroupDetailScreen() {
               activeOpacity={0.7}
               onPress={(e) => {
                 e.stopPropagation();
+                
+                // If only one event, go directly to event screen; otherwise go to date list
+                if (day.eventCount === 1) {
+                  // Find the single event for this day
+                  const dayEvents = groupEvents.filter(event => {
+                    const eventDate = formatEventDate(event.original_event_data?.date);
+                    return eventDate === day.dateString;
+                  });
+                  
+                  if (dayEvents.length === 1) {
+                    const event = dayEvents[0];
+                    router.push({
+                      pathname: '/event-detail',
+                      params: {
+                        event: JSON.stringify({
+                          id: event.id,
+                          name: event.custom_name || event.original_event_data?.name || 'Untitled Event',
+                          date: event.original_event_data?.date || '',
+                          time: event.original_event_data?.time || '',
+                          description: event.original_event_data?.description || '',
+                          distance: event.original_event_data?.venue?.name || event.original_event_data?.location || '',
+                          price: event.original_event_data?.price || 'Free',
+                          images: event.original_event_data?.images || []
+                        })
+                      }
+                    });
+                    return;
+                  }
+                }
+                
+                // Multiple events or fallback - go to date list
                 router.push(`/date-events?date=${day.dateString}&groupId=${id}`);
               }}
             >

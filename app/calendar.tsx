@@ -426,6 +426,29 @@ export default function CalendarScreen() {
                   if (date) {
                     setSelectedDate({day: date, month, year});
                     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+                    
+                    // If only one event, go directly to event screen; otherwise go to date list
+                    if (dateEvents.length === 1) {
+                      const event = dateEvents[0];
+                      router.push({
+                        pathname: '/event-detail',
+                        params: {
+                          event: JSON.stringify({
+                            id: event.id,
+                            name: event.title,
+                            date: event.startDate,
+                            time: '',
+                            description: '',
+                            distance: '',
+                            price: 'Free',
+                            images: []
+                          })
+                        }
+                      });
+                      return;
+                    }
+                    
+                    // Multiple events - go to date list
                     router.push(`/date-events?date=${dateString}&groupId=${groupId}`);
                   }
                 } : undefined}
