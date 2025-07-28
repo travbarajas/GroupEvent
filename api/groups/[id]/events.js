@@ -256,5 +256,52 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  if (req.method === 'DELETE') {
+    try {
+      const { id } = req.query;
+      const { device_id, event_id } = req.body;
+      
+      if (!device_id || !event_id) {
+        return res.status(400).json({ error: 'device_id and event_id are required' });
+      }
+
+      // Check if user is a member of this group
+      const [membership] = await sql`
+        SELECT username FROM members WHERE group_id = ${id} AND device_id = ${device_id}
+      `;
+
+      if (!membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
+
+      // Check if the event exists and if the user is the creator
+      const [event] = await sql`
+        SELECT * FROM group_events 
+        WHERE id = ${event_id} AND group_id = ${id}
+      `;
+
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      // Check if user is the creator of the event
+      if (event.added_by_device_id !== device_id && event.created_by_device_id !== device_id) {
+        return res.status(403).json({ error: 'Only the event creator can delete this event' });
+      }
+
+      // Delete the event
+      await sql`
+        DELETE FROM group_events 
+        WHERE id = ${event_id} AND group_id = ${id}
+      `;
+
+      return res.status(200).json({ success: true, message: 'Event deleted successfully' });
+
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
 };

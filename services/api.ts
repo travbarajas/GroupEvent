@@ -281,6 +281,17 @@ export class ApiService {
     });
   }
 
+  static async deleteEventFromGroup(groupId: string, eventId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        device_id,
+        event_id: eventId
+      })
+    });
+  }
+
   // Note: Individual event endpoint removed to stay under Vercel function limit
   // Events are fetched through group context instead
 

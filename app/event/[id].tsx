@@ -8,6 +8,8 @@ import {
   ScrollView,
   Animated,
   FlatList,
+  Modal,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,14 +45,27 @@ export default function EventDetailScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
   const [headerAnimation] = useState(new Animated.Value(0));
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
 
   useEffect(() => {
     if (id && groupId) {
       fetchEventData();
       fetchAttendance();
       fetchExpenses();
+      getCurrentDeviceId();
     }
   }, [id, groupId]);
+
+  const getCurrentDeviceId = async () => {
+    try {
+      const { DeviceIdManager } = await import('@/utils/deviceId');
+      const deviceId = await DeviceIdManager.getDeviceId();
+      setCurrentDeviceId(deviceId);
+    } catch (error) {
+      console.error('Failed to get device ID:', error);
+    }
+  };
 
   const fetchEventData = async () => {
     try {
@@ -115,6 +130,25 @@ export default function EventDetailScreen() {
     }).start();
     
     setIsHeaderExpanded(!isHeaderExpanded);
+  };
+
+  const handleDeleteEvent = async () => {
+    try {
+      await ApiService.deleteEventFromGroup(groupId as string, id as string);
+      setShowDeleteModal(false);
+      router.back(); // Go back to group page
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      Alert.alert('Error', 'Failed to delete event. Please try again.');
+    }
+  };
+
+  const isEventCreator = () => {
+    if (!event || !currentDeviceId) return false;
+    
+    // Check both possible creator field names
+    const creatorDeviceId = (event as any).created_by_device_id || (event as any).added_by_device_id;
+    return creatorDeviceId === currentDeviceId;
   };
 
   const headerHeight = headerAnimation.interpolate({
@@ -237,13 +271,23 @@ export default function EventDetailScreen() {
                 <Text style={styles.eventName}>
                   {displayEvent.displayName}
                 </Text>
-                <TouchableOpacity onPress={toggleHeader}>
-                  <Ionicons 
-                    name={isHeaderExpanded ? "chevron-up" : "chevron-down"} 
-                    size={20} 
-                    color="#9ca3af" 
-                  />
-                </TouchableOpacity>
+                <View style={styles.headerRightButtons}>
+                  {isEventCreator() && (
+                    <TouchableOpacity 
+                      onPress={() => setShowDeleteModal(true)} 
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={toggleHeader}>
+                    <Ionicons 
+                      name={isHeaderExpanded ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color="#9ca3af" 
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
               
               <Text style={styles.eventShortDescription} numberOfLines={isHeaderExpanded ? undefined : 2}>
@@ -359,6 +403,47 @@ export default function EventDetailScreen() {
         {/* Bottom spacing */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showDeleteModal}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={24} color="#ef4444" />
+              <Text style={styles.deleteModalTitle}>Delete Event</Text>
+            </View>
+            
+            <View style={styles.deleteModalBody}>
+              <Text style={styles.deleteModalText}>
+                Are you sure you want to delete "{displayEvent.displayName}"?
+              </Text>
+              <Text style={styles.deleteModalSubtext}>
+                This action cannot be undone.
+              </Text>
+            </View>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deleteConfirmButton} 
+                onPress={handleDeleteEvent}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -568,5 +653,93 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deleteButton: {
+    padding: 4,
+  },
+  // Delete Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  deleteModalBody: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  deleteModalText: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  deleteModalSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  cancelButtonText: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: '#ef4444',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
