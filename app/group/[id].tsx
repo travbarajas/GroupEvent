@@ -854,7 +854,10 @@ export default function GroupDetailScreen() {
           
           {/* Create Event Block */}
           <TouchableOpacity 
-            style={styles.createEventBlock} 
+            style={[
+              styles.createEventBlock,
+              { borderColor: groupProfile?.color || '#60a5fa' }
+            ]} 
             activeOpacity={0.8} 
             onPress={() => router.push({
               pathname: '/create-event',
@@ -1305,7 +1308,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#60a5fa',
     marginBottom: 8,
   },
   addEventBlock: {
