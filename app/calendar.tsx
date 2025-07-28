@@ -357,8 +357,9 @@ export default function CalendarScreen() {
     const dateString = getDateString(date, year, month);
     return events.filter(event => {
       const eventStart = new Date(event.startDate);
-      const eventEnd = event.endDate ? new Date(event.endDate) : eventStart;
-      const currentDateObj = new Date(dateString);
+      const eventEnd = event.endDate ? new Date(event.startDate) : eventStart;
+      // Parse dateString as local time to avoid UTC timezone issues
+      const currentDateObj = new Date(year, month, date);
       
       return currentDateObj >= eventStart && currentDateObj <= eventEnd;
     });

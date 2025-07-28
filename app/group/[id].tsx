@@ -439,7 +439,14 @@ export default function GroupDetailScreen() {
     const next4Days = getNext4Days();
     
     return (
-      <View style={styles.fourDayPreview}>
+      <TouchableOpacity 
+        style={styles.fourDayPreview}
+        activeOpacity={0.8}
+        onPress={() => router.push({
+          pathname: '/calendar',
+          params: { groupId: id }
+        })}
+      >
         {/* Calendar Button integrated into 4-day preview */}
         <TouchableOpacity 
           style={styles.integratedCalendarButton}
@@ -466,7 +473,8 @@ export default function GroupDetailScreen() {
                 day.hasEvents && styles.dayPreviewWithEvents
               ]}
               activeOpacity={0.7}
-              onPress={() => {
+              onPress={(e) => {
+                e.stopPropagation();
                 router.push(`/date-events?date=${day.dateString}&groupId=${id}`);
               }}
             >
@@ -488,7 +496,7 @@ export default function GroupDetailScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

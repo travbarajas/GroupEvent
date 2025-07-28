@@ -80,7 +80,14 @@ export default function DateEventsScreen() {
           return null;
         }
       } else {
-        eventDate = new Date(dateString);
+        // Parse date string as local time to avoid UTC timezone issues
+        const parts = dateString.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (parts) {
+          const [, year, month, day] = parts;
+          eventDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        } else {
+          eventDate = new Date(dateString);
+        }
       }
       
       if (isNaN(eventDate.getTime())) {
