@@ -32,8 +32,16 @@ module.exports = async function handler(req, res) {
           return res.status(403).json({ error: 'You are not a member of this group' });
         }
 
-        // Get all events for this group
+        // Get all events for this group with creator colors
         try {
+          // Ensure color column exists
+          try {
+            await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS color VARCHAR(7) DEFAULT '#60a5fa'`;
+          } catch (error) {
+            // Column already exists
+          }
+          
+          console.log('🎯 LEGACY ENDPOINT: Fetching events with colors');
           const groupEvents = await sql`
             SELECT 
               e.id,
@@ -42,12 +50,13 @@ module.exports = async function handler(req, res) {
               e.created_at,
               e.created_by_device_id,
               m.username as created_by_username,
-              m.color as created_by_color
+              COALESCE(m.color, '#2a2a2a') as created_by_color
             FROM group_events e
             LEFT JOIN members m ON e.created_by_device_id = m.device_id AND m.group_id = ${id}
             WHERE e.group_id = ${id}
             ORDER BY e.created_at DESC
           `;
+          console.log('🎯 LEGACY: Found', groupEvents.length, 'events, first event color:', groupEvents[0]?.created_by_color);
           
           return res.status(200).json({ events: groupEvents });
         } catch (error) {
