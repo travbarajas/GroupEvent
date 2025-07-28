@@ -146,6 +146,7 @@ module.exports = async function handler(req, res) {
             original_event_data,
             added_by_device_id,
             added_by_username,
+            created_by_device_id,
             source_type,
             added_at
           )
@@ -170,6 +171,7 @@ module.exports = async function handler(req, res) {
             ${JSON.stringify(originalEventData)},
             ${device_id},
             ${membership.username},
+            ${device_id},
             'custom',
             CURRENT_TIMESTAMP
           )
