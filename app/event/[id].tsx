@@ -146,9 +146,22 @@ export default function EventDetailScreen() {
   const isEventCreator = () => {
     if (!event || !currentDeviceId) return false;
     
-    // Check both possible creator field names
-    const creatorDeviceId = (event as any).created_by_device_id || (event as any).added_by_device_id;
-    return creatorDeviceId === currentDeviceId;
+    // Check multiple possible creator field names for backwards compatibility
+    const eventAny = event as any;
+    const possibleCreatorIds = [
+      eventAny.created_by_device_id,
+      eventAny.added_by_device_id,
+      eventAny.createdByDeviceId,
+      eventAny.addedByDeviceId
+    ].filter(Boolean); // Remove null/undefined values
+    
+    // If no creator ID found, allow deletion (for very old events)
+    if (possibleCreatorIds.length === 0) {
+      console.log('No creator ID found for event, allowing deletion for cleanup');
+      return true;
+    }
+    
+    return possibleCreatorIds.some(creatorId => creatorId === currentDeviceId);
   };
 
   const headerHeight = headerAnimation.interpolate({

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupEvent Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a2a;
+        }
+        
+        .header h1 {
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        
+        .auth-section {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a2a;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #2a2a2a;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #60a5fa;
+        }
+        
+        .stat-label {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        
+        .controls {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a2a;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        button:hover {
+            opacity: 0.9;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        input {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            color: #ffffff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .events-table {
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #2a2a2a;
+            overflow: hidden;
+        }
+        
+        .table-header {
+            background: #2a2a2a;
+            padding: 15px;
+            font-weight: 600;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        
+        .event-row {
+            padding: 15px;
+            border-bottom: 1px solid #2a2a2a;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 150px 100px 80px;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .event-row:last-child {
+            border-bottom: none;
+        }
+        
+        .event-name {
+            font-weight: 500;
+        }
+        
+        .event-meta {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+        
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+        
+        .error {
+            background: #fecaca;
+            color: #991b1b;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #bbf7d0;
+            color: #166534;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .group-filter {
+            margin-bottom: 15px;
+        }
+        
+        .group-filter input {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 GroupEvent Admin Panel</h1>
+            <p>Manage events, groups, and database cleanup</p>
+        </div>
+
+        <div id="authSection" class="auth-section">
+            <h2>Authentication</h2>
+            <p>Enter admin key to access admin functions:</p>
+            <div style="margin-top: 10px;">
+                <input type="password" id="adminKey" placeholder="Enter admin key" style="margin-right: 10px;">
+                <button onclick="authenticate()" class="btn-primary">Login</button>
+            </div>
+            <div id="authError" class="error hidden"></div>
+        </div>
+
+        <div id="adminContent" class="hidden">
+            <div class="stats" id="statsContainer">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalEvents">-</div>
+                    <div class="stat-label">Total Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalGroups">-</div>
+                    <div class="stat-label">Total Groups</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="customEvents">-</div>
+                    <div class="stat-label">Custom Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="eventsToday">-</div>
+                    <div class="stat-label">Events Today</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <h2>Admin Controls</h2>
+                
+                <div class="group-filter">
+                    <input type="text" id="groupIdFilter" placeholder="Filter by Group ID (optional)">
+                    <button onclick="loadEvents()" class="btn-primary">Reload Events</button>
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="loadEvents()" class="btn-primary">Refresh Data</button>
+                    <button onclick="deleteTestGroups()" class="btn-danger">Delete Test Groups</button>
+                    <button onclick="confirmDeleteAll()" class="btn-danger">⚠️ DELETE ALL EVENTS</button>
+                </div>
+                
+                <div id="message" class="hidden"></div>
+            </div>
+
+            <div class="events-table">
+                <div class="table-header">
+                    Events Management
+                </div>
+                
+                <div id="eventsContainer" class="loading">
+                    Loading events...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminKey = '';
+        let currentEvents = [];
+
+        function authenticate() {
+            adminKey = document.getElementById('adminKey').value;
+            if (!adminKey) {
+                showAuthError('Please enter admin key');
+                return;
+            }
+            
+            // Test the key by trying to load events
+            loadEvents().then(() => {
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('adminContent').classList.remove('hidden');
+            }).catch((error) => {
+                showAuthError('Invalid admin key');
+            });
+        }
+
+        function showAuthError(message) {
+            const errorEl = document.getElementById('authError');
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+        }
+
+        function showMessage(message, type = 'success') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = message;
+            messageEl.className = type;
+            messageEl.classList.remove('hidden');
+            setTimeout(() => {
+                messageEl.classList.add('hidden');
+            }, 3000);
+        }
+
+        async function loadEvents() {
+            const groupFilter = document.getElementById('groupIdFilter').value;
+            const url = `/api/admin/events${groupFilter ? `?group_id=${encodeURIComponent(groupFilter)}` : ''}`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                currentEvents = data.events;
+                
+                // Update stats
+                document.getElementById('totalEvents').textContent = data.stats.total_events;
+                document.getElementById('totalGroups').textContent = data.stats.total_groups;
+                document.getElementById('customEvents').textContent = data.stats.custom_events;
+                document.getElementById('eventsToday').textContent = data.stats.events_today;
+                
+                // Render events table
+                renderEventsTable(data.events);
+                
+            } catch (error) {
+                console.error('Failed to load events:', error);
+                document.getElementById('eventsContainer').innerHTML = 
+                    `<div class="error">Failed to load events: ${error.message}</div>`;
+                throw error;
+            }
+        }
+
+        function renderEventsTable(events) {
+            const container = document.getElementById('eventsContainer');
+            
+            if (events.length === 0) {
+                container.innerHTML = '<div class="loading">No events found</div>';
+                return;
+            }
+
+            const html = events.map(event => `
+                <div class="event-row">
+                    <div>
+                        <div class="event-name">${event.custom_name || event.name || 'Untitled'}</div>
+                        <div class="event-meta">ID: ${event.id}</div>
+                    </div>
+                    <div>
+                        <div>${event.group_name || 'Unknown Group'}</div>
+                        <div class="event-meta">${event.group_id}</div>
+                    </div>
+                    <div>
+                        <div>${event.date || 'No date'} ${event.time || ''}</div>
+                        <div class="event-meta">By: ${event.added_by_username || 'Unknown'}</div>
+                    </div>
+                    <div class="event-meta">
+                        ${event.source_type || 'unknown'}<br>
+                        ${new Date(event.added_at).toLocaleDateString()}
+                    </div>
+                    <div class="event-meta">
+                        Creator: ${event.added_by_device_id ? event.added_by_device_id.substring(0, 8) + '...' : 'N/A'}
+                    </div>
+                    <div>
+                        <button onclick="deleteEvent('${event.id}')" class="delete-btn">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+
+        async function deleteEvent(eventId) {
+            if (!confirm(`Delete event ${eventId}?`)) return;
+            
+            try {
+                const response = await fetch('/api/admin/events', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ event_id: eventId })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(result.message);
+                loadEvents(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete event: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteTestGroups() {
+            const groupId = 'group_1753430044079_sawkauvlaw'; // Your test group
+            if (!confirm(`Delete all events from test group ${groupId}?`)) return;
+            
+            try {
+                const response = await fetch('/api/admin/events', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ group_id: groupId })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(result.message);
+                loadEvents(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete test group events: ${error.message}`, 'error');
+            }
+        }
+
+        function confirmDeleteAll() {
+            if (!confirm('⚠️ DELETE ALL EVENTS? This cannot be undone!')) return;
+            if (!confirm('Are you ABSOLUTELY sure? This will delete ALL events from ALL groups!')) return;
+            
+            deleteAllEvents();
+        }
+
+        async function deleteAllEvents() {
+            try {
+                const response = await fetch('/api/admin/events', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ delete_all: 'confirm' })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(`⚠️ ${result.message}`);
+                loadEvents(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete all events: ${error.message}`, 'error');
+            }
+        }
+
+        // Handle Enter key in admin key input
+        document.getElementById('adminKey').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                authenticate();
+            }
+        });
+    </script>
+</body>
+</html>
