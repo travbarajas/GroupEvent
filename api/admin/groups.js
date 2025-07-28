@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     try {
-      const { group_id, delete_all } = req.body;
+      const { group_id, delete_all, cleanup_empty } = req.body;
 
       if (delete_all === 'confirm') {
         // Delete ALL groups (use with extreme caution!)
@@ -84,6 +84,41 @@ module.exports = async function handler(req, res) {
           message: `Deleted all groups`,
           deleted_count: result.count 
         });
+      }
+
+      if (cleanup_empty === 'confirm') {
+        // Delete groups with no members (orphaned groups)
+        const emptyGroups = await sql`
+          SELECT g.id, g.name 
+          FROM groups g
+          LEFT JOIN members m ON g.id = m.group_id
+          WHERE m.group_id IS NULL
+        `;
+        
+        if (emptyGroups.length > 0) {
+          const result = await sql`
+            DELETE FROM groups 
+            WHERE id IN (
+              SELECT g.id 
+              FROM groups g
+              LEFT JOIN members m ON g.id = m.group_id
+              WHERE m.group_id IS NULL
+            )
+          `;
+          
+          return res.status(200).json({ 
+            success: true, 
+            message: `Cleaned up ${result.count} empty groups`,
+            deleted_count: result.count,
+            deleted_groups: emptyGroups.map(g => ({ id: g.id, name: g.name }))
+          });
+        } else {
+          return res.status(200).json({ 
+            success: true, 
+            message: 'No empty groups found to clean up',
+            deleted_count: 0
+          });
+        }
       }
 
       if (group_id) {
@@ -104,7 +139,7 @@ module.exports = async function handler(req, res) {
       }
 
       return res.status(400).json({ 
-        error: 'Must provide group_id or delete_all=confirm' 
+        error: 'Must provide group_id, delete_all=confirm, or cleanup_empty=confirm' 
       });
 
     } catch (error) {
