@@ -286,12 +286,14 @@
                 return;
             }
             
-            // Test the key by trying to load events
-            loadEvents().then(() => {
+            // Test the key with a simple request first
+            testAuthentication().then(() => {
                 document.getElementById('authSection').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
+                loadEvents(); // Load events after successful auth
             }).catch((error) => {
-                showAuthError('Invalid admin key');
+                console.error('Auth error:', error);
+                showAuthError('Invalid admin key: ' + error.message);
             });
         }
 
@@ -309,6 +311,32 @@
             setTimeout(() => {
                 messageEl.classList.add('hidden');
             }, 3000);
+        }
+
+        async function testAuthentication() {
+            try {
+                const response = await fetch(`/api/admin/debug?admin_key=${encodeURIComponent(adminKey)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.keys_match) {
+                    throw new Error('Key mismatch');
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Authentication test failed:', error);
+                throw error;
+            }
         }
 
         async function loadEvents() {
