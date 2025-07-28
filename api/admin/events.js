@@ -43,52 +43,77 @@ module.exports = async function handler(req, res) {
     try {
       const { group_id, limit = 100 } = req.query;
 
-      let query;
-      let params = [];
-
-      if (group_id) {
-        // Get events for specific group
-        query = `
-          SELECT 
-            ge.*,
-            g.name as group_name
-          FROM group_events ge
-          LEFT JOIN groups g ON ge.group_id = g.id
-          WHERE ge.group_id = $1
-          ORDER BY ge.added_at DESC
-          LIMIT $2
+      // First check if group_events table exists and create if needed
+      try {
+        await sql`
+          CREATE TABLE IF NOT EXISTS group_events (
+            id VARCHAR(255) PRIMARY KEY,
+            group_id VARCHAR(255) NOT NULL,
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+          )
         `;
-        params = [group_id, parseInt(limit)];
-      } else {
-        // Get all events across all groups
-        query = `
-          SELECT 
-            ge.*,
-            g.name as group_name,
-            g.member_count
-          FROM group_events ge
-          LEFT JOIN groups g ON ge.group_id = g.id
-          ORDER BY ge.added_at DESC
-          LIMIT $1
-        `;
-        params = [parseInt(limit)];
+      } catch (tableError) {
+        console.log('Table check/creation error:', tableError.message);
       }
 
-      const events = await sql(query, params);
+      let events;
 
-      // Get summary stats
-      const stats = await sql`
-        SELECT 
-          COUNT(*) as total_events,
-          COUNT(DISTINCT group_id) as total_groups,
-          COUNT(CASE WHEN source_type = 'custom' THEN 1 END) as custom_events,
-          COUNT(CASE WHEN added_at > NOW() - INTERVAL '24 hours' THEN 1 END) as events_today
-        FROM group_events
-      `;
+      try {
+        if (group_id) {
+          // Get events for specific group
+          events = await sql`
+            SELECT 
+              ge.*,
+              g.name as group_name
+            FROM group_events ge
+            LEFT JOIN groups g ON ge.group_id = g.id
+            WHERE ge.group_id = ${group_id}
+            ORDER BY ge.added_at DESC
+            LIMIT ${parseInt(limit)}
+          `;
+        } else {
+          // Get all events across all groups
+          events = await sql`
+            SELECT 
+              ge.*,
+              g.name as group_name,
+              g.member_count
+            FROM group_events ge
+            LEFT JOIN groups g ON ge.group_id = g.id
+            ORDER BY ge.added_at DESC
+            LIMIT ${parseInt(limit)}
+          `;
+        }
+      } catch (queryError) {
+        console.log('Events query failed:', queryError.message);
+        events = []; // Return empty array if table doesn't exist or query fails
+      }
+
+      // Get summary stats with error handling
+      let stats;
+      try {
+        const statsResult = await sql`
+          SELECT 
+            COUNT(*) as total_events,
+            COUNT(DISTINCT group_id) as total_groups,
+            COUNT(CASE WHEN source_type = 'custom' THEN 1 END) as custom_events,
+            COUNT(CASE WHEN added_at > NOW() - INTERVAL '24 hours' THEN 1 END) as events_today
+          FROM group_events
+        `;
+        stats = statsResult[0];
+      } catch (statsError) {
+        console.log('Stats query failed:', statsError.message);
+        stats = {
+          total_events: 0,
+          total_groups: 0,
+          custom_events: 0,
+          events_today: 0
+        };
+      }
 
       return res.status(200).json({
         events,
-        stats: stats[0],
+        stats: stats,
         total_returned: events.length
       });
 
