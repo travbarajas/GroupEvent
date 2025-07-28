@@ -38,6 +38,7 @@ const DateCell = memo(({
   isSelected, 
   hasEvents,
   eventCount,
+  events,
   onPress 
 }: {
   date: number | null;
@@ -48,6 +49,7 @@ const DateCell = memo(({
   isSelected: boolean;
   hasEvents: boolean;
   eventCount: number;
+  events: any[];
   onPress?: () => void;
 }) => {
   if (!date) {
@@ -63,8 +65,11 @@ const DateCell = memo(({
       ]}>
         {date}
       </Text>
-      {hasEvents && (
-        <View style={styles.eventPill}>
+      {hasEvents && events.length > 0 && (
+        <View style={[
+          styles.eventPill, 
+          { backgroundColor: events[0].color || '#D4A574' }
+        ]}>
           <Text style={styles.eventPillText}>
             {eventCount} event{eventCount > 1 ? 's' : ''}
           </Text>
@@ -184,12 +189,13 @@ export default function CalendarScreen() {
       const calendarEvents: CalendarEvent[] = (eventsData.events || []).map((event: any) => {
         const title = event.custom_name || event.original_event_data?.name || 'Untitled Event';
         const startDate = formatEventDate(event.original_event_data?.date) || '';
+        const creatorColor = event.created_by_color || '#D4A574'; // Use creator's color or default
         
         return {
           id: String(event.id || ''),
           title: String(title),
           startDate: String(startDate),
-          color: '#D4A574',
+          color: creatorColor,
           icon: 'calendar',
           participants: 0
         };
@@ -414,6 +420,7 @@ export default function CalendarScreen() {
                 isSelected={isSelected}
                 hasEvents={hasEvents}
                 eventCount={dateEvents.length}
+                events={dateEvents}
                 onPress={hasEvents ? () => {
                   if (date) {
                     setSelectedDate({day: date, month, year});

@@ -190,7 +190,7 @@ export class ApiService {
     });
   }
 
-  static async updateGroupProfile(groupId: string, data: { username?: string; profile_picture?: string }): Promise<any> {
+  static async updateGroupProfile(groupId: string, data: { username?: string; profile_picture?: string; color?: string }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}`, {
       method: 'PUT',

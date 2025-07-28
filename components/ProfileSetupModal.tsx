@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,40 +13,66 @@ const { width } = Dimensions.get('window');
 
 interface ProfileSetupModalProps {
   visible: boolean;
-  onComplete: (username: string, profilePicture: string) => void;
-  onSkip: () => void;
+  onComplete: (username: string, profilePicture: string, color?: string) => void;
   groupName?: string;
+  initialUsername?: string;
+  initialColor?: string;
 }
 
+const PRESET_COLORS = [
+  '#60a5fa', // Blue
+  '#34d399', // Green
+  '#f87171', // Red
+  '#fbbf24', // Yellow
+  '#a78bfa', // Purple
+  '#fb7185', // Pink
+  '#fb923c', // Orange
+  '#22d3ee', // Cyan
+  '#c084fc', // Violet
+  '#4ade80', // Lime
+];
 
-export default function ProfileSetupModal({ visible, onComplete, onSkip, groupName }: ProfileSetupModalProps) {
-  const [username, setUsername] = useState('');
+export default function ProfileSetupModal({ 
+  visible, 
+  onComplete, 
+  groupName, 
+  initialUsername = '', 
+  initialColor = PRESET_COLORS[0] 
+}: ProfileSetupModalProps) {
+  const [username, setUsername] = useState(initialUsername);
+  const [selectedColor, setSelectedColor] = useState(initialColor);
+
+  // Update state when props change
+  useEffect(() => {
+    setUsername(initialUsername);
+    setSelectedColor(initialColor);
+  }, [initialUsername, initialColor]);
 
   const handleComplete = () => {
     if (username.trim()) {
-      onComplete(username.trim(), ''); // No profile picture for now
+      onComplete(username.trim(), '', selectedColor); // Include selected color
       setUsername('');
+      setSelectedColor(PRESET_COLORS[0]); // Reset to default
     }
   };
 
-  const handleSkip = () => {
-    onSkip();
-    setUsername('');
-  };
 
   return (
     <Modal
       animationType="slide"
       transparent={true}
       visible={visible}
-      onRequestClose={handleSkip}
+      onRequestClose={() => {}}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Set Your Username</Text>
+            <Text style={styles.modalTitle}>Set Your Profile</Text>
             <Text style={styles.modalSubtitle}>
-              {groupName ? `Choose a username for "${groupName}"` : 'Choose a username for this group'}
+              {initialUsername ? 
+                (groupName ? `Update your profile for "${groupName}"` : 'Update your profile for this group') :
+                (groupName ? `Choose a username and color for "${groupName}"` : 'Choose a username and color for this group')
+              }
             </Text>
           </View>
           
@@ -66,15 +92,31 @@ export default function ProfileSetupModal({ visible, onComplete, onSkip, groupNa
             <Text style={styles.inputHelper}>
               {username.length}/20 characters
             </Text>
+            
+            <Text style={styles.inputLabel}>Your Color</Text>
+            <View style={styles.colorPicker}>
+              {PRESET_COLORS.map((color, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.colorOption,
+                    { backgroundColor: color },
+                    selectedColor === color && styles.colorOptionSelected
+                  ]}
+                  onPress={() => setSelectedColor(color)}
+                >
+                  {selectedColor === color && (
+                    <Text style={styles.colorSelectedText}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.colorHelper}>
+              This color will be used for events you create
+            </Text>
           </View>
           
           <View style={styles.modalButtons}>
-            <TouchableOpacity 
-              style={styles.skipButton} 
-              onPress={handleSkip}
-            >
-              <Text style={styles.skipButtonText}>Skip for now</Text>
-            </TouchableOpacity>
             <TouchableOpacity 
               style={[
                 styles.completeButton, 
@@ -86,7 +128,7 @@ export default function ProfileSetupModal({ visible, onComplete, onSkip, groupNa
               <Text style={[
                 styles.completeButtonText,
                 !username.trim() && styles.completeButtonTextDisabled
-              ]}>Save Username</Text>
+              ]}>Save Profile</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -153,33 +195,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     textAlign: 'right',
+    marginBottom: 20,
+  },
+  colorPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  colorOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorOptionSelected: {
+    borderColor: '#ffffff',
+    borderWidth: 3,
+  },
+  colorSelectedText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  colorHelper: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
   },
   modalButtons: {
-    flexDirection: 'row',
     padding: 20,
-    gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#2a2a2a',
   },
-  skipButton: {
-    flex: 1,
-    backgroundColor: '#2a2a2a',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  skipButtonText: {
-    color: '#e5e7eb',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   completeButton: {
-    flex: 1,
     backgroundColor: '#2563eb',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',

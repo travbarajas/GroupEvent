@@ -19,7 +19,12 @@
       "Bash(npm install:*)",
       "Bash(tail:*)",
       "Bash(npm start)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(expo start)",
+      "Bash(timeout 30 npx expo start --port 8082)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

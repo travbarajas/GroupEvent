@@ -130,10 +130,10 @@ export default function GroupsTab() {
     setRefreshing(false);
   };
 
-  const handleProfileSetup = async (username: string, profilePicture: string) => {
+  const handleProfileSetup = async (username: string, profilePicture: string, color?: string) => {
     try {
       if (pendingGroupId) {
-        await ApiService.updateGroupProfile(pendingGroupId, { username, profile_picture: profilePicture });
+        await ApiService.updateGroupProfile(pendingGroupId, { username, profile_picture: profilePicture, color });
         setShowProfileModal(false);
         
         // Navigate to the group
@@ -327,7 +327,6 @@ export default function GroupsTab() {
       <ProfileSetupModal
         visible={showProfileModal}
         onComplete={handleProfileSetup}
-        onSkip={handleProfileSkip}
         groupName={pendingGroupName}
       />
     </View>

@@ -39,7 +39,8 @@ module.exports = async function handler(req, res) {
               e.original_event_data,
               e.created_at,
               e.created_by_device_id,
-              m.username as created_by_username
+              m.username as created_by_username,
+              m.color as created_by_color
             FROM group_events e
             LEFT JOIN members m ON e.created_by_device_id = m.device_id AND m.group_id = ${id}
             WHERE e.group_id = ${id}
@@ -56,15 +57,32 @@ module.exports = async function handler(req, res) {
 
       // If profile parameter is present, return user's profile for this group
       if (profile === 'true' && device_id) {
+        // Ensure color column exists before querying
+        try {
+          await sql`
+            ALTER TABLE members 
+            ADD COLUMN color VARCHAR(7) DEFAULT '#60a5fa'
+          `;
+        } catch (error) {
+          // Column already exists
+        }
+        
         const [member] = await sql`
-          SELECT username, profile_picture,
+          SELECT username, profile_picture, 
+                 COALESCE(color, '#60a5fa') as color,
                  CASE WHEN username IS NOT NULL AND LENGTH(TRIM(username)) > 0 
                       THEN true 
                       ELSE false 
-                 END as has_username
+                 END as has_username,
+                 CASE WHEN color IS NOT NULL AND LENGTH(TRIM(color)) > 0 
+                      THEN true 
+                      ELSE false 
+                 END as has_color
           FROM members 
           WHERE group_id = ${id} AND device_id = ${device_id}
         `;
+        
+        console.log('👤 Profile query result:', member);
         
         if (!member) {
           return res.status(404).json({ error: 'You are not a member of this group' });
@@ -161,21 +179,39 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
+    console.log('🎯 PUT REQUEST HIT /api/groups/[id].js');
     try {
       const { id } = req.query;
-      const { device_id, username, profile_picture } = req.body;
+      const { device_id, username, profile_picture, color } = req.body;
+      
+      console.log('🔧 PUT request received:', { device_id, username, profile_picture, color });
       
       if (!device_id || !username) {
         return res.status(400).json({ error: 'device_id and username are required' });
       }
 
-      // Update username and profile picture for this specific group membership
+      // Ensure color column exists in members table
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN color VARCHAR(7) DEFAULT '#60a5fa'
+        `;
+        console.log('✅ Color column ensured');
+      } catch (error) {
+        console.log('Color column already exists');
+      }
+
+      // Update username, profile picture, and color for this specific group membership
       const [updatedMember] = await sql`
         UPDATE members 
-        SET username = ${username.trim()}, profile_picture = ${profile_picture || null}
+        SET username = ${username.trim()}, 
+            profile_picture = ${profile_picture || null},
+            color = ${color || '#60a5fa'}
         WHERE group_id = ${id} AND device_id = ${device_id}
-        RETURNING username, profile_picture
+        RETURNING username, profile_picture, color
       `;
+      
+      console.log('📊 Updated member result:', updatedMember);
 
       if (!updatedMember) {
         return res.status(404).json({ error: 'You are not a member of this group' });
@@ -185,7 +221,8 @@ module.exports = async function handler(req, res) {
         success: true, 
         message: 'Profile updated successfully',
         username: updatedMember.username,
-        profile_picture: updatedMember.profile_picture
+        profile_picture: updatedMember.profile_picture,
+        color: updatedMember.color
       });
     } catch (error) {
       console.error('Error updating group profile:', error);

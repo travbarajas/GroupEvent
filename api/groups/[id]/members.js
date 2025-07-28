@@ -41,7 +41,8 @@ module.exports = async function handler(req, res) {
               e.original_event_data,
               e.created_at,
               e.created_by_device_id,
-              m.username as created_by_username
+              m.username as created_by_username,
+              m.color as created_by_color
             FROM group_events e
             LEFT JOIN members m ON e.created_by_device_id = m.device_id AND m.group_id = ${id}
             WHERE e.group_id = ${id}
@@ -69,7 +70,17 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Get all members with their usernames for this group
+      // Ensure color column exists in members table
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN color VARCHAR(7) DEFAULT '#60a5fa'
+        `;
+      } catch (error) {
+        // Column already exists
+      }
+
+      // Get all members with their usernames and colors for this group
       const members = await sql`
         SELECT 
           m.id as member_id,
@@ -77,10 +88,15 @@ module.exports = async function handler(req, res) {
           m.role,
           m.username,
           m.profile_picture,
+          m.color,
           CASE WHEN m.username IS NOT NULL AND LENGTH(TRIM(m.username)) > 0 
                THEN true 
                ELSE false 
-          END as has_username
+          END as has_username,
+          CASE WHEN m.color IS NOT NULL AND LENGTH(TRIM(m.color)) > 0 
+               THEN true 
+               ELSE false 
+          END as has_color
         FROM members m
         WHERE m.group_id = ${id}
         ORDER BY m.id ASC

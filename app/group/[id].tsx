@@ -132,10 +132,20 @@ export default function GroupDetailScreen() {
   const fetchGroupProfile = async () => {
     try {
       const profileData = await ApiService.getGroupProfile(id as string);
+      console.log('📊 Profile data received:', profileData);
       setGroupProfile(profileData);
       
       // Check if user needs to set profile for this group
-      if (!profileData.has_username) {
+      // Show modal if no username OR no color
+      console.log('🔍 Profile check:', {
+        has_username: profileData.has_username,
+        has_color: profileData.has_color,
+        color: profileData.color,
+        shouldShowModal: !profileData.has_username || !profileData.has_color
+      });
+      
+      if (!profileData.has_username || !profileData.has_color) {
+        console.log('🚨 Showing profile modal');
         setShowProfileModal(true);
       }
     } catch (error) {
@@ -175,21 +185,31 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const handleProfileSetup = async (username: string, profilePicture: string) => {
+  const handleProfileSetup = async (username: string, profilePicture: string, color?: string) => {
     try {
-      await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture });
+      console.log('✅ handleProfileSetup called with:', { username, color });
+      const result = await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture, color });
+      console.log('🔄 Profile update result:', result);
+      
       setShowProfileModal(false);
       
-      // Refresh all data to show updated username everywhere
-      await handleRefresh();
+      // Update local state instead of refreshing to prevent modal from reappearing
+      setGroupProfile(prev => ({
+        ...prev,
+        username,
+        color,
+        has_username: true,
+        has_color: true
+      }));
+      console.log('📝 Local profile state updated');
+      
+      // Refresh members to show updated username in members list
+      await fetchMembers();
     } catch (error) {
       console.error('Failed to update profile:', error);
     }
   };
 
-  const handleProfileSkip = () => {
-    setShowProfileModal(false);
-  };
 
   const handleEditUsername = () => {
     setIsEditingFromMembers(true);
@@ -197,9 +217,9 @@ export default function GroupDetailScreen() {
     setShowProfileModal(true);
   };
 
-  const handleProfileComplete = async (username: string, profilePicture: string) => {
+  const handleProfileComplete = async (username: string, profilePicture: string, color?: string) => {
     try {
-      await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture });
+      await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture, color });
       setShowProfileModal(false);
       
       // Refresh all data to show updated username everywhere
@@ -283,150 +303,419 @@ export default function GroupDetailScreen() {
 
   const sampleEvents: any[] = [];
 
-  const CalendarSquare = () => {
-    // Get next 4 days (today + 3)
-    const getNext4Days = () => {
-      const days = [];
-      const today = new Date();
+  // Helper function to format event dates (same as calendar)
+  const formatEventDate = (dateString: string): string | null => {
+    if (!dateString || typeof dateString !== 'string') return null;
+    
+    try {
+      let date: Date;
       
-      for (let i = 0; i < 4; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-        const dayNumber = date.getDate();
-        const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
-        
-        // Find events for this date
-        const dayEvents = groupEvents.filter(event => {
-          const eventDate = formatEventDate(event.original_event_data?.date);
-          return eventDate === dateString;
-        });
-        
-        days.push({
-          dayName,
-          dayNumber,
-          hasEvents: dayEvents.length > 0,
-          eventCount: dayEvents.length
-        });
-      }
-      
-      return days;
-    };
-
-    // Helper function to format event dates (same as calendar)
-    const formatEventDate = (dateString: string): string | null => {
-      if (!dateString || typeof dateString !== 'string') return null;
-      
-      try {
-        let date: Date;
-        
-        if (dateString.includes('FALLBACK')) {
-          const match = dateString.match(/(\w+),?\s+(\w+)\s+(\d+)/);
-          if (match) {
-            const [, , monthName, day] = match;
-            const currentYear = new Date().getFullYear();
-            date = new Date(`${monthName} ${day}, ${currentYear}`);
-          } else {
-            return null;
-          }
+      if (dateString.includes('FALLBACK')) {
+        const match = dateString.match(/(\w+),?\s+(\w+)\s+(\d+)/);
+        if (match) {
+          const [, , monthName, day] = match;
+          const currentYear = new Date().getFullYear();
+          date = new Date(`${monthName} ${day}, ${currentYear}`);
         } else {
-          date = new Date(dateString);
-        }
-        
-        if (isNaN(date.getTime())) {
           return null;
         }
-        
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        
-        return `${year}-${month}-${day}`;
-      } catch (error) {
+      } else {
+        // Parse date as local time to avoid timezone issues
+        if (dateString.includes('T') || dateString.includes('Z')) {
+          // If it's an ISO string, convert to local date
+          date = new Date(dateString);
+        } else {
+          // If it's a date string like "2024-07-28", parse as local
+          const parts = dateString.split('-');
+          if (parts.length === 3) {
+            date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          } else {
+            date = new Date(dateString);
+          }
+        }
+      }
+      
+      if (isNaN(date.getTime())) {
         return null;
       }
-    };
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      return null;
+    }
+  };
 
+  // Get next 4 days (today + 3)
+  const getNext4Days = () => {
+    const days = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 4; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+      const dayNumber = date.getDate();
+      
+      // Create date string in local time (not UTC)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      
+      // Find events for this date
+      const dayEvents = groupEvents.filter(event => {
+        const eventDate = formatEventDate(event.original_event_data?.date);
+        return eventDate === dateString;
+      });
+      
+      days.push({
+        dayName,
+        dayNumber,
+        hasEvents: dayEvents.length > 0,
+        eventCount: dayEvents.length,
+        dateString
+      });
+    }
+    
+    return days;
+  };
+
+  // Get upcoming events (next 7 days)
+  const getUpcomingEvents = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time for accurate day comparison
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    nextWeek.setHours(23, 59, 59, 999); // End of the 7th day
+    
+    return groupEvents
+      .filter(event => {
+        const eventDateString = formatEventDate(event.original_event_data?.date);
+        if (!eventDateString) return false;
+        
+        // Parse the event date as local time to match our date formatting
+        const parts = eventDateString.split('-');
+        if (parts.length !== 3) return false;
+        
+        const eventDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        eventDate.setHours(0, 0, 0, 0);
+        
+        return eventDate >= today && eventDate <= nextWeek;
+      })
+      .sort((a, b) => {
+        const dateStringA = formatEventDate(a.original_event_data?.date) || '';
+        const dateStringB = formatEventDate(b.original_event_data?.date) || '';
+        
+        // Parse both dates consistently as local time
+        const partsA = dateStringA.split('-');
+        const partsB = dateStringB.split('-');
+        
+        if (partsA.length !== 3 || partsB.length !== 3) return 0;
+        
+        const dateA = new Date(parseInt(partsA[0]), parseInt(partsA[1]) - 1, parseInt(partsA[2]));
+        const dateB = new Date(parseInt(partsB[0]), parseInt(partsB[1]) - 1, parseInt(partsB[2]));
+        
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(0, 2); // Show max 2 upcoming events
+  };
+
+  const FourDayPreview = () => {
     const next4Days = getNext4Days();
-
+    
     return (
-      <TouchableOpacity 
-        style={styles.square} 
-        activeOpacity={0.6}
-        onPress={() => router.push({
-          pathname: '/calendar',
-          params: { groupId: id }
-        })}
-      >
-        <View style={styles.squareHeader}>
-          <Ionicons name="calendar" size={24} color="#60a5fa" />
-          <Text style={styles.squareTitle}>Calendar</Text>
-          <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
-        </View>
-        
-        {/* Separator Line */}
-        <View style={styles.calendarSeparator} />
-        
-        {/* Calendar Preview */}
-        <View style={styles.calendarPreview}>
-          {next4Days.map((day, index) => {
-            const date = new Date();
-            date.setDate(date.getDate() + index);
-            const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            
-            return (
-              <TouchableOpacity 
-                key={index} 
-                style={[
-                  styles.previewDayContainer,
-                  index === 0 && styles.previewTodayContainer,
-                  day.hasEvents && styles.previewDayWithEventsContainer
-                ]}
-                activeOpacity={0.7}
-                onPress={(e) => {
-                  e.stopPropagation(); // Prevent parent TouchableOpacity from firing
-                  router.push(`/date-events?date=${dateString}&groupId=${id}`);
-                }}
-              >
-                <Text style={styles.previewDayName}>{day.dayName}</Text>
-                <Text style={[
-                  styles.previewDayText,
-                  index === 0 && styles.previewTodayText,
-                  day.hasEvents && styles.previewDayWithEventsText
-                ]}>
-                  {day.dayNumber}
-                </Text>
-                <View style={styles.previewEventContainer}>
-                  {day.hasEvents && (
-                    <View style={styles.previewEventDot}>
-                      <Text style={styles.previewEventCount}>{day.eventCount}</Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
+      <View style={styles.fourDayPreview}>
+        {/* Calendar Button integrated into 4-day preview */}
+        <TouchableOpacity 
+          style={styles.integratedCalendarButton}
+          activeOpacity={0.6}
+          onPress={() => router.push({
+            pathname: '/calendar',
+            params: { groupId: id }
           })}
+        >
+          <View style={styles.calendarButtonContent}>
+            <Ionicons name="calendar" size={20} color="#60a5fa" />
+            <Text style={styles.integratedCalendarButtonText}>Calendar</Text>
+            <Ionicons name="chevron-forward" size={14} color="#9ca3af" style={styles.calendarButtonArrow} />
+          </View>
+        </TouchableOpacity>
+        
+        <View style={styles.fourDayPreviewContent}>
+          {next4Days.map((day, index) => (
+            <TouchableOpacity 
+              key={index} 
+              style={[
+                styles.dayPreviewItem,
+                index === 0 && styles.dayPreviewToday,
+                day.hasEvents && styles.dayPreviewWithEvents
+              ]}
+              activeOpacity={0.7}
+              onPress={() => {
+                router.push(`/date-events?date=${day.dateString}&groupId=${id}`);
+              }}
+            >
+              <Text style={styles.dayPreviewName}>{day.dayName}</Text>
+              <Text style={[
+                styles.dayPreviewNumber,
+                index === 0 && styles.dayPreviewTodayText,
+                day.hasEvents && styles.dayPreviewWithEventsText
+              ]}>
+                {day.dayNumber}
+              </Text>
+              <View style={styles.dayPreviewEventContainer}>
+                {day.hasEvents && (
+                  <View style={styles.dayPreviewEventDot}>
+                    <Text style={styles.dayPreviewEventCount}>{day.eventCount}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
-  const MoneySquare = () => (
-    <TouchableOpacity style={styles.square} activeOpacity={0.8} onPress={() => setShowExpenseTracker(true)}>
-      <View style={styles.squareHeader}>
-        <Ionicons name="card" size={24} color="#4ade80" />
-        <Text style={styles.squareTitle}>Money</Text>
+  const UpcomingEventsList = () => {
+    const upcomingEvents = getUpcomingEvents();
+    
+    return (
+      <View style={styles.upcomingEventsContainer}>
+        <Text style={styles.upcomingEventsTitle}>Upcoming</Text>
+        {upcomingEvents.length === 0 ? (
+          <View style={styles.upcomingEventsEmpty}>
+            <Text style={styles.upcomingEventsEmptyText}>No upcoming events</Text>
+          </View>
+        ) : (
+          <View style={styles.upcomingEventsList}>
+            {upcomingEvents.map((event, index) => {
+          const originalEvent = event.original_event_data;
+          const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
+          const isLast = index === upcomingEvents.length - 1;
+          const dateInfo = formatUpcomingEventDate(originalEvent?.date, originalEvent?.time);
+          const creatorColor = event.created_by_color || '#2a2a2a'; // Default to gray if no color
+          
+          return (
+            <TouchableOpacity 
+              key={event.id}
+              style={[
+                styles.upcomingEventItem,
+                { borderLeftWidth: 3, borderLeftColor: creatorColor },
+                isLast && { borderBottomWidth: 0 }
+              ]}
+              activeOpacity={0.7}
+              onPress={() => {
+                router.push({
+                  pathname: '/event/[id]',
+                  params: { 
+                    id: event.id,
+                    groupId: id as string
+                  }
+                });
+              }}
+            >
+              <View style={styles.upcomingEventContent}>
+                <View style={styles.upcomingEventHeader}>
+                  <View style={styles.upcomingEventIcon}>
+                    <Ionicons name="calendar-outline" size={16} color="#60a5fa" />
+                  </View>
+                  <Text style={styles.upcomingEventName}>{displayName}</Text>
+                </View>
+                <View style={styles.upcomingEventDateStack}>
+                  <Text style={styles.upcomingEventDayOfWeek}>{dateInfo.dayOfWeek}</Text>
+                  {dateInfo.daysText ? (
+                    <Text style={styles.upcomingEventDaysText}>{dateInfo.daysText}</Text>
+                  ) : null}
+                  {dateInfo.timeText ? (
+                    <Text style={styles.upcomingEventTime}>{dateInfo.timeText}</Text>
+                  ) : null}
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={12} color="#9ca3af" />
+            </TouchableOpacity>
+          );
+        })}
+          </View>
+        )}
       </View>
-      <View style={styles.squareContent}>
-        <Text style={styles.squareDescription}>Track & split expenses</Text>
-      </View>
-    </TouchableOpacity>
-  );
+    );
+  };
+
+  const formatUserFriendlyDate = (dateString: string, timeString?: string): string => {
+    if (!dateString || dateString === 'No date') return 'No date';
+    
+    try {
+      // Parse date as local time to avoid timezone issues
+      let eventDate: Date;
+      if (dateString.includes('T') || dateString.includes('Z')) {
+        // If it's an ISO string, convert to local date
+        eventDate = new Date(dateString);
+      } else {
+        // If it's a date string like "2024-07-28", parse as local
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          eventDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else {
+          eventDate = new Date(dateString);
+        }
+      }
+      
+      if (isNaN(eventDate.getTime())) return dateString; // Return original if invalid
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time for accurate day comparison
+      const eventDateOnly = new Date(eventDate);
+      eventDateOnly.setHours(0, 0, 0, 0);
+      
+      // Calculate days difference
+      const timeDiff = eventDateOnly.getTime() - today.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      
+      // Get day of week and readable date
+      const dayOfWeek = eventDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const readableDate = eventDate.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric'
+      });
+      
+      let relativeText = '';
+      if (daysDiff === 0) {
+        relativeText = 'Today';
+      } else if (daysDiff === 1) {
+        relativeText = 'Tomorrow';
+      } else if (daysDiff === -1) {
+        relativeText = 'Yesterday';
+      } else if (daysDiff > 1) {
+        relativeText = `In ${daysDiff} days`;
+      } else {
+        relativeText = `${Math.abs(daysDiff)} days ago`;
+      }
+      
+      // Format time, removing unnecessary zeros
+      let timeText = '';
+      if (timeString && timeString !== 'No time') {
+        // Clean up time format - remove .000Z and unnecessary parts
+        let cleanTime = timeString.replace(/\.000Z?$/, ''); // Remove .000Z
+        cleanTime = cleanTime.replace(/:\d{2}\..*$/, ''); // Remove seconds and beyond
+        
+        // If it's already in 12-hour format, keep it; otherwise convert
+        if (!cleanTime.includes('AM') && !cleanTime.includes('PM')) {
+          try {
+            const timeDate = new Date(`1970-01-01T${cleanTime}`);
+            if (!isNaN(timeDate.getTime())) {
+              cleanTime = timeDate.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              });
+            }
+          } catch (e) {
+            // Keep original if conversion fails
+          }
+        }
+        timeText = ` at ${cleanTime}`;
+      }
+      
+      return `${relativeText} - ${dayOfWeek}, ${readableDate}${timeText}`;
+    } catch (error) {
+      return dateString; // Return original if any error
+    }
+  };
+
+  const formatUpcomingEventDate = (dateString: string, timeString?: string): { dayOfWeek: string, daysText: string, timeText: string } => {
+    if (!dateString || dateString === 'No date') return { dayOfWeek: 'No', daysText: 'date', timeText: '' };
+    
+    try {
+      // Parse date as local time to avoid timezone issues
+      let eventDate: Date;
+      if (dateString.includes('T') || dateString.includes('Z')) {
+        // If it's an ISO string, convert to local date
+        eventDate = new Date(dateString);
+      } else {
+        // If it's a date string like "2024-07-28", parse as local
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          eventDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else {
+          eventDate = new Date(dateString);
+        }
+      }
+      
+      if (isNaN(eventDate.getTime())) return { dayOfWeek: dateString, daysText: '', timeText: '' };
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time for accurate day comparison
+      const eventDateOnly = new Date(eventDate);
+      eventDateOnly.setHours(0, 0, 0, 0);
+      
+      // Calculate days difference
+      const timeDiff = eventDateOnly.getTime() - today.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      
+      // Get day of week
+      const dayOfWeek = eventDate.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      let dayText = '';
+      let daysText = '';
+      
+      if (daysDiff === 0) {
+        dayText = 'Today';
+        daysText = '';
+      } else if (daysDiff === 1) {
+        dayText = 'Tomorrow';
+        daysText = '';
+      } else if (daysDiff === -1) {
+        dayText = 'Yesterday';
+        daysText = '';
+      } else if (daysDiff > 1) {
+        dayText = dayOfWeek;
+        daysText = `${daysDiff} days`;
+      } else {
+        dayText = dayOfWeek;
+        daysText = `${Math.abs(daysDiff)} days ago`;
+      }
+      
+      // Format time, removing unnecessary zeros
+      let timeText = '';
+      if (timeString && timeString !== 'No time') {
+        // Clean up time format - remove .000Z and unnecessary parts
+        let cleanTime = timeString.replace(/\.000Z?$/, ''); // Remove .000Z
+        cleanTime = cleanTime.replace(/:\d{2}\..*$/, ''); // Remove seconds and beyond
+        
+        // If it's already in 12-hour format, keep it; otherwise convert
+        if (!cleanTime.includes('AM') && !cleanTime.includes('PM')) {
+          try {
+            const timeDate = new Date(`1970-01-01T${cleanTime}`);
+            if (!isNaN(timeDate.getTime())) {
+              cleanTime = timeDate.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              });
+            }
+          } catch (e) {
+            // Keep original if conversion fails
+          }
+        }
+        timeText = cleanTime;
+      }
+      
+      return { dayOfWeek: dayText, daysText, timeText };
+    } catch (error) {
+      return { dayOfWeek: dateString, daysText: '', timeText: '' };
+    }
+  };
 
   const EventBlock = ({ event }: { event: any }) => {
     const originalEvent = event.original_event_data;
     const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
+    const creatorColor = event.created_by_color || '#2a2a2a'; // Default to gray if no color
     
     const handleEventPress = () => {
       router.push({
@@ -439,7 +728,11 @@ export default function GroupDetailScreen() {
     };
     
     return (
-      <TouchableOpacity style={styles.eventBlock} activeOpacity={0.8} onPress={handleEventPress}>
+      <TouchableOpacity 
+        style={[styles.eventBlock, { borderColor: creatorColor }]} 
+        activeOpacity={0.8} 
+        onPress={handleEventPress}
+      >
         <View style={styles.eventContent}>
           <View style={styles.eventLeft}>
             <View style={styles.eventIconContainer}>
@@ -455,7 +748,7 @@ export default function GroupDetailScreen() {
                 <Text style={styles.originalEventName}>{originalEvent?.name}</Text>
               )}
               <Text style={styles.eventDate}>
-                {originalEvent?.date || 'No date'} • {originalEvent?.time || 'No time'}
+                {formatUserFriendlyDate(originalEvent?.date, originalEvent?.time)}
               </Text>
               <Text style={styles.eventParticipants}>
                 Added by {event.created_by_username || 'Unknown'}
@@ -526,10 +819,12 @@ export default function GroupDetailScreen() {
       </View>
       
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Two Square Boxes */}
-        <View style={styles.squareContainer}>
-          <CalendarSquare />
-          <MoneySquare />
+        {/* Side by Side: Upcoming Events and 4-Day Preview with integrated Calendar Button */}
+        <View style={styles.sideBySideContainer}>
+          <View style={styles.upcomingEventsSection}>
+            <UpcomingEventsList />
+          </View>
+          <FourDayPreview />
         </View>
         
         {/* Events Section */}
@@ -585,8 +880,9 @@ export default function GroupDetailScreen() {
       <ProfileSetupModal
         visible={showProfileModal}
         onComplete={isEditingFromMembers ? handleProfileComplete : handleProfileSetup}
-        onSkip={handleProfileSkip}
         groupName={group.name}
+        initialUsername={groupProfile?.username || ''}
+        initialColor={groupProfile?.color || '#60a5fa'}
       />
 
       <GroupMembersModal
@@ -747,39 +1043,172 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  squareContainer: {
+  // Side by Side Container
+  sideBySideContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 24,
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  square: {
-    width: squareSize,
-    height: squareSize,
+  // Calendar Button (shared styles)
+  calendarButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  calendarButtonArrow: {
+    marginLeft: 6,
+  },
+  // 4-Day Preview
+  fourDayPreview: {
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#2a2a2a',
     padding: 16,
+    flex: 1.2,
   },
-  squareHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+  integratedCalendarButton: {
+    marginBottom: 16,
   },
-  squareTitle: {
+  integratedCalendarButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
-    marginLeft: 8,
+    marginLeft: 6,
   },
-  squareContent: {
+  fourDayPreviewContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     flex: 1,
+    alignItems: 'flex-start',
+    paddingVertical: 4,
+    paddingTop: 8,
+  },
+  dayPreviewItem: {
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    minHeight: 80,
+    justifyContent: 'space-between',
+  },
+  dayPreviewToday: {
+    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+  },
+  dayPreviewWithEvents: {
+    backgroundColor: 'rgba(212, 165, 116, 0.1)',
+    borderWidth: 1,
+    borderColor: '#D4A574',
+  },
+  dayPreviewName: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  dayPreviewNumber: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  dayPreviewTodayText: {
+    color: '#ffffff',
+  },
+  dayPreviewWithEventsText: {
+    color: '#D4A574',
+  },
+  dayPreviewEventContainer: {
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayPreviewEventDot: {
+    width: 18,
+    height: 14,
+    backgroundColor: '#D4A574',
+    borderRadius: 7,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  squareDescription: {
+  dayPreviewEventCount: {
+    fontSize: 8,
+    color: '#2A1F14',
+    fontWeight: '700',
+  },
+  // Upcoming Events
+  upcomingEventsSection: {
+    flex: 1,
+  },
+  upcomingEventsContainer: {
+    flex: 1,
+  },
+  upcomingEventsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 12,
+  },
+  upcomingEventsList: {
+    backgroundColor: '#0a0a0a',
+    overflow: 'hidden',
+  },
+  upcomingEventsEmpty: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  upcomingEventsEmptyText: {
     fontSize: 14,
     color: '#9ca3af',
-    textAlign: 'center',
+  },
+  upcomingEventItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+  },
+  upcomingEventContent: {
+    flex: 1,
+  },
+  upcomingEventHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  upcomingEventIcon: {
+    marginRight: 8,
+  },
+  upcomingEventName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+  },
+  upcomingEventDateStack: {
+    flexDirection: 'column',
+  },
+  upcomingEventDayOfWeek: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  upcomingEventDaysText: {
+    fontSize: 10,
+    color: '#6b7280',
+    marginTop: 1,
+  },
+  upcomingEventTime: {
+    fontSize: 10,
+    color: '#6b7280',
+    marginTop: 1,
   },
   // Events section
   eventsSection: {
@@ -984,76 +1413,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  
-  // Calendar Preview Styles
-  calendarSeparator: {
-    height: 1,
-    backgroundColor: '#2a2a2a',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  calendarPreview: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flex: 1,
-    alignItems: 'flex-start',
-    paddingVertical: 4,
-    paddingTop: 8,
-  },
-  previewDayContainer: {
-    alignItems: 'center',
-    flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: 'transparent',
-    minHeight: 65,
-    justifyContent: 'space-between',
-  },
-  previewTodayContainer: {
-    backgroundColor: 'rgba(96, 165, 250, 0.1)',
-    borderWidth: 1,
-    borderColor: '#60a5fa',
-  },
-  previewDayWithEventsContainer: {
-    backgroundColor: 'rgba(212, 165, 116, 0.1)',
-    borderWidth: 1,
-    borderColor: '#D4A574',
-  },
-  previewDayName: {
-    fontSize: 10,
-    color: '#9ca3af',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  previewDayText: {
-    fontSize: 18,
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  previewTodayText: {
-    color: '#ffffff',
-  },
-  previewDayWithEventsText: {
-    color: '#D4A574',
-  },
-  previewEventContainer: {
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewEventDot: {
-    width: 18,
-    height: 14,
-    backgroundColor: '#D4A574',
-    borderRadius: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewEventCount: {
-    fontSize: 8,
-    color: '#2A1F14',
-    fontWeight: '700',
   },
 });

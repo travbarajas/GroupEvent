@@ -40,7 +40,8 @@ module.exports = async function handler(req, res) {
               e.original_event_data,
               e.created_at,
               e.created_by_device_id,
-              m.username as created_by_username
+              m.username as created_by_username,
+              m.color as created_by_color
             FROM group_events e
             LEFT JOIN members m ON e.created_by_device_id = m.device_id AND m.group_id = ${group_id}
             WHERE e.group_id = ${group_id}
@@ -283,21 +284,60 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
+    console.log('🎯 PUT REQUEST HIT /api/groups/index.js');
     try {
-      const { device_id, username } = req.body;
+      const { device_id, username, color } = req.body;
+      console.log('🔧 PUT request received:', { device_id, username, color });
       
       if (!device_id || !username) {
         return res.status(400).json({ error: 'device_id and username are required' });
       }
 
-      // Update username for this device across all groups they're in
-      await sql`
-        UPDATE members 
-        SET username = ${username.trim()}
-        WHERE device_id = ${device_id}
-      `;
-      
-      return res.status(200).json({ success: true, message: 'Username updated successfully' });
+      // Ensure color column exists in members table
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN color VARCHAR(7) DEFAULT '#60a5fa'
+        `;
+        console.log('Added color column to members table');
+      } catch (error) {
+        console.log('Color column already exists or error:', error.message);
+      }
+
+      // Update username and color for this device across all groups they're in
+      const updateData = {
+        username: username.trim(),
+        ...(color && { color })
+      };
+
+      if (color) {
+        const result = await sql`
+          UPDATE members 
+          SET username = ${username.trim()}, color = ${color}
+          WHERE device_id = ${device_id}
+          RETURNING username, color
+        `;
+        console.log('📊 Update result with color:', result);
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Profile updated successfully',
+          username: username.trim(),
+          color: color
+        });
+      } else {
+        const result = await sql`
+          UPDATE members 
+          SET username = ${username.trim()}
+          WHERE device_id = ${device_id}
+          RETURNING username
+        `;
+        console.log('📊 Update result without color:', result);
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Username updated successfully',
+          username: username.trim()
+        });
+      }
     } catch (error) {
       console.error('Error updating username:', error);
       return res.status(500).json({ error: 'Failed to update username' });
