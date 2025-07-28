@@ -191,12 +191,13 @@ export default function GroupDetailScreen() {
   };
 
   const handleProfileSetup = async (username: string, profilePicture: string, color?: string) => {
+    // Close modal immediately
+    setShowProfileModal(false);
+    
     try {
       console.log('✅ handleProfileSetup called with:', { username, color });
       const result = await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture, color });
       console.log('🔄 Profile update result:', result);
-      
-      setShowProfileModal(false);
       
       // Update local state instead of refreshing to prevent modal from reappearing
       setGroupProfile(prev => ({
@@ -227,20 +228,20 @@ export default function GroupDetailScreen() {
   };
 
   const handleProfileComplete = async (username: string, profilePicture: string, color?: string) => {
+    // Close modal immediately
+    setShowProfileModal(false);
+    
+    // Also close members modal if we came from there
+    if (isEditingFromMembers) {
+      setShowMembersModal(false);
+      setIsEditingFromMembers(false);
+    }
+    
     try {
       await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture, color });
-      setShowProfileModal(false);
       
       // Refresh all data to show updated username everywhere
       await handleRefresh();
-      
-      // If we came from editing in members modal, reopen it
-      if (isEditingFromMembers) {
-        setIsEditingFromMembers(false);
-        setTimeout(() => {
-          setShowMembersModal(true);
-        }, 100);
-      }
     } catch (error) {
       console.error('Failed to update profile:', error);
     }
