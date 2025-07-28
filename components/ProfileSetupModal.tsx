@@ -17,6 +17,7 @@ interface ProfileSetupModalProps {
   groupName?: string;
   initialUsername?: string;
   initialColor?: string;
+  usedColors?: string[];
 }
 
 const PRESET_COLORS = [
@@ -37,7 +38,8 @@ export default function ProfileSetupModal({
   onComplete, 
   groupName, 
   initialUsername = '', 
-  initialColor = PRESET_COLORS[0] 
+  initialColor = PRESET_COLORS[0],
+  usedColors = []
 }: ProfileSetupModalProps) {
   const [username, setUsername] = useState(initialUsername);
   const [selectedColor, setSelectedColor] = useState(initialColor);
@@ -95,21 +97,31 @@ export default function ProfileSetupModal({
             
             <Text style={styles.inputLabel}>Your Color</Text>
             <View style={styles.colorPicker}>
-              {PRESET_COLORS.map((color, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.colorOption,
-                    { backgroundColor: color },
-                    selectedColor === color && styles.colorOptionSelected
-                  ]}
-                  onPress={() => setSelectedColor(color)}
-                >
-                  {selectedColor === color && (
-                    <Text style={styles.colorSelectedText}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {PRESET_COLORS.map((color, index) => {
+                const isUsed = usedColors.includes(color) && color !== initialColor;
+                const isSelected = selectedColor === color;
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.colorOption,
+                      { backgroundColor: color },
+                      isSelected && styles.colorOptionSelected,
+                      isUsed && styles.colorOptionUsed
+                    ]}
+                    onPress={() => !isUsed && setSelectedColor(color)}
+                    disabled={isUsed}
+                  >
+                    {isSelected && (
+                      <Text style={styles.colorSelectedText}>✓</Text>
+                    )}
+                    {isUsed && !isSelected && (
+                      <Text style={styles.colorUsedText}>✕</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             <Text style={styles.colorHelper}>
               This color will be used for events you create
@@ -216,9 +228,22 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
     borderWidth: 3,
   },
+  colorOptionUsed: {
+    opacity: 0.5,
+    borderColor: '#ef4444',
+    borderWidth: 2,
+  },
   colorSelectedText: {
     color: '#ffffff',
     fontSize: 18,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  colorUsedText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: 'bold',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 1, height: 1 },

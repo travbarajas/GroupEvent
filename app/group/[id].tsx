@@ -507,7 +507,7 @@ export default function GroupDetailScreen() {
               key={event.id}
               style={[
                 styles.upcomingEventItem,
-                { borderLeftWidth: 3, borderLeftColor: creatorColor },
+                { borderLeftWidth: 3, borderLeftColor: creatorColor + '80' },
                 isLast && { borderBottomWidth: 0 }
               ]}
               activeOpacity={0.7}
@@ -738,7 +738,7 @@ export default function GroupDetailScreen() {
     
     return (
       <TouchableOpacity 
-        style={[styles.eventBlock, { borderColor: creatorColor }]} 
+        style={[styles.eventBlock, { borderColor: creatorColor + '80' }]} 
         activeOpacity={0.8} 
         onPress={handleEventPress}
       >
@@ -892,6 +892,7 @@ export default function GroupDetailScreen() {
         groupName={group.name}
         initialUsername={groupProfile?.username || ''}
         initialColor={groupProfile?.color || '#60a5fa'}
+        usedColors={members.map(m => m.color).filter(Boolean)}
       />
 
       <GroupMembersModal

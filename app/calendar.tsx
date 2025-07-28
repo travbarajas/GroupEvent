@@ -68,7 +68,7 @@ const DateCell = memo(({
       {hasEvents && events.length > 0 && (
         <View style={[
           styles.eventPill, 
-          { backgroundColor: events[0].color || '#D4A574' }
+          { backgroundColor: (events[0].color || '#D4A574') + '80' }
         ]}>
           <Text style={styles.eventPillText}>
             {eventCount} event{eventCount > 1 ? 's' : ''}
