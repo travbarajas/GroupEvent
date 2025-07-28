@@ -101,6 +101,7 @@ module.exports = async function handler(req, res) {
       }
 
       // Get all events for this group from the group_events table with creator colors
+      console.log('🔧 FETCHING EVENTS WITH COLOR JOIN - v2.0');
       let events = [];
       try {
         events = await sql`
