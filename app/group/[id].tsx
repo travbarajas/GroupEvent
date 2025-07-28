@@ -165,6 +165,7 @@ export default function GroupDetailScreen() {
   const fetchGroupEvents = async () => {
     try {
       const eventsData = await ApiService.getGroupEvents(id as string);
+      console.log('📅 Fetched events data:', eventsData.events?.slice(0, 2)); // Log first 2 events
       setGroupEvents(eventsData.events || []);
     } catch (error) {
       console.error('Failed to fetch group events:', error);
@@ -716,6 +717,14 @@ export default function GroupDetailScreen() {
     const originalEvent = event.original_event_data;
     const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
     const creatorColor = event.created_by_color || '#2a2a2a'; // Default to gray if no color
+    
+    // Debug logging
+    console.log('🎨 EventBlock:', { 
+      eventId: event.id, 
+      displayName, 
+      created_by_color: event.created_by_color, 
+      creatorColor 
+    });
     
     const handleEventPress = () => {
       router.push({

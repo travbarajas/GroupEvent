@@ -19,6 +19,7 @@ interface Member {
   username?: string;
   profile_picture?: string;
   has_username: boolean;
+  color?: string;
 }
 
 interface GroupMembersModalProps {
@@ -72,10 +73,20 @@ export default function GroupMembersModal({
         
         <View style={styles.memberInfo}>
           <View style={styles.memberNameRow}>
-            <Text style={styles.memberName}>
-              {member.username || `User ${member.device_id.substring(0, 8)}...`}
-              {isCurrentUser && <Text style={styles.youLabel}> (You)</Text>}
-            </Text>
+            <View style={styles.memberNameWithColor}>
+              <Text style={styles.memberName}>
+                {member.username || `User ${member.device_id.substring(0, 8)}...`}
+                {isCurrentUser && <Text style={styles.youLabel}> (You)</Text>}
+              </Text>
+              {member.color && (
+                <View 
+                  style={[
+                    styles.colorIndicator, 
+                    { backgroundColor: member.color }
+                  ]} 
+                />
+              )}
+            </View>
             {isCurrentUser && onEditUsername && (
               <TouchableOpacity 
                 style={styles.editButton} 
@@ -269,11 +280,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 2,
   },
+  memberNameWithColor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   memberName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
     flex: 1,
+  },
+  colorIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   youLabel: {
     fontSize: 14,

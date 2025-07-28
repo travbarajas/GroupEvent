@@ -90,41 +90,53 @@ module.exports = async function handler(req, res) {
         console.log('Table setup error:', error.message);
       }
 
-      // Get all events for this group from the group_events table
+      // Ensure color column exists in members table
+      try {
+        await sql`
+          ALTER TABLE members 
+          ADD COLUMN IF NOT EXISTS color VARCHAR(7) DEFAULT '#60a5fa'
+        `;
+      } catch (error) {
+        // Column already exists
+      }
+
+      // Get all events for this group from the group_events table with creator colors
       let events = [];
       try {
         events = await sql`
           SELECT 
-            id,
-            group_id,
-            name,
-            description,
-            date,
-            time,
-            location,
-            venue_name,
-            price,
-            currency,
-            is_free,
-            category,
-            tags,
-            max_attendees,
-            min_attendees,
-            attendance_required,
-            custom_name,
-            added_by_device_id as created_by_device_id,
-            added_by_username as created_by_username,
-            added_at as created_at,
-            attendance_going,
-            attendance_maybe,
-            attendance_not_going,
-            expenses,
-            notes,
-            source_type,
-            source_event_id
-          FROM group_events 
-          WHERE group_id = ${id}
-          ORDER BY added_at DESC
+            e.id,
+            e.group_id,
+            e.name,
+            e.description,
+            e.date,
+            e.time,
+            e.location,
+            e.venue_name,
+            e.price,
+            e.currency,
+            e.is_free,
+            e.category,
+            e.tags,
+            e.max_attendees,
+            e.min_attendees,
+            e.attendance_required,
+            e.custom_name,
+            e.added_by_device_id as created_by_device_id,
+            e.added_by_username as created_by_username,
+            e.added_at as created_at,
+            e.attendance_going,
+            e.attendance_maybe,
+            e.attendance_not_going,
+            e.expenses,
+            e.notes,
+            e.source_type,
+            e.source_event_id,
+            m.color as created_by_color
+          FROM group_events e
+          LEFT JOIN members m ON e.added_by_device_id = m.device_id AND m.group_id = ${id}
+          WHERE e.group_id = ${id}
+          ORDER BY e.added_at DESC
         `;
       } catch (queryError) {
         console.log('Query failed, table may not exist yet:', queryError.message);
