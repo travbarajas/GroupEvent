@@ -207,6 +207,60 @@
         .group-filter input {
             margin-right: 10px;
         }
+        
+        /* Tabs styling */
+        .tabs {
+            display: flex;
+            background: #1a1a1a;
+            border-radius: 8px 8px 0 0;
+            border: 1px solid #2a2a2a;
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            background: #2a2a2a;
+            color: #9ca3af;
+            border-right: 1px solid #3a3a3a;
+            transition: all 0.2s;
+        }
+        
+        .tab:first-child {
+            border-radius: 8px 0 0 0;
+        }
+        
+        .tab:last-child {
+            border-right: none;
+            border-radius: 0 8px 0 0;
+        }
+        
+        .tab.active {
+            background: #1a1a1a;
+            color: #ffffff;
+            border-bottom: 2px solid #60a5fa;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #3a3a3a;
+            color: #e5e7eb;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .table-container {
+            background: #1a1a1a;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #2a2a2a;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>
@@ -227,57 +281,88 @@
         </div>
 
         <div id="adminContent" class="hidden">
+            <!-- Main Stats -->
             <div class="stats" id="statsContainer">
                 <div class="stat-card">
-                    <div class="stat-number" id="totalEvents">-</div>
-                    <div class="stat-label">Total Events</div>
+                    <div class="stat-number" id="totalGroupEvents">-</div>
+                    <div class="stat-label">Group Events</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="totalGroups">-</div>
                     <div class="stat-label">Total Groups</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="customEvents">-</div>
-                    <div class="stat-label">Custom Events</div>
+                    <div class="stat-number" id="totalGlobalEvents">-</div>
+                    <div class="stat-label">Global Events</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="eventsToday">-</div>
-                    <div class="stat-label">Events Today</div>
+                    <div class="stat-number" id="totalMembers">-</div>
+                    <div class="stat-label">Total Members</div>
                 </div>
             </div>
 
-            <div class="controls">
-                <h2>Admin Controls</h2>
-                
-                <div class="group-filter">
-                    <input type="text" id="groupIdFilter" placeholder="Filter by Group ID (optional)">
-                    <button onclick="loadEvents()" class="btn-primary">Reload Events</button>
-                </div>
-                
-                <div class="button-group">
-                    <button onclick="loadEvents()" class="btn-primary">Refresh Data</button>
-                    <button onclick="deleteTestGroups()" class="btn-danger">Delete Test Groups</button>
-                    <button onclick="confirmDeleteAll()" class="btn-danger">⚠️ DELETE ALL EVENTS</button>
-                </div>
-                
-                <div id="message" class="hidden"></div>
+            <!-- Tabs Navigation -->
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('group-events')">Group Events</div>
+                <div class="tab" onclick="switchTab('groups')">Groups</div>
+                <div class="tab" onclick="switchTab('global-events')">Global Events</div>
             </div>
 
-            <div class="events-table">
-                <div class="table-header">
-                    Events Management
-                </div>
-                
-                <div id="eventsContainer" class="loading">
-                    Loading events...
+            <!-- Group Events Tab -->
+            <div id="group-events-tab" class="tab-content active">
+                <div class="table-container">
+                    <div class="table-header">
+                        Group Events Management
+                        <div style="float: right;">
+                            <input type="text" id="groupIdFilter" placeholder="Filter by Group ID" style="margin-right: 10px;">
+                            <button onclick="loadGroupEvents()" class="btn-primary">Reload</button>
+                            <button onclick="deleteTestGroups()" class="btn-danger">Delete Test Group</button>
+                            <button onclick="confirmDeleteAllGroupEvents()" class="btn-danger">⚠️ DELETE ALL</button>
+                        </div>
+                    </div>
+                    <div id="groupEventsContainer" class="loading">Loading group events...</div>
                 </div>
             </div>
+
+            <!-- Groups Tab -->
+            <div id="groups-tab" class="tab-content">
+                <div class="table-container">
+                    <div class="table-header">
+                        Groups Management
+                        <div style="float: right;">
+                            <button onclick="loadGroups()" class="btn-primary">Reload</button>
+                            <button onclick="confirmDeleteAllGroups()" class="btn-danger">⚠️ DELETE ALL GROUPS</button>
+                        </div>
+                    </div>
+                    <div id="groupsContainer" class="loading">Loading groups...</div>
+                </div>
+            </div>
+
+            <!-- Global Events Tab -->
+            <div id="global-events-tab" class="tab-content">
+                <div class="table-container">
+                    <div class="table-header">
+                        Global Events Registry
+                        <div style="float: right;">
+                            <button onclick="loadGlobalEvents()" class="btn-primary">Reload</button>
+                            <button onclick="showCreateEventForm()" class="btn-primary">Create Event</button>
+                            <button onclick="confirmDeleteAllGlobalEvents()" class="btn-danger">⚠️ DELETE ALL</button>
+                        </div>
+                    </div>
+                    <div id="globalEventsContainer" class="loading">Loading global events...</div>
+                </div>
+            </div>
+
+            <div id="message" class="hidden"></div>
         </div>
     </div>
 
     <script>
         let adminKey = '';
-        let currentEvents = [];
+        let currentGroupEvents = [];
+        let currentGroups = [];
+        let currentGlobalEvents = [];
+        let activeTab = 'group-events';
 
         function authenticate() {
             adminKey = document.getElementById('adminKey').value;
@@ -290,7 +375,7 @@
             testAuthentication().then(() => {
                 document.getElementById('authSection').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
-                loadEvents(); // Load events after successful auth
+                loadAllData(); // Load all data after successful auth
             }).catch((error) => {
                 console.error('Auth error:', error);
                 showAuthError('Invalid admin key: ' + error.message);
@@ -339,8 +424,37 @@
             }
         }
 
-        async function loadEvents() {
-            const groupFilter = document.getElementById('groupIdFilter').value;
+        function switchTab(tabName) {
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            activeTab = tabName;
+            
+            // Load data for the active tab if not already loaded
+            if (tabName === 'group-events' && currentGroupEvents.length === 0) {
+                loadGroupEvents();
+            } else if (tabName === 'groups' && currentGroups.length === 0) {
+                loadGroups();
+            } else if (tabName === 'global-events' && currentGlobalEvents.length === 0) {
+                loadGlobalEvents();
+            }
+        }
+
+        async function loadAllData() {
+            // Load data for all tabs
+            await Promise.all([
+                loadGroupEvents(),
+                loadGroups(),
+                loadGlobalEvents()
+            ]);
+        }
+
+        async function loadGroupEvents() {
+            const groupFilter = document.getElementById('groupIdFilter')?.value || '';
             const params = new URLSearchParams();
             params.set('admin_key', adminKey);
             if (groupFilter) {
@@ -361,27 +475,82 @@
                 }
 
                 const data = await response.json();
-                currentEvents = data.events;
+                currentGroupEvents = data.events;
                 
                 // Update stats
-                document.getElementById('totalEvents').textContent = data.stats.total_events;
-                document.getElementById('totalGroups').textContent = data.stats.total_groups;
-                document.getElementById('customEvents').textContent = data.stats.custom_events;
-                document.getElementById('eventsToday').textContent = data.stats.events_today;
+                document.getElementById('totalGroupEvents').textContent = data.stats.total_events;
                 
                 // Render events table
-                renderEventsTable(data.events);
+                renderGroupEventsTable(data.events);
                 
             } catch (error) {
-                console.error('Failed to load events:', error);
-                document.getElementById('eventsContainer').innerHTML = 
-                    `<div class="error">Failed to load events: ${error.message}</div>`;
-                throw error;
+                console.error('Failed to load group events:', error);
+                document.getElementById('groupEventsContainer').innerHTML = 
+                    `<div class="error">Failed to load group events: ${error.message}</div>`;
             }
         }
 
-        function renderEventsTable(events) {
-            const container = document.getElementById('eventsContainer');
+        async function loadGroups() {
+            try {
+                const response = await fetch(`/api/admin/groups?admin_key=${encodeURIComponent(adminKey)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                currentGroups = data.groups;
+                
+                // Update stats
+                document.getElementById('totalGroups').textContent = data.stats.total_groups;
+                document.getElementById('totalMembers').textContent = data.stats.total_members;
+                
+                // Render groups table
+                renderGroupsTable(data.groups);
+                
+            } catch (error) {
+                console.error('Failed to load groups:', error);
+                document.getElementById('groupsContainer').innerHTML = 
+                    `<div class="error">Failed to load groups: ${error.message}</div>`;
+            }
+        }
+
+        async function loadGlobalEvents() {
+            try {
+                const response = await fetch(`/api/admin/global-events?admin_key=${encodeURIComponent(adminKey)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                currentGlobalEvents = data.events;
+                
+                // Update stats
+                document.getElementById('totalGlobalEvents').textContent = data.stats.total_global_events;
+                
+                // Render global events table
+                renderGlobalEventsTable(data.events);
+                
+            } catch (error) {
+                console.error('Failed to load global events:', error);
+                document.getElementById('globalEventsContainer').innerHTML = 
+                    `<div class="error">Failed to load global events: ${error.message}</div>`;
+            }
+        }
+
+        function renderGroupEventsTable(events) {
+            const container = document.getElementById('groupEventsContainer');
             
             if (events.length === 0) {
                 container.innerHTML = '<div class="loading">No events found</div>';
@@ -418,8 +587,82 @@
             container.innerHTML = html;
         }
 
+        function renderGroupsTable(groups) {
+            const container = document.getElementById('groupsContainer');
+            
+            if (groups.length === 0) {
+                container.innerHTML = '<div class="loading">No groups found</div>';
+                return;
+            }
+
+            const html = groups.map(group => `
+                <div class="event-row">
+                    <div>
+                        <div class="event-name">${group.name}</div>
+                        <div class="event-meta">ID: ${group.id}</div>
+                    </div>
+                    <div>
+                        <div>${group.actual_member_count} members</div>
+                        <div class="event-meta">${group.event_count} events</div>
+                    </div>
+                    <div>
+                        <div>Created: ${new Date(group.created_at).toLocaleDateString()}</div>
+                        <div class="event-meta">Last activity: ${group.last_event_added ? new Date(group.last_event_added).toLocaleDateString() : 'None'}</div>
+                    </div>
+                    <div class="event-meta">
+                        ${group.description || 'No description'}
+                    </div>
+                    <div class="event-meta">
+                        Status: Active
+                    </div>
+                    <div>
+                        <button onclick="deleteGroup('${group.id}')" class="delete-btn">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+
+        function renderGlobalEventsTable(events) {
+            const container = document.getElementById('globalEventsContainer');
+            
+            if (events.length === 0) {
+                container.innerHTML = '<div class="loading">No global events found</div>';
+                return;
+            }
+
+            const html = events.map(event => `
+                <div class="event-row">
+                    <div>
+                        <div class="event-name">${event.name}</div>
+                        <div class="event-meta">ID: ${event.id}</div>
+                    </div>
+                    <div>
+                        <div>${event.category || 'No category'}</div>
+                        <div class="event-meta">${event.is_free ? 'Free' : '$' + (event.price || 0)}</div>
+                    </div>
+                    <div>
+                        <div>${event.date || 'No date'} ${event.time || ''}</div>
+                        <div class="event-meta">${event.location || 'No location'}</div>
+                    </div>
+                    <div class="event-meta">
+                        Used by ${event.usage_count || 0} groups
+                    </div>
+                    <div class="event-meta">
+                        Created: ${new Date(event.created_at).toLocaleDateString()}
+                    </div>
+                    <div>
+                        <button onclick="deleteGlobalEvent('${event.id}')" class="delete-btn">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+
         async function deleteEvent(eventId) {
-            if (!confirm(`Delete event ${eventId}?`)) return;
+            if (!confirm(`Delete group event ${eventId}?`)) return;
             
             try {
                 const response = await fetch(`/api/admin/events?admin_key=${encodeURIComponent(adminKey)}`, {
@@ -435,7 +678,7 @@
                 
                 const result = await response.json();
                 showMessage(result.message);
-                loadEvents(); // Refresh the list
+                loadGroupEvents(); // Refresh the list
                 
             } catch (error) {
                 showMessage(`Failed to delete event: ${error.message}`, 'error');
@@ -460,7 +703,7 @@
                 
                 const result = await response.json();
                 showMessage(result.message);
-                loadEvents(); // Refresh the list
+                loadGroupEvents(); // Refresh the list
                 
             } catch (error) {
                 showMessage(`Failed to delete test group events: ${error.message}`, 'error');
@@ -489,11 +732,149 @@
                 
                 const result = await response.json();
                 showMessage(`⚠️ ${result.message}`);
-                loadEvents(); // Refresh the list
+                loadGroupEvents(); // Refresh the list
                 
             } catch (error) {
                 showMessage(`Failed to delete all events: ${error.message}`, 'error');
             }
+        }
+
+        // New delete functions for different tabs
+        async function deleteGroup(groupId) {
+            if (!confirm(`Delete group ${groupId}? This will also delete all its events and members!`)) return;
+            
+            try {
+                const response = await fetch(`/api/admin/groups?admin_key=${encodeURIComponent(adminKey)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ group_id: groupId })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(result.message);
+                loadGroups(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete group: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteGlobalEvent(eventId) {
+            if (!confirm(`Delete global event ${eventId}?`)) return;
+            
+            try {
+                const response = await fetch(`/api/admin/global-events?admin_key=${encodeURIComponent(adminKey)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ event_id: eventId })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(result.message);
+                loadGlobalEvents(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete global event: ${error.message}`, 'error');
+            }
+        }
+
+        function confirmDeleteAllGroupEvents() {
+            if (!confirm('⚠️ DELETE ALL GROUP EVENTS? This cannot be undone!')) return;
+            if (!confirm('Are you ABSOLUTELY sure? This will delete ALL group events!')) return;
+            deleteAllGroupEvents();
+        }
+
+        async function deleteAllGroupEvents() {
+            try {
+                const response = await fetch(`/api/admin/events?admin_key=${encodeURIComponent(adminKey)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ delete_all: 'confirm' })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(`⚠️ ${result.message}`);
+                loadGroupEvents(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete all group events: ${error.message}`, 'error');
+            }
+        }
+
+        function confirmDeleteAllGroups() {
+            if (!confirm('⚠️ DELETE ALL GROUPS? This will delete ALL groups, members, and events!')) return;
+            if (!confirm('Are you ABSOLUTELY sure? This action is irreversible!')) return;
+            deleteAllGroups();
+        }
+
+        async function deleteAllGroups() {
+            try {
+                const response = await fetch(`/api/admin/groups?admin_key=${encodeURIComponent(adminKey)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ delete_all: 'confirm' })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(`⚠️ ${result.message}`);
+                loadGroups(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete all groups: ${error.message}`, 'error');
+            }
+        }
+
+        function confirmDeleteAllGlobalEvents() {
+            if (!confirm('⚠️ DELETE ALL GLOBAL EVENTS? This cannot be undone!')) return;
+            if (!confirm('Are you ABSOLUTELY sure? This will delete the entire event registry!')) return;
+            deleteAllGlobalEvents();
+        }
+
+        async function deleteAllGlobalEvents() {
+            try {
+                const response = await fetch(`/api/admin/global-events?admin_key=${encodeURIComponent(adminKey)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ delete_all: 'confirm' })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(`⚠️ ${result.message}`);
+                loadGlobalEvents(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to delete all global events: ${error.message}`, 'error');
+            }
+        }
+
+        function showCreateEventForm() {
+            // TODO: Implement create event form
+            showMessage('Create event form coming soon!', 'error');
         }
 
         // Handle Enter key in admin key input
