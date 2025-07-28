@@ -119,8 +119,16 @@ export default function GroupMembersModal({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={onClose}
+      >
+        <TouchableOpacity 
+          style={styles.modalContent} 
+          activeOpacity={1} 
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.modalHeader}>
             <View style={styles.headerLeft}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -155,8 +163,8 @@ export default function GroupMembersModal({
               <Text style={styles.leaveButtonText}>Leave Group</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
 
       {/* Leave Confirmation Modal */}
       <Modal
