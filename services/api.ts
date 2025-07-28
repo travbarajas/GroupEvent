@@ -224,7 +224,7 @@ export class ApiService {
     });
   }
 
-  // New Event Registry System
+  // Global Events System (unused - kept for potential future use)
   static async getAllEvents(): Promise<{ events: Event[] }> {
     return this.request('/events');
   }
@@ -233,23 +233,6 @@ export class ApiService {
     return this.request('/events', {
       method: 'POST',
       body: JSON.stringify(eventData)
-    });
-  }
-
-  static async getGroupEventsV2(groupId: string): Promise<{ events: any[] }> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/events-v2?device_id=${device_id}`);
-  }
-
-  static async addEventToGroup(groupId: string, eventId: string, customName?: string): Promise<any> {
-    const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/events-v2`, {
-      method: 'POST',
-      body: JSON.stringify({
-        device_id,
-        event_id: eventId,
-        custom_name: customName
-      })
     });
   }
 
