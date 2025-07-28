@@ -331,6 +331,7 @@
                         Groups Management
                         <div style="float: right;">
                             <button onclick="loadGroups()" class="btn-primary">Reload</button>
+                            <button onclick="cleanupEmptyGroups()" class="btn-secondary" style="margin: 0 5px;">🧹 Cleanup Empty Groups</button>
                             <button onclick="confirmDeleteAllGroups()" class="btn-danger">⚠️ DELETE ALL GROUPS</button>
                         </div>
                     </div>
@@ -869,6 +870,30 @@
                 
             } catch (error) {
                 showMessage(`Failed to delete all global events: ${error.message}`, 'error');
+            }
+        }
+
+        async function cleanupEmptyGroups() {
+            if (!confirm('Clean up empty groups? This will delete groups that have no members.')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/groups?admin_key=${encodeURIComponent(adminKey)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminKey}`
+                    },
+                    body: JSON.stringify({ cleanup_empty: 'confirm' })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                showMessage(result.message);
+                loadGroups(); // Refresh the list
+                
+            } catch (error) {
+                showMessage(`Failed to cleanup empty groups: ${error.message}`, 'error');
             }
         }
 

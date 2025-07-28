@@ -82,6 +82,22 @@ module.exports = async function handler(req, res) {
         return res.status(200).json(member);
       }
 
+      // Automatically clean up any empty groups before returning results
+      try {
+        await sql`
+          DELETE FROM groups 
+          WHERE id IN (
+            SELECT g.id 
+            FROM groups g
+            LEFT JOIN members m ON g.id = m.group_id
+            WHERE m.group_id IS NULL
+          )
+        `;
+        console.log('Cleaned up empty groups automatically');
+      } catch (cleanupError) {
+        console.log('Auto cleanup error (non-critical):', cleanupError.message);
+      }
+
       // Only return groups where the user is a member
       const groups = await sql`
         SELECT g.*, COUNT(m.id) as actual_member_count
