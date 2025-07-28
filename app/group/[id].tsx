@@ -146,6 +146,10 @@ export default function GroupDetailScreen() {
       
       if (!profileData.has_username || !profileData.has_color) {
         console.log('🚨 Showing profile modal');
+        
+        // Fetch latest member colors to prevent race conditions
+        await fetchMembers();
+        
         setShowProfileModal(true);
       }
     } catch (error) {
@@ -212,9 +216,13 @@ export default function GroupDetailScreen() {
   };
 
 
-  const handleEditUsername = () => {
+  const handleEditUsername = async () => {
     setIsEditingFromMembers(true);
     setShowMembersModal(false);
+    
+    // Fetch latest member colors to prevent race conditions
+    await fetchMembers();
+    
     setShowProfileModal(true);
   };
 
