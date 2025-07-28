@@ -19,10 +19,24 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Simple admin authentication
+  // Simple admin authentication with debug info
   const adminKey = req.headers.authorization?.replace('Bearer ', '') || req.query.admin_key;
-  if (adminKey !== ADMIN_KEY) {
-    return res.status(401).json({ error: 'Unauthorized - Invalid admin key' });
+  
+  console.log('Admin auth attempt:', {
+    provided_key: adminKey ? adminKey.substring(0, 5) + '...' : 'none',
+    expected_key: ADMIN_KEY.substring(0, 5) + '...',
+    headers_auth: req.headers.authorization,
+    query_auth: req.query.admin_key
+  });
+  
+  if (!adminKey || adminKey.trim() !== ADMIN_KEY.trim()) {
+    return res.status(401).json({ 
+      error: 'Unauthorized - Invalid admin key',
+      debug: process.env.NODE_ENV === 'development' ? {
+        provided: adminKey,
+        expected: ADMIN_KEY
+      } : undefined
+    });
   }
 
   if (req.method === 'GET') {
