@@ -20,6 +20,7 @@ import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
+import GroupChat from '@/components/GroupChat';
 import { calendarCache } from '@/utils/calendarCache';
 
 interface GroupPermissions {
@@ -69,6 +70,7 @@ export default function GroupDetailScreen() {
   const [isEditingFromMembers, setIsEditingFromMembers] = useState(false);
   const [pendingEventData, setPendingEventData] = useState<any>(null);
   const [groupEvents, setGroupEvents] = useState<any[]>([]);
+  const [showGroupChat, setShowGroupChat] = useState(false);
   
   const group = getGroup(id as string);
   
@@ -841,6 +843,10 @@ export default function GroupDetailScreen() {
                 <Text style={styles.inviteButtonText}>Invite</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity style={styles.chatButton} onPress={() => setShowGroupChat(true)}>
+              <Ionicons name="chatbubbles" size={18} color="#ffffff" />
+              <Text style={styles.chatButtonText}>Chat</Text>
+            </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.headerMenuButton} onPress={() => setShowMembersModal(true)}>
             <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
@@ -958,6 +964,27 @@ export default function GroupDetailScreen() {
         members={members}
       />
 
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showGroupChat}
+        onRequestClose={() => setShowGroupChat(false)}
+      >
+        <View style={styles.chatContainer}>
+          <View style={[styles.chatHeader, { paddingTop: insets.top }]}>
+            <TouchableOpacity onPress={() => setShowGroupChat(false)} style={styles.chatBackButton}>
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.chatTitle}>{group.name} Chat</Text>
+            <View style={styles.chatHeaderSpacer} />
+          </View>
+          <GroupChat 
+            groupId={id as string} 
+            currentUsername={groupProfile?.username}
+          />
+        </View>
+      </Modal>
+
       {/* Leave Group Modal */}
       <Modal
         animationType="fade"
@@ -1037,6 +1064,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16,
     marginRight: 8,
+    gap: 8,
   },
   inviteButton: {
     backgroundColor: '#2563eb',
@@ -1048,6 +1076,20 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  chatButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  chatButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
   },
   headerMenuButton: {
@@ -1453,5 +1495,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Chat Modal styles
+  chatContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  chatHeader: {
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  chatBackButton: {
+    padding: 4,
+  },
+  chatTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 16,
+  },
+  chatHeaderSpacer: {
+    width: 32, // Same width as back button to center title
   },
 });
