@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useChat } from '../hooks/useChat';
+import { useRealtimeChat } from '../hooks/useRealtimeChat';
 
 interface Message {
   id: string;
@@ -19,7 +19,6 @@ interface Message {
   device_id: string;
   userColor?: string;
   timestamp: string;
-  type?: 'message' | 'typing' | 'user_joined' | 'user_left';
 }
 
 interface GroupChatProps {
@@ -31,17 +30,16 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
   const [newMessage, setNewMessage] = useState('');
   const flatListRef = useRef<FlatList>(null);
   
-  // Use the PartyKit chat hook
+  // Use the Supabase realtime chat hook
   const { 
     messages, 
-    isConnected, 
-    isConnecting, 
-    typingUsers, 
+    isConnected,
+    isLoading, 
     error, 
-    sendMessage, 
-    sendTyping,
-    reconnect 
-  } = useChat({
+    sendMessage,
+    reconnect,
+    refresh 
+  } = useRealtimeChat({
     roomType: 'group',
     roomId: groupId,
     enabled: true,
@@ -70,28 +68,12 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
     }
   };
 
-  // Handle typing indicators
+  // Handle text input changes
   const handleTextChange = (text: string) => {
     setNewMessage(text);
-    
-    // Send typing indicator when user starts typing
-    if (text.length > 0) {
-      sendTyping(true);
-    } else {
-      sendTyping(false);
-    }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    // Handle system messages differently
-    if (item.type === 'user_joined' || item.type === 'user_left') {
-      return (
-        <View style={styles.systemMessageContainer}>
-          <Text style={styles.systemMessageText}>{item.message}</Text>
-        </View>
-      );
-    }
-
     const isOwnMessage = item.username === currentUsername;
     const userColor = item.userColor || '#60a5fa';
 
@@ -132,14 +114,17 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
         <Ionicons name="chatbubbles" size={20} color="#60a5fa" />
         <Text style={styles.chatTitle}>Group Chat</Text>
         <View style={styles.connectionStatus}>
-          {isConnecting && (
-            <Text style={styles.connectingText}>Connecting...</Text>
+          {isLoading && (
+            <Text style={styles.connectingText}>Loading...</Text>
           )}
-          {isConnected && (
+          {isConnected && !isLoading && (
             <View style={styles.connectedIndicator}>
               <View style={styles.connectedDot} />
-              <Text style={styles.connectedText}>Connected</Text>
+              <Text style={styles.connectedText}>Live</Text>
             </View>
+          )}
+          {!isConnected && !isLoading && !error && (
+            <Text style={styles.connectingText}>Connecting...</Text>
           )}
           {error && (
             <TouchableOpacity onPress={reconnect} style={styles.errorContainer}>
@@ -158,15 +143,6 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Typing indicators */}
-      {typingUsers.length > 0 && (
-        <View style={styles.typingContainer}>
-          <Text style={styles.typingText}>
-            {typingUsers.map(user => user.username).join(', ')} 
-            {typingUsers.length === 1 ? ' is' : ' are'} typing...
-          </Text>
-        </View>
-      )}
 
       <View style={styles.inputContainer}>
         <TextInput
@@ -177,20 +153,20 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
           onChangeText={handleTextChange}
           multiline
           maxLength={500}
-          editable={isConnected}
+          editable={isConnected && !isLoading}
         />
         <TouchableOpacity 
           style={[
             styles.sendButton,
-            (!newMessage.trim() || !isConnected) && styles.sendButtonDisabled
+            (!newMessage.trim() || !isConnected || isLoading) && styles.sendButtonDisabled
           ]}
           onPress={handleSendMessage}
-          disabled={!newMessage.trim() || !isConnected}
+          disabled={!newMessage.trim() || !isConnected || isLoading}
         >
           <Ionicons 
             name="send" 
             size={20} 
-            color={(newMessage.trim() && isConnected) ? '#ffffff' : '#6b7280'} 
+            color={(newMessage.trim() && isConnected && !isLoading) ? '#ffffff' : '#6b7280'} 
           />
         </TouchableOpacity>
       </View>
@@ -249,25 +225,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  systemMessageContainer: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  systemMessageText: {
-    color: '#9ca3af',
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  typingContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#1a1a1a',
-  },
-  typingText: {
-    color: '#9ca3af',
-    fontSize: 12,
-    fontStyle: 'italic',
   },
   messagesList: {
     flex: 1,

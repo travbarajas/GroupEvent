@@ -30,7 +30,9 @@
       "Bash(vercel:*)",
       "Bash(mkdir:*)",
       "Bash(npx partykit:*)",
-      "Bash(partykit:*)"
+      "Bash(partykit:*)",
+      "Bash(node:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }

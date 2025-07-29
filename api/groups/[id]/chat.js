@@ -1,6 +1,27 @@
 const { neon } = require('@neondatabase/serverless');
+const { createClient } = require('@supabase/supabase-js');
 
 const sql = neon(process.env.DATABASE_URL);
+
+// Initialize Supabase client for realtime broadcasting
+let supabase = null;
+if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
 module.exports = async function handler(req, res) {
   // Enable CORS
@@ -72,22 +93,23 @@ module.exports = async function handler(req, res) {
         timestamp: savedMessage.created_at
       };
 
-      // Send message to PartyKit for real-time broadcast
-      try {
-        const partyKitUrl = process.env.PARTYKIT_HOST || 'https://groupevent-chat.travbarajas.partykit.dev';
-        await fetch(`${partyKitUrl}/parties/main/group-${groupId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'message',
-            ...messageData
-          }),
-        });
-      } catch (partyKitError) {
-        console.error('Failed to send to PartyKit:', partyKitError);
-        // Don't fail the entire request if PartyKit is down
+      // Broadcast message via Supabase Realtime
+      if (supabase) {
+        try {
+          const channelName = `group-${groupId}`;
+          const channel = supabase.channel(channelName);
+          
+          await channel.send({
+            type: 'broadcast',
+            event: 'new-message',
+            payload: messageData,
+          });
+          
+          console.log('Message broadcasted via Supabase to channel:', channelName);
+        } catch (supabaseError) {
+          console.error('Failed to broadcast via Supabase:', supabaseError);
+          // Don't fail the entire request if Supabase is down
+        }
       }
 
       return res.status(201).json({
