@@ -303,15 +303,22 @@ export default function EventDetailScreen() {
 
         {/* GPT Input Field */}
         <View style={styles.gptInputContainer}>
-          <TextInput
-            style={styles.gptInput}
-            placeholder="Ask questions about this event..."
-            placeholderTextColor="#6b7280"
-            value={gptInput}
-            onChangeText={setGptInput}
-            multiline
-            numberOfLines={2}
-          />
+          <View style={styles.gptInputBox}>
+            <Ionicons name="search-outline" size={20} color="#6b7280" style={styles.gptInputIcon} />
+            <TextInput
+              style={styles.gptInput}
+              placeholder="Ask questions about this event..."
+              placeholderTextColor="#6b7280"
+              value={gptInput}
+              onChangeText={setGptInput}
+              returnKeyType="search"
+            />
+            {gptInput.length > 0 && (
+              <TouchableOpacity onPress={() => setGptInput('')} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color="#6b7280" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Event Key Info */}
@@ -760,17 +767,33 @@ const styles = StyleSheet.create({
   },
   gptInputContainer: {
     backgroundColor: '#1a1a1a',
-    margin: 16,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  gptInputBox: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
+    borderColor: '#3a3a3a',
+  },
+  gptInputIcon: {
+    marginRight: 12,
   },
   gptInput: {
     color: '#ffffff',
     fontSize: 16,
-    padding: 16,
-    minHeight: 60,
-    textAlignVertical: 'top',
+    flex: 1,
+    height: 24,
+  },
+  clearButton: {
+    marginLeft: 12,
+    padding: 4,
   },
   eventInfoContainer: {
     backgroundColor: '#1a1a1a',
