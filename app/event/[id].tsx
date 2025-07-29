@@ -85,11 +85,11 @@ export default function EventDetailScreen() {
 
   const fetchAttendance = async () => {
     try {
-      // Mock data for now - replace with actual API call
+      // TODO: Implement actual API call for attendance
       setAttendance({
-        going: ['Alice', 'Bob', 'Charlie', 'Diana'],
-        maybe: ['Eve', 'Frank'],
-        not_going: ['Grace']
+        going: [],
+        maybe: [],
+        not_going: []
       });
     } catch (error) {
       console.error('Failed to fetch attendance:', error);
@@ -98,23 +98,8 @@ export default function EventDetailScreen() {
 
   const fetchExpenses = async () => {
     try {
-      // Mock data for now - replace with actual API call
-      setExpenses([
-        {
-          id: '1',
-          description: 'Dinner reservation',
-          amount: 120.50,
-          paid_by: 'Alice',
-          date: '2024-01-15'
-        },
-        {
-          id: '2',
-          description: 'Uber ride',
-          amount: 25.75,
-          paid_by: 'Bob',
-          date: '2024-01-15'
-        }
-      ]);
+      // TODO: Implement actual API call for expenses
+      setExpenses([]);
     } catch (error) {
       console.error('Failed to fetch expenses:', error);
     }

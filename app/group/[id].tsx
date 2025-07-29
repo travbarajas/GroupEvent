@@ -754,14 +754,6 @@ export default function GroupDetailScreen() {
     const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
     const creatorColor = event.created_by_color || '#2a2a2a'; // Default to gray if no color
     
-    // Debug logging
-    console.log('🎨 EventBlock:', { 
-      eventId: event.id, 
-      displayName, 
-      created_by_color: event.created_by_color, 
-      creatorColor 
-    });
-    
     const handleEventPress = () => {
       router.push({
         pathname: '/event/[id]',
