@@ -10,6 +10,7 @@ import {
   FlatList,
   Modal,
   Alert,
+  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +48,7 @@ export default function EventDetailScreen() {
   const [headerAnimation] = useState(new Animated.Value(0));
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
+  const [gptInput, setGptInput] = useState<string>('');
 
   useEffect(() => {
     if (id && groupId) {
@@ -288,55 +290,71 @@ export default function EventDetailScreen() {
                 </View>
               </View>
               
-              <Text style={styles.eventShortDescription} numberOfLines={isHeaderExpanded ? undefined : 2}>
-                {displayEvent.description}
-              </Text>
-              
               {isHeaderExpanded && (
                 <Animated.View style={{ opacity: headerAnimation }}>
-                  <View style={styles.eventDetails}>
-                    <View style={styles.eventDetailRow}>
-                      <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
-                      <Text style={styles.eventDetailText}>
-                        {displayEvent.date} • {displayEvent.time}
-                      </Text>
-                    </View>
-                    {displayEvent.location && (
-                      <View style={styles.eventDetailRow}>
-                        <Ionicons name="location-outline" size={16} color="#9ca3af" />
-                        <Text style={styles.eventDetailText}>
-                          {displayEvent.location}
-                        </Text>
-                      </View>
-                    )}
-                    {!displayEvent.is_free && displayEvent.price && (
-                      <View style={styles.eventDetailRow}>
-                        <Ionicons name="cash-outline" size={16} color="#9ca3af" />
-                        <Text style={styles.eventDetailText}>
-                          ${displayEvent.price} {displayEvent.currency}
-                        </Text>
-                      </View>
-                    )}
-                    {displayEvent.category && (
-                      <View style={styles.eventDetailRow}>
-                        <Ionicons name="bookmark-outline" size={16} color="#9ca3af" />
-                        <Text style={styles.eventDetailText}>
-                          {displayEvent.category}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.eventDetailRow}>
-                      <Ionicons name="person-outline" size={16} color="#9ca3af" />
-                      <Text style={styles.eventDetailText}>
-                        Created by {displayEvent.created_by_username}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={styles.eventLongDescription}>
+                    {displayEvent.description}
+                  </Text>
                 </Animated.View>
               )}
             </View>
           </TouchableOpacity>
         </Animated.View>
+
+        {/* GPT Input Field */}
+        <View style={styles.gptInputContainer}>
+          <TextInput
+            style={styles.gptInput}
+            placeholder="Ask questions about this event..."
+            placeholderTextColor="#6b7280"
+            value={gptInput}
+            onChangeText={setGptInput}
+            multiline
+            numberOfLines={2}
+          />
+        </View>
+
+        {/* Event Key Info */}
+        <View style={styles.eventInfoContainer}>
+          <View style={styles.eventInfoGrid}>
+            <View style={styles.eventInfoItem}>
+              <Ionicons name="calendar-outline" size={20} color="#60a5fa" />
+              <Text style={styles.eventInfoLabel}>Date & Time</Text>
+              <Text style={styles.eventInfoValue}>
+                {displayEvent.date}
+                {displayEvent.time && ` • ${displayEvent.time}`}
+              </Text>
+            </View>
+            
+            {!displayEvent.is_free && displayEvent.price && (
+              <View style={styles.eventInfoItem}>
+                <Ionicons name="cash-outline" size={20} color="#10b981" />
+                <Text style={styles.eventInfoLabel}>Price</Text>
+                <Text style={styles.eventInfoValue}>
+                  ${displayEvent.price} {displayEvent.currency}
+                </Text>
+              </View>
+            )}
+            
+            {displayEvent.location && (
+              <View style={styles.eventInfoItem}>
+                <Ionicons name="location-outline" size={20} color="#f59e0b" />
+                <Text style={styles.eventInfoLabel}>Location</Text>
+                <Text style={styles.eventInfoValue}>
+                  {displayEvent.location}
+                </Text>
+              </View>
+            )}
+            
+            <View style={styles.eventInfoItem}>
+              <Ionicons name="person-outline" size={20} color="#8b5cf6" />
+              <Text style={styles.eventInfoLabel}>Created by</Text>
+              <Text style={styles.eventInfoValue}>
+                {displayEvent.created_by_username}
+              </Text>
+            </View>
+          </View>
+        </View>
 
         {/* Attendance Sections */}
         <View style={styles.attendanceContainer}>
@@ -739,5 +757,54 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  gptInputContainer: {
+    backgroundColor: '#1a1a1a',
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  gptInput: {
+    color: '#ffffff',
+    fontSize: 16,
+    padding: 16,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  eventInfoContainer: {
+    backgroundColor: '#1a1a1a',
+    margin: 16,
+    marginTop: 0,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  eventInfoGrid: {
+    gap: 20,
+  },
+  eventInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  eventInfoLabel: {
+    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '500',
+    minWidth: 80,
+  },
+  eventInfoValue: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  eventLongDescription: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: 12,
   },
 });
