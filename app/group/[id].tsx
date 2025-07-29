@@ -132,20 +132,11 @@ export default function GroupDetailScreen() {
   const fetchGroupProfile = async () => {
     try {
       const profileData = await ApiService.getGroupProfile(id as string);
-      console.log('📊 Profile data received:', profileData);
       setGroupProfile(profileData);
       
       // Check if user needs to set profile for this group
       // Show modal if no username OR no color
-      console.log('🔍 Profile check:', {
-        has_username: profileData.has_username,
-        has_color: profileData.has_color,
-        color: profileData.color,
-        shouldShowModal: !profileData.has_username || !profileData.has_color
-      });
-      
       if (!profileData.has_username || !profileData.has_color) {
-        console.log('🚨 Showing profile modal');
         
         // Fetch latest member colors to prevent race conditions
         await fetchMembers();
@@ -195,9 +186,7 @@ export default function GroupDetailScreen() {
     setShowProfileModal(false);
     
     try {
-      console.log('✅ handleProfileSetup called with:', { username, color });
-      const result = await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture, color });
-      console.log('🔄 Profile update result:', result);
+      await ApiService.updateGroupProfile(id as string, { username, profile_picture: profilePicture, color });
       
       // Update local state instead of refreshing to prevent modal from reappearing
       setGroupProfile(prev => ({
@@ -207,7 +196,6 @@ export default function GroupDetailScreen() {
         has_username: true,
         has_color: true
       }));
-      console.log('📝 Local profile state updated');
       
       // Refresh members to show updated username in members list
       await fetchMembers();

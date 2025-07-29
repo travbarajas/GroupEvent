@@ -101,7 +101,6 @@ module.exports = async function handler(req, res) {
       }
 
       // Get all events for this group from the group_events table with creator colors
-      console.log('🔧 FETCHING EVENTS WITH COLOR JOIN - v2.0');
       let events = [];
       try {
         events = await sql`
@@ -205,56 +204,29 @@ module.exports = async function handler(req, res) {
       let newEvent;
 
       if (source_event) {
-        // Adding a global event - copy it to the group's event table
-        const groupEventId = `${id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Ensure group_events table has all required columns
+        try {
+          await sql`
+            CREATE TABLE IF NOT EXISTS group_events (
+              id VARCHAR(255) PRIMARY KEY,
+              group_id VARCHAR(255) NOT NULL,
+              custom_name TEXT,
+              original_event_data JSONB NOT NULL,
+              created_by_device_id VARCHAR(255) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+            )
+          `;
+        } catch (error) {
+          console.log('Table already exists or creation error:', error.message);
+        }
+
+        // Adding a global event - save as original format for backward compatibility
+        const groupEventId = `event_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
         
         [newEvent] = await sql`
-          INSERT INTO group_events (
-            id,
-            group_id,
-            name,
-            description,
-            date,
-            time,
-            location,
-            venue_name,
-            price,
-            currency,
-            is_free,
-            category,
-            tags,
-            max_attendees,
-            min_attendees,
-            attendance_required,
-            custom_name,
-            added_by_device_id,
-            added_by_username,
-            source_type,
-            source_event_id
-          )
-          VALUES (
-            ${groupEventId},
-            ${id},
-            ${source_event.name},
-            ${source_event.description || ''},
-            ${source_event.date},
-            ${source_event.time},
-            ${source_event.location || ''},
-            ${source_event.venue_name || ''},
-            ${source_event.price || 0},
-            ${source_event.currency || 'USD'},
-            ${source_event.is_free || false},
-            ${source_event.category || ''},
-            ${source_event.tags || '{}'},
-            ${source_event.max_attendees},
-            ${source_event.min_attendees},
-            ${source_event.attendance_required || false},
-            ${custom_name || source_event.name},
-            ${device_id},
-            ${membership.username || 'Unknown'},
-            'global',
-            ${event_id}
-          )
+          INSERT INTO group_events (id, group_id, custom_name, original_event_data, created_by_device_id)
+          VALUES (${groupEventId}, ${id}, ${custom_name || source_event.name}, ${JSON.stringify(source_event)}, ${device_id})
           RETURNING *
         `;
       } else {

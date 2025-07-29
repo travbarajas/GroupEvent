@@ -41,7 +41,6 @@ module.exports = async function handler(req, res) {
             // Column already exists
           }
           
-          console.log('🎯 LEGACY ENDPOINT: Fetching events with colors');
           const groupEvents = await sql`
             SELECT 
               e.id,
@@ -56,7 +55,6 @@ module.exports = async function handler(req, res) {
             WHERE e.group_id = ${id}
             ORDER BY e.created_at DESC
           `;
-          console.log('🎯 LEGACY: Found', groupEvents.length, 'events, first event color:', groupEvents[0]?.created_by_color);
           
           return res.status(200).json({ events: groupEvents });
         } catch (error) {

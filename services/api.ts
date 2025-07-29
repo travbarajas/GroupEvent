@@ -201,9 +201,6 @@ export class ApiService {
   // Events endpoints (Legacy - for backward compatibility)
   static async getGroupEvents(groupId: string): Promise<{ events: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    // TEMPORARILY force legacy endpoint to test colors
-    console.log('🔧 FORCING LEGACY ENDPOINT for color testing');
-    console.log('🔗 Using legacy endpoint:', `/groups/${groupId}/members?events=true&device_id=${device_id}`);
     return this.request(`/groups/${groupId}/members?events=true&device_id=${device_id}`);
   }
 
