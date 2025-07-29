@@ -17,7 +17,7 @@ export interface Event {
   time: string;
   price: string;
   distance: string;
-  type: 'festival' | 'music' | 'outdoor' | 'food';
+  type: string; // Made flexible instead of restricted to specific types
   tags: string[];
 }
 

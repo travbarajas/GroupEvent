@@ -209,9 +209,6 @@ const ExpandedEventModal = ({ event, visible, onClose, sourceLayout, onSaveEvent
             <Text style={styles.descriptionLabel}>About this event</Text>
             <Text style={styles.modalEventDescription}>
               {event?.description}
-              {"\n\n"}Join us for an amazing experience! This event promises to be unforgettable with great atmosphere, friendly people, and memorable moments. Whether you're coming solo or with friends, you'll have a fantastic time.
-              {"\n\n"}Don't miss out on this opportunity to connect with like-minded people and create lasting memories. We can't wait to see you there!
-              {"\n\n"}This event is perfect for anyone looking to have fun and meet new people. We'll have music, activities, and plenty of opportunities to socialize. Come early to get the best experience!
             </Text>
           </View>
           

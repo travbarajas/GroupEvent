@@ -195,41 +195,7 @@ export default function EventsSearchModal({ visible, onClose, onShowGroupModal, 
     }
   };
 
-  const getFallbackEvents = (): Event[] => [
-    {
-      id: 1,
-      name: "FALLBACK - Summer Music Festival",
-      date: "FALLBACK - Sat, July 19",
-      description: "FALLBACK - Live bands, food trucks, and craft beer",
-      time: "FALLBACK - 2:00 PM",
-      price: "FALLBACK - $15 per person",
-      distance: "FALLBACK - 12 miles away",
-      type: "festival",
-      tags: ["music", "family-friendly", "outdoor"]
-    },
-    {
-      id: 2,
-      name: "FALLBACK - Jazz Night at Blue Note",
-      date: "FALLBACK - Fri, July 18",
-      description: "FALLBACK - Local jazz quartet performing classics",
-      time: "FALLBACK - 7:00 PM",
-      price: "FALLBACK - $20 cover",
-      distance: "FALLBACK - 3 miles away",
-      type: "music",
-      tags: ["music", "nightlife", "indoor"]
-    },
-    {
-      id: 3,
-      name: "FALLBACK - Hiking at Auburn State Park",
-      date: "FALLBACK - Sun, July 21",
-      description: "FALLBACK - Morning hike with scenic views",
-      time: "FALLBACK - 8:00 AM",
-      price: "FALLBACK - $5 parking",
-      distance: "FALLBACK - 25 miles away",
-      type: "outdoor",
-      tags: ["outdoor", "exercise", "family-friendly"]
-    }
-  ];
+  const getFallbackEvents = (): Event[] => [];
 
   const handleEventPress = (event: Event) => {
     // Show event detail within the search modal instead of external modal

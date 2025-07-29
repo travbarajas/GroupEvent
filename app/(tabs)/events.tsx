@@ -27,22 +27,30 @@ const CompactEventCard = ({ event, onPress, onAddToGroup, onShare }: {
 }) => {
   const { toggleSaveEvent, isEventSaved } = useGroups();
 
-  const getTypeColor = (type: Event['type']) => {
-    const colors = {
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
       festival: '#8b5cf6',
       music: '#06b6d4', 
       outdoor: '#10b981',
       food: '#f59e0b',
+      sports: '#ef4444',
+      arts: '#f97316',
+      business: '#0ea5e9',
+      community: '#84cc16',
     };
     return colors[type] || '#6b7280';
   };
 
-  const getTypeIcon = (type: Event['type']) => {
-    const icons = {
+  const getTypeIcon = (type: string) => {
+    const icons: Record<string, string> = {
       festival: 'musical-notes',
       music: 'musical-note',
       outdoor: 'trail-sign', 
       food: 'restaurant',
+      sports: 'fitness',
+      arts: 'color-palette',
+      business: 'briefcase',
+      community: 'people',
     };
     return icons[type] || 'calendar';
   };
