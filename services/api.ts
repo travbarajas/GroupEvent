@@ -206,13 +206,13 @@ export class ApiService {
 
   static async saveEventToGroup(groupId: string, customName: string, originalEvent: any): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    // Use members endpoint which has working event saving logic
-    return this.request(`/groups/${groupId}/members`, {
+    return this.request(`/groups/${groupId}/events`, {
       method: 'POST',
       body: JSON.stringify({
         device_id,
+        event_id: originalEvent.id,
         custom_name: customName,
-        original_event: originalEvent
+        source_event: originalEvent
       })
     });
   }

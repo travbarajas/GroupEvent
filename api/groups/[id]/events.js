@@ -237,7 +237,8 @@ module.exports = async function handler(req, res) {
 
     } catch (error) {
       console.error('Error adding event to group:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error('Error details:', error.message);
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
