@@ -300,7 +300,7 @@ export default function EventDetailScreen() {
             </View>
           </TouchableOpacity>
         </Animated.View>
-
+        
         {/* GPT Input Field */}
         <View style={styles.gptInputContainer}>
           <View style={styles.gptInputBox}>
@@ -492,7 +492,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContent: {
-    padding: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 0,
     flex: 1,
   },
   headerTop: {
@@ -771,6 +773,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+    marginTop: 0,
   },
   gptInputBox: {
     backgroundColor: '#2a2a2a',
@@ -828,6 +831,7 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
     fontSize: 16,
     lineHeight: 24,
-    marginTop: 12,
+    marginTop: 16,
+    paddingBottom: 8,
   },
 });

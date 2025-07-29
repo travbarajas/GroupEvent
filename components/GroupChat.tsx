@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ApiService } from '../services/api';
-import { DeviceIdManager } from '../utils/deviceId';
+import { useChat } from '../hooks/useChat';
 
 interface Message {
   id: string;
@@ -20,6 +19,7 @@ interface Message {
   device_id: string;
   userColor?: string;
   timestamp: string;
+  type?: 'message' | 'typing' | 'user_joined' | 'user_left';
 }
 
 interface GroupChatProps {
@@ -28,235 +28,71 @@ interface GroupChatProps {
 }
 
 export default function GroupChat({ groupId, currentUsername }: GroupChatProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastMessageId, setLastMessageId] = useState<string>('');
   const flatListRef = useRef<FlatList>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const mountedRef = useRef(true);
+  
+  // Use the PartyKit chat hook
+  const { 
+    messages, 
+    isConnected, 
+    isConnecting, 
+    typingUsers, 
+    error, 
+    sendMessage, 
+    sendTyping,
+    reconnect 
+  } = useChat({
+    roomType: 'group',
+    roomId: groupId,
+    enabled: true,
+  });
 
+  // Auto-scroll when new messages arrive
   useEffect(() => {
-    initializeChat();
-    return () => {
-      // Cleanup polling interval
-      mountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [groupId]);
-
-  const initializeChat = async () => {
-    try {
-      // Get current device ID
-      const deviceId = await DeviceIdManager.getDeviceId();
-      if (!mountedRef.current) return;
-      
-      setCurrentDeviceId(deviceId);
-
-      // Fetch initial messages
-      await fetchInitialMessages(deviceId);
-      
-      // Start polling for new messages every 2 seconds
-      startPolling(deviceId);
-    } catch (error) {
-      console.error('Failed to initialize chat:', error);
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
-  };
+  }, [messages]);
 
-  const fetchInitialMessages = async (deviceId: string) => {
-    try {
-      const url = `https://group-event.vercel.app/api/groups/${groupId}/chat?device_id=${deviceId}&limit=50`;
-      console.log('Fetching initial messages from:', url);
-      
-      const response = await fetch(url);
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-      
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        console.log('Response was not JSON:', responseText);
-        if (mountedRef.current) {
-          setIsLoading(false);
-        }
-        return;
-      }
-      
-      if (!mountedRef.current) return;
-
-      if (data.messages && data.messages.length > 0) {
-        setMessages(data.messages);
-        setLastMessageId(data.messages[data.messages.length - 1].id);
-        
-        // Auto-scroll to bottom
-        setTimeout(() => {
-          if (mountedRef.current) {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }
-        }, 100);
-      }
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch initial messages:', error);
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const pollForNewMessages = useCallback(async (deviceId: string) => {
-    if (!mountedRef.current) {
-      console.log('Skipping poll - component unmounted');
-      return;
-    }
-
-    try {
-      let url;
-      if (lastMessageId) {
-        console.log('Polling for messages newer than:', lastMessageId);
-        url = `https://group-event.vercel.app/api/groups/${groupId}/chat?device_id=${deviceId}&lastMessageId=${lastMessageId}&limit=20`;
-      } else {
-        console.log('No lastMessageId, fetching recent messages');
-        url = `https://group-event.vercel.app/api/groups/${groupId}/chat?device_id=${deviceId}&limit=20`;
-      }
-
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (!mountedRef.current) return;
-
-      console.log('Poll response:', data);
-
-      if (data.messages && data.messages.length > 0) {
-        console.log('Found', data.messages.length, 'messages');
-        
-        if (lastMessageId) {
-          // Append new messages
-          setMessages(prev => [...prev, ...data.messages]);
-        } else {
-          // Set initial messages if none exist
-          setMessages(data.messages);
-        }
-        
-        setLastMessageId(data.messages[data.messages.length - 1].id);
-        
-        // Auto-scroll to bottom when new messages arrive
-        setTimeout(() => {
-          if (mountedRef.current) {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }
-        }, 100);
-      } else {
-        console.log('No new messages');
-      }
-    } catch (error) {
-      console.error('Failed to poll for new messages:', error);
-    }
-  }, [groupId, lastMessageId]);
-
-  const startPolling = (deviceId: string) => {
-    // Clear any existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    console.log('Starting polling with deviceId:', deviceId);
-
-    // Start polling every 2 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      if (mountedRef.current) {
-        console.log('Polling for new messages...');
-        pollForNewMessages(deviceId);
-      } else {
-        console.log('Component unmounted, stopping poll');
-      }
-    }, 2000);
-  };
-
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !mountedRef.current) return;
+  // Handle message sending
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
 
     const messageText = newMessage.trim();
-    setNewMessage(''); // Clear input immediately for better UX
-
-    try {
-      const url = `https://group-event.vercel.app/api/groups/${groupId}/chat`;
-      console.log('Sending message to:', url);
-      console.log('Message data:', { message: messageText, device_id: currentDeviceId });
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: messageText,
-          device_id: currentDeviceId,
-        }),
-      });
-
-      console.log('Send message response status:', response.status);
-      
-      const responseText = await response.text();
-      console.log('Send message raw response:', responseText);
-
-      if (response.ok) {
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('JSON parse error on send:', parseError);
-          if (mountedRef.current) {
-            setNewMessage(messageText);
-          }
-          return;
-        }
-        
-        if (!mountedRef.current) return;
-
-        // Add the sent message to the local state immediately
-        if (data.message) {
-          setMessages(prev => [...prev, data.message]);
-          setLastMessageId(data.message.id);
-          
-          // Auto-scroll to bottom
-          setTimeout(() => {
-            if (mountedRef.current) {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }
-          }, 100);
-        }
-      } else {
-        console.error('Failed to send message, status:', response.status);
-        console.error('Error response:', responseText);
-        // Restore message on failure
-        if (mountedRef.current) {
-          setNewMessage(messageText);
-        }
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
+    setNewMessage(''); // Clear input immediately
+    
+    const success = await sendMessage(messageText);
+    if (!success) {
       // Restore message on failure
-      if (mountedRef.current) {
-        setNewMessage(messageText);
-      }
+      setNewMessage(messageText);
+    }
+  };
+
+  // Handle typing indicators
+  const handleTextChange = (text: string) => {
+    setNewMessage(text);
+    
+    // Send typing indicator when user starts typing
+    if (text.length > 0) {
+      sendTyping(true);
+    } else {
+      sendTyping(false);
     }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isOwnMessage = item.device_id === currentDeviceId;
+    // Handle system messages differently
+    if (item.type === 'user_joined' || item.type === 'user_left') {
+      return (
+        <View style={styles.systemMessageContainer}>
+          <Text style={styles.systemMessageText}>{item.message}</Text>
+        </View>
+      );
+    }
+
+    const isOwnMessage = item.username === currentUsername;
     const userColor = item.userColor || '#60a5fa';
 
     return (
@@ -295,9 +131,22 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
       <View style={styles.chatHeader}>
         <Ionicons name="chatbubbles" size={20} color="#60a5fa" />
         <Text style={styles.chatTitle}>Group Chat</Text>
-        {isLoading && (
-          <Text style={styles.loadingText}>Loading...</Text>
-        )}
+        <View style={styles.connectionStatus}>
+          {isConnecting && (
+            <Text style={styles.connectingText}>Connecting...</Text>
+          )}
+          {isConnected && (
+            <View style={styles.connectedIndicator}>
+              <View style={styles.connectedDot} />
+              <Text style={styles.connectedText}>Connected</Text>
+            </View>
+          )}
+          {error && (
+            <TouchableOpacity onPress={reconnect} style={styles.errorContainer}>
+              <Text style={styles.errorText}>Reconnect</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <FlatList
@@ -307,12 +156,17 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
         renderItem={renderMessage}
         style={styles.messagesList}
         showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => {
-          if (mountedRef.current) {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }
-        }}
       />
+
+      {/* Typing indicators */}
+      {typingUsers.length > 0 && (
+        <View style={styles.typingContainer}>
+          <Text style={styles.typingText}>
+            {typingUsers.map(user => user.username).join(', ')} 
+            {typingUsers.length === 1 ? ' is' : ' are'} typing...
+          </Text>
+        </View>
+      )}
 
       <View style={styles.inputContainer}>
         <TextInput
@@ -320,22 +174,23 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
           placeholder="Type a message..."
           placeholderTextColor="#6b7280"
           value={newMessage}
-          onChangeText={setNewMessage}
+          onChangeText={handleTextChange}
           multiline
           maxLength={500}
+          editable={isConnected}
         />
         <TouchableOpacity 
           style={[
             styles.sendButton,
-            !newMessage.trim() && styles.sendButtonDisabled
+            (!newMessage.trim() || !isConnected) && styles.sendButtonDisabled
           ]}
-          onPress={sendMessage}
-          disabled={!newMessage.trim()}
+          onPress={handleSendMessage}
+          disabled={!newMessage.trim() || !isConnected}
         >
           <Ionicons 
             name="send" 
             size={20} 
-            color={newMessage.trim() ? '#ffffff' : '#6b7280'} 
+            color={(newMessage.trim() && isConnected) ? '#ffffff' : '#6b7280'} 
           />
         </TouchableOpacity>
       </View>
@@ -362,10 +217,57 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  loadingText: {
+  connectionStatus: {
+    marginLeft: 'auto',
+  },
+  connectingText: {
+    color: '#f59e0b',
+    fontSize: 12,
+  },
+  connectedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  connectedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  connectedText: {
+    color: '#10b981',
+    fontSize: 12,
+  },
+  errorContainer: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  errorText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  systemMessageContainer: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  systemMessageText: {
     color: '#9ca3af',
     fontSize: 12,
-    marginLeft: 8,
+    fontStyle: 'italic',
+  },
+  typingContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  typingText: {
+    color: '#9ca3af',
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   messagesList: {
     flex: 1,

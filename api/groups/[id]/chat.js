@@ -72,6 +72,24 @@ module.exports = async function handler(req, res) {
         timestamp: savedMessage.created_at
       };
 
+      // Send message to PartyKit for real-time broadcast
+      try {
+        const partyKitUrl = process.env.PARTYKIT_HOST || 'https://groupevent-chat.travbarajas.partykit.dev';
+        await fetch(`${partyKitUrl}/parties/main/group-${groupId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'message',
+            ...messageData
+          }),
+        });
+      } catch (partyKitError) {
+        console.error('Failed to send to PartyKit:', partyKitError);
+        // Don't fail the entire request if PartyKit is down
+      }
+
       return res.status(201).json({
         success: true,
         message: messageData
