@@ -98,68 +98,21 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { device_id, description, total_amount, paid_by, split_between } = req.body;
-      
-      console.log('POST expense request:', { groupId, device_id, description, total_amount, paid_by, split_between });
-      
-      if (!device_id) {
-        return res.status(400).json({ error: 'device_id is required' });
-      }
-
-      if (!description || !total_amount || !paid_by || !split_between) {
-        return res.status(400).json({ error: 'description, total_amount, paid_by, and split_between are required' });
-      }
-
-      // Check if user is a member of this group
-      const [membership] = await sql`
-        SELECT 1 FROM members WHERE group_id = ${groupId} AND device_id = ${device_id}
-      `;
-
-      if (!membership) {
-        return res.status(403).json({ error: 'You are not a member of this group' });
-      }
-
-      console.log('Membership check passed, creating expense...');
-
-      // For now, let's try without the UUID cast since group IDs might be strings
-      const [newExpense] = await sql`
-        INSERT INTO group_expenses (group_id, description, total_amount, created_by_device_id)
-        VALUES (${groupId}, ${description}, ${total_amount}, ${device_id})
-        RETURNING *
-      `;
-
-      console.log('Expense created:', newExpense);
-
-      // Calculate individual amount for owers
-      const individualAmount = parseFloat(total_amount) / split_between.length;
-      console.log('Individual amount:', individualAmount);
-
-      // Insert payers (let database generate UUIDs)
-      for (const payerId of paid_by) {
-        console.log('Inserting payer:', payerId);
-        await sql`
-          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)
-          VALUES (${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
-        `;
-      }
-
-      // Insert owers (let database generate UUIDs)
-      for (const owerId of split_between) {
-        console.log('Inserting ower:', owerId);
-        await sql`
-          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)  
-          VALUES (${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
-        `;
-      }
-      
-      console.log('Expense creation completed successfully');
-      return res.status(201).json({ success: true, expense: newExpense });
+      // Return success immediately to test if the endpoint is reachable
+      return res.status(200).json({ 
+        message: 'Endpoint reached successfully',
+        groupId,
+        body: req.body,
+        method: req.method
+      });
 
     } catch (error) {
-      console.error('Error creating expense:', error);
-      console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      console.error('Error in POST handler:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error', 
+        details: error.message,
+        stack: error.stack 
+      });
     }
   }
 
