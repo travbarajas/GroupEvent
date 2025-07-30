@@ -1,0 +1,433 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  TextInput,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+interface Car {
+  id: string;
+  name: string;
+  capacity: number;
+  seats: (string | null)[]; // user IDs or null for empty seats
+  createdBy: string;
+}
+
+interface CarSeatIndicatorProps {
+  groupId: string;
+  currentUserId?: string;
+  userColor?: string;
+  members: any[];
+}
+
+export default function CarSeatIndicator({ 
+  groupId, 
+  currentUserId, 
+  userColor,
+  members 
+}: CarSeatIndicatorProps) {
+  const [cars, setCars] = useState<Car[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingCarName, setEditingCarName] = useState<string | null>(null);
+
+  // Get user color by ID
+  const getUserColor = (userId: string) => {
+    const member = members.find(m => m.device_id === userId);
+    return member?.color || '#60a5fa';
+  };
+
+  // Get current user's username
+  const getCurrentUsername = () => {
+    const currentMember = members.find(m => m.device_id === currentUserId);
+    return currentMember?.username || 'Someone';
+  };
+
+  // Add a new car
+  const handleAddCar = () => {
+    const username = getCurrentUsername();
+    const newCar: Car = {
+      id: Date.now().toString(),
+      name: `${username}'s car`,
+      capacity: 5,
+      seats: Array(5).fill(null),
+      createdBy: currentUserId || '',
+    };
+    setCars([...cars, newCar]);
+  };
+
+  // Join/leave car - fills in order
+  const handleClaimSeat = (carId: string) => {
+    if (!currentUserId) return;
+
+    setCars(cars.map(car => {
+      if (car.id === carId) {
+        const newSeats = [...car.seats];
+        const userSeatIndex = newSeats.findIndex(seat => seat === currentUserId);
+        
+        if (userSeatIndex !== -1) {
+          // User is already in car - remove them and shift others left
+          newSeats[userSeatIndex] = null;
+          // Shift all seats after this one to the left
+          for (let i = userSeatIndex; i < newSeats.length - 1; i++) {
+            newSeats[i] = newSeats[i + 1];
+            newSeats[i + 1] = null;
+          }
+        } else {
+          // User not in car - add them to first empty seat
+          const firstEmptyIndex = newSeats.findIndex(seat => seat === null);
+          if (firstEmptyIndex !== -1) {
+            newSeats[firstEmptyIndex] = currentUserId;
+          }
+        }
+        
+        return { ...car, seats: newSeats };
+      }
+      return car;
+    }));
+  };
+
+  // Count occupied seats
+  const getOccupiedSeats = (car: Car) => {
+    return car.seats.filter(seat => seat !== null).length;
+  };
+
+  // Change car capacity (only creator can do this)
+  const handleCapacityChange = (carId: string, delta: number) => {
+    setCars(cars.map(car => {
+      if (car.id === carId && car.createdBy === currentUserId) {
+        const newCapacity = Math.max(1, Math.min(8, car.capacity + delta)); // Min 1, Max 8
+        const newSeats = Array(newCapacity).fill(null);
+        
+        // Copy existing seats up to new capacity
+        for (let i = 0; i < Math.min(car.seats.length, newCapacity); i++) {
+          newSeats[i] = car.seats[i];
+        }
+        
+        return { ...car, capacity: newCapacity, seats: newSeats };
+      }
+      return car;
+    }));
+  };
+
+  // Change car name (only creator can do this)
+  const handleNameChange = (carId: string, newName: string) => {
+    setCars(cars.map(car => {
+      if (car.id === carId && car.createdBy === currentUserId) {
+        return { ...car, name: newName };
+      }
+      return car;
+    }));
+  };
+
+  const renderCar = (car: Car) => {
+    const isCreator = car.createdBy === currentUserId;
+    const isEditingName = editingCarName === car.id;
+    
+    return (
+      <View key={car.id} style={styles.carContainer}>
+        {/* Car name on the left - editable for creator */}
+        {isEditingName ? (
+          <TextInput
+            style={styles.carNameInput}
+            value={car.name}
+            onChangeText={(text) => handleNameChange(car.id, text)}
+            onBlur={() => setEditingCarName(null)}
+            onSubmitEditing={() => setEditingCarName(null)}
+            autoFocus
+            maxLength={20}
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.carNameContainer}
+            onPress={() => {
+              if (isCreator) {
+                setEditingCarName(car.id);
+              } else {
+                handleClaimSeat(car.id);
+              }
+            }}
+          >
+            <Text style={styles.carName}>{car.name}</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Horizontal seat pills in the middle */}
+        <TouchableOpacity 
+          style={styles.seatsRow}
+          onPress={() => handleClaimSeat(car.id)}
+          activeOpacity={0.7}
+        >
+          {car.seats.map((seat, index) => (
+            <View
+              key={index}
+              style={[
+                styles.seatPill,
+                seat && { backgroundColor: getUserColor(seat) }
+              ]}
+            />
+          ))}
+        </TouchableOpacity>
+        
+        {/* Capacity controls and counter on the right */}
+        <View style={styles.capacityContainer}>
+          {isCreator && (
+            <>
+              <TouchableOpacity 
+                style={styles.capacityButton}
+                onPress={() => handleCapacityChange(car.id, -1)}
+                disabled={car.capacity <= 1}
+              >
+                <Ionicons 
+                  name="remove" 
+                  size={12} 
+                  color={car.capacity <= 1 ? '#666' : '#60a5fa'} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.capacityButton}
+                onPress={() => handleCapacityChange(car.id, 1)}
+                disabled={car.capacity >= 8}
+              >
+                <Ionicons 
+                  name="add" 
+                  size={12} 
+                  color={car.capacity >= 8 ? '#666' : '#60a5fa'} 
+                />
+              </TouchableOpacity>
+            </>
+          )}
+          <Text style={styles.capacityText}>
+            {getOccupiedSeats(car)}/{car.capacity}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <>
+      {/* Car Seat Block - Same size as calendar block */}
+      <TouchableOpacity 
+        style={styles.carSeatBlock}
+        activeOpacity={0.8}
+        onPress={() => setShowModal(true)}
+      >
+        <View style={styles.carSeatHeader}>
+          <Ionicons name="car-sport" size={20} color="#60a5fa" />
+          <Text style={styles.carSeatTitle}>Car Seats</Text>
+          <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
+        </View>
+        
+        {cars.length === 0 ? (
+          <Text style={styles.noCarText}>No cars added</Text>
+        ) : (
+          <View style={styles.carListPreview}>
+            {cars.map(car => (
+              <View key={car.id} style={styles.carPreviewItem}>
+                <Text style={styles.carPreviewName}>{car.name}</Text>
+                <Text style={styles.carPreviewCapacity}>
+                  {getOccupiedSeats(car)}/{car.capacity}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Car Seat Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showModal}
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowModal(false)}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Car Seats</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          {/* Content */}
+          <ScrollView style={styles.modalContent}>
+            {/* Add Car Button */}
+            <TouchableOpacity 
+              style={styles.addCarButton}
+              onPress={handleAddCar}
+            >
+              <Ionicons name="add" size={20} color="#60a5fa" />
+              <Text style={styles.addCarText}>Add Car</Text>
+            </TouchableOpacity>
+
+            {/* Cars List */}
+            {cars.map(renderCar)}
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  carSeatBlock: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    padding: 16,
+    flex: 1,
+  },
+  carSeatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  carSeatTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 6,
+    flex: 1,
+  },
+  noCarText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  carListPreview: {
+    gap: 8,
+  },
+  carPreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  carPreviewName: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '500',
+    flex: 1,
+  },
+  carPreviewCapacity: {
+    fontSize: 12,
+    color: '#60a5fa',
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 50,
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  headerSpacer: {
+    width: 24,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 16,
+  },
+  addCarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+    padding: 16,
+    marginBottom: 16,
+  },
+  addCarText: {
+    fontSize: 14,
+    color: '#60a5fa',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  carContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  carNameContainer: {
+    flex: 0.3,
+  },
+  carName: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  carNameInput: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flex: 0.3,
+  },
+  seatsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 0.4,
+    justifyContent: 'center',
+  },
+  seatPill: {
+    width: 24,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    backgroundColor: 'transparent',
+  },
+  capacityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 0.3,
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  capacityButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  capacityText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+});

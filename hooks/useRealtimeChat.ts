@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, getGroupChannelName, getEventChannelName } from '../lib/supabase';
 import { DeviceIdManager } from '../utils/deviceId';
@@ -36,6 +37,8 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
   const channelRef = useRef<RealtimeChannel | null>(null);
   const mountedRef = useRef(true);
   const deviceIdRef = useRef<string>('');
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const appStateRef = useRef(AppState.currentState);
 
   // Get channel name based on room type
   const channelName = roomType === 'group' 
@@ -80,9 +83,29 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
     }
   }, [roomType, roomId]);
 
+  // Auto-reconnect when there's an error
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current && enabled && roomId) {
+        console.log('Auto-reconnecting chat...');
+        initializeConnection();
+      }
+    }, 5000); // Retry every 5 seconds
+  }, [enabled, roomId]);
+
   // Initialize realtime connection
   const initializeConnection = useCallback(async () => {
     if (!enabled || !roomId) return;
+
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
 
     try {
       // Get device ID
@@ -137,12 +160,14 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
             isConnected: false, 
             error: 'Connection error' 
           }));
+          scheduleReconnect(); // Auto-reconnect on error
         } else if (status === 'TIMED_OUT') {
           setState(prev => ({ 
             ...prev, 
             isConnected: false, 
             error: 'Connection timed out' 
           }));
+          scheduleReconnect(); // Auto-reconnect on timeout
         }
       });
 
@@ -157,9 +182,10 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
           isConnected: false,
           isLoading: false 
         }));
+        scheduleReconnect(); // Auto-reconnect on initialization error
       }
     }
-  }, [enabled, roomId, channelName, fetchMessageHistory]);
+  }, [enabled, roomId, channelName, fetchMessageHistory, scheduleReconnect]);
 
   // Send message function
   const sendMessage = useCallback(async (message: string) => {
@@ -224,6 +250,9 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -238,8 +267,41 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
         channelRef.current.unsubscribe();
         channelRef.current = null;
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
   }, [enabled, roomId, initializeConnection]);
+
+  // Handle app state changes (foreground/background) - simple reconnect for short backgrounds
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      console.log('Chat - App state changed from', appStateRef.current, 'to', nextAppState);
+      
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('App came to foreground - checking chat connection');
+        
+        // Simple reconnect check for short backgrounds (page-level refresh handles long ones)
+        if (enabled && roomId && mountedRef.current) {
+          setTimeout(() => {
+            if (mountedRef.current && !state.isConnected) {
+              console.log('Chat appears disconnected - attempting simple reconnect');
+              initializeConnection();
+            }
+          }, 1000);
+        }
+      }
+      
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
+  }, [enabled, roomId, initializeConnection, state.isConnected]);
 
   return {
     messages: state.messages,

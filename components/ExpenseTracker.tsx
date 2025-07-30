@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PaymentWebView, { PaymentDetails } from './PaymentWebView';
+import { ApiService } from '@/services/api';
 
 interface GroupMember {
   member_id: string;
@@ -24,9 +25,9 @@ interface ExpenseItem {
   id: string;
   description: string;
   totalAmount: number;
-  paidBy: string; // member_id of who paid
-  splitBetween: string[]; // array of member_ids
-  individualAmount: number;
+  paidBy: string[]; // array of member_ids who paid upfront
+  splitBetween: string[]; // array of member_ids who should pay back
+  individualAmount: number; // amount each person in splitBetween owes
   paymentStatus: { [memberId: string]: 'pending' | 'sent' | 'completed' };
   createdAt: string;
 }
@@ -37,6 +38,7 @@ interface ExpenseTrackerProps {
   groupName: string;
   groupId: string;
   members: GroupMember[];
+  onExpensesChange?: (expenses: ExpenseItem[]) => void;
 }
 
 const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
@@ -45,6 +47,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
   groupName,
   groupId,
   members,
+  onExpensesChange,
 }) => {
   const insets = useSafeAreaInsets();
   const [currentStep, setCurrentStep] = useState<'list' | 'create' | 'payment'>('list');
@@ -53,8 +56,8 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
   // Create expense form state
   const [expenseDescription, setExpenseDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<string>('');
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [selectedPayers, setSelectedPayers] = useState<Set<string>>(new Set()); // who paid upfront
+  const [selectedOwers, setSelectedOwers] = useState<Set<string>>(new Set()); // who owes money
   
   // Payment state
   const [showPaymentWebView, setShowPaymentWebView] = useState(false);
@@ -71,34 +74,37 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
   }, [visible]);
 
   const loadExpenses = async () => {
-    // TODO: Load expenses from API/storage
-    // For now, using mock data
-    const mockExpenses: ExpenseItem[] = [
-      {
-        id: '1',
-        description: 'Beach Day Lunch',
-        totalAmount: 75.50,
-        paidBy: validMembers[0]?.member_id || '',
-        splitBetween: validMembers.slice(0, 3).map(m => m.member_id),
-        individualAmount: 25.17,
-        paymentStatus: validMembers.slice(0, 3).reduce((acc, member) => {
-          acc[member.member_id] = member.member_id === validMembers[0]?.member_id ? 'completed' : 'pending';
-          return acc;
-        }, {} as { [key: string]: 'pending' | 'sent' | 'completed' }),
-        createdAt: new Date().toISOString(),
-      }
-    ];
-    setExpenses(mockExpenses);
+    try {
+      const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
+      
+      // Transform API data to match our ExpenseItem interface
+      const transformedExpenses: ExpenseItem[] = apiExpenses.map(expense => ({
+        id: expense.id,
+        description: expense.description,
+        totalAmount: parseFloat(expense.total_amount),
+        paidBy: expense.payers || [],
+        splitBetween: expense.owers || [],
+        individualAmount: expense.individual_amount || 0,
+        paymentStatus: expense.payment_status || {},
+        createdAt: expense.created_at
+      }));
+      
+      setExpenses(transformedExpenses);
+    } catch (error) {
+      console.error('Failed to load expenses:', error);
+      // Fall back to empty expenses on error
+      setExpenses([]);
+    }
   };
 
   const resetCreateForm = () => {
     setExpenseDescription('');
     setTotalAmount('');
-    setSelectedPayer('');
-    setSelectedMembers(new Set());
+    setSelectedPayers(new Set());
+    setSelectedOwers(new Set());
   };
 
-  const handleCreateExpense = () => {
+  const handleCreateExpense = async () => {
     const amount = parseFloat(totalAmount);
     
     if (!expenseDescription.trim()) {
@@ -111,36 +117,37 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
       return;
     }
     
-    if (!selectedPayer) {
-      Alert.alert('Error', 'Please select who paid');
+    if (selectedPayers.size === 0) {
+      Alert.alert('Error', 'Please select who paid upfront');
       return;
     }
     
-    if (selectedMembers.size === 0) {
-      Alert.alert('Error', 'Please select members to split with');
+    if (selectedOwers.size === 0) {
+      Alert.alert('Error', 'Please select who should pay back');
       return;
     }
 
-    const individualAmount = amount / selectedMembers.size;
-    const newExpense: ExpenseItem = {
-      id: Date.now().toString(),
-      description: expenseDescription,
-      totalAmount: amount,
-      paidBy: selectedPayer,
-      splitBetween: Array.from(selectedMembers),
-      individualAmount,
-      paymentStatus: Array.from(selectedMembers).reduce((acc, memberId) => {
-        acc[memberId] = memberId === selectedPayer ? 'completed' : 'pending';
-        return acc;
-      }, {} as { [key: string]: 'pending' | 'sent' | 'completed' }),
-      createdAt: new Date().toISOString(),
-    };
-
-    setExpenses(prev => [newExpense, ...prev]);
-    setCurrentStep('list');
-    resetCreateForm();
-    
-    // TODO: Save to API/storage
+    try {
+      // Create expense via API
+      await ApiService.createGroupExpense(groupId, {
+        description: expenseDescription,
+        totalAmount: amount,
+        paidBy: Array.from(selectedPayers),
+        splitBetween: Array.from(selectedOwers)
+      });
+      
+      // Reload expenses from API to get the latest data
+      await loadExpenses();
+      
+      // Notify parent of expense changes
+      onExpensesChange?.(expenses);
+      
+      setCurrentStep('list');
+      resetCreateForm();
+    } catch (error) {
+      console.error('Failed to create expense:', error);
+      Alert.alert('Error', 'Failed to create expense. Please try again.');
+    }
   };
 
   const handlePayExpense = (expense: ExpenseItem, payerMemberId: string, recipientMemberId: string) => {
@@ -212,14 +219,24 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     setShowPaymentWebView(false);
   };
 
-  const toggleMemberSelection = (memberId: string) => {
-    const newSelected = new Set(selectedMembers);
+  const togglePayerSelection = (memberId: string) => {
+    const newSelected = new Set(selectedPayers);
     if (newSelected.has(memberId)) {
       newSelected.delete(memberId);
     } else {
       newSelected.add(memberId);
     }
-    setSelectedMembers(newSelected);
+    setSelectedPayers(newSelected);
+  };
+
+  const toggleOwerSelection = (memberId: string) => {
+    const newSelected = new Set(selectedOwers);
+    if (newSelected.has(memberId)) {
+      newSelected.delete(memberId);
+    } else {
+      newSelected.add(memberId);
+    }
+    setSelectedOwers(newSelected);
   };
 
   const renderExpenseList = () => (
@@ -251,15 +268,15 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
               </View>
               
               <Text style={styles.expenseDetails}>
-                Paid by {validMembers.find(m => m.member_id === expense.paidBy)?.username || 'Unknown'} • 
-                Split {expense.splitBetween.length} ways (${expense.individualAmount.toFixed(2)} each)
+                Paid by {expense.paidBy.map(id => validMembers.find(m => m.member_id === id)?.username || 'Unknown').join(', ')} • 
+                {expense.splitBetween.length} people owe ${expense.individualAmount.toFixed(2)} each
               </Text>
 
               <View style={styles.paymentStatusContainer}>
                 {expense.splitBetween.map(memberId => {
                   const member = validMembers.find(m => m.member_id === memberId);
                   const status = expense.paymentStatus[memberId] || 'pending';
-                  const isPayer = memberId === expense.paidBy;
+                  const isPayer = expense.paidBy.includes(memberId);
                   
                   if (!member) return null;
 
@@ -322,20 +339,20 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Who paid?</Text>
+          <Text style={styles.inputLabel}>Who paid upfront?</Text>
           <View style={styles.memberSelection}>
             {validMembers.map(member => (
               <TouchableOpacity
                 key={member.member_id}
                 style={[
                   styles.memberOption,
-                  selectedPayer === member.member_id && styles.memberOptionSelected
+                  selectedPayers.has(member.member_id) && styles.memberOptionSelected
                 ]}
-                onPress={() => setSelectedPayer(member.member_id)}
+                onPress={() => togglePayerSelection(member.member_id)}
               >
                 <Text style={[
                   styles.memberOptionText,
-                  selectedPayer === member.member_id && styles.memberOptionTextSelected
+                  selectedPayers.has(member.member_id) && styles.memberOptionTextSelected
                 ]}>
                   {member.username}
                 </Text>
@@ -345,20 +362,20 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Split between:</Text>
+          <Text style={styles.inputLabel}>Who should pay back?</Text>
           <View style={styles.memberSelection}>
             {validMembers.map(member => (
               <TouchableOpacity
                 key={member.member_id}
                 style={[
                   styles.memberOption,
-                  selectedMembers.has(member.member_id) && styles.memberOptionSelected
+                  selectedOwers.has(member.member_id) && styles.memberOptionSelected
                 ]}
-                onPress={() => toggleMemberSelection(member.member_id)}
+                onPress={() => toggleOwerSelection(member.member_id)}
               >
                 <Text style={[
                   styles.memberOptionText,
-                  selectedMembers.has(member.member_id) && styles.memberOptionTextSelected
+                  selectedOwers.has(member.member_id) && styles.memberOptionTextSelected
                 ]}>
                   {member.username}
                 </Text>
@@ -367,10 +384,10 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
           </View>
         </View>
 
-        {selectedMembers.size > 0 && totalAmount && (
+        {selectedOwers.size > 0 && totalAmount && (
           <View style={styles.summaryContainer}>
             <Text style={styles.summaryText}>
-              ${totalAmount} ÷ {selectedMembers.size} people = ${(parseFloat(totalAmount) / selectedMembers.size).toFixed(2)} each
+              ${totalAmount} ÷ {selectedOwers.size} people = ${(parseFloat(totalAmount) / selectedOwers.size).toFixed(2)} each
             </Text>
           </View>
         )}
@@ -410,8 +427,8 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
         <View style={styles.container}>
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top }]}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#ffffff" />
+            <TouchableOpacity onPress={onClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
             </TouchableOpacity>
             <View style={styles.headerContent}>
               <Text style={styles.headerTitle}>
@@ -455,7 +472,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  closeButton: {
+  backButton: {
     padding: 8,
   },
   headerContent: {

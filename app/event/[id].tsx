@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiService, Event, LegacyEvent } from '@/services/api';
+import CarSeatIndicator from '@/components/CarSeatIndicator';
+import ExpenseTracker from '@/components/ExpenseTracker';
 
 type EventData = Event | LegacyEvent;
 
@@ -26,12 +28,15 @@ interface AttendanceData {
   not_going: string[];
 }
 
-interface Expense {
+interface ExpenseItem {
   id: string;
   description: string;
-  amount: number;
-  paid_by: string;
-  date: string;
+  totalAmount: number;
+  paidBy: string[];
+  splitBetween: string[];
+  individualAmount: number;
+  paymentStatus: { [memberId: string]: 'pending' | 'sent' | 'completed' };
+  createdAt: string;
 }
 
 export default function EventDetailScreen() {
@@ -43,12 +48,15 @@ export default function EventDetailScreen() {
     maybe: [],
     not_going: []
   });
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
   const [headerAnimation] = useState(new Animated.Value(0));
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
   const [gptInput, setGptInput] = useState<string>('');
+  const [members, setMembers] = useState<any[]>([]);
+  const [groupProfile, setGroupProfile] = useState<any>(null);
+  const [showExpenseTracker, setShowExpenseTracker] = useState(false);
 
   useEffect(() => {
     if (id && groupId) {
@@ -56,6 +64,8 @@ export default function EventDetailScreen() {
       fetchAttendance();
       fetchExpenses();
       getCurrentDeviceId();
+      fetchMembers();
+      fetchGroupProfile();
     }
   }, [id, groupId]);
 
@@ -100,10 +110,46 @@ export default function EventDetailScreen() {
 
   const fetchExpenses = async () => {
     try {
-      // TODO: Implement actual API call for expenses
-      setExpenses([]);
+      const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId as string);
+      
+      // Transform API data to match our ExpenseItem interface
+      const transformedExpenses: ExpenseItem[] = apiExpenses.map(expense => ({
+        id: expense.id,
+        description: expense.description,
+        totalAmount: parseFloat(expense.total_amount),
+        paidBy: expense.payers || [],
+        splitBetween: expense.owers || [],
+        individualAmount: expense.individual_amount || 0,
+        paymentStatus: expense.payment_status || {},
+        createdAt: expense.created_at
+      }));
+      
+      setExpenses(transformedExpenses);
     } catch (error) {
       console.error('Failed to fetch expenses:', error);
+      setExpenses([]);
+    }
+  };
+
+  const handleExpensesChange = (updatedExpenses: ExpenseItem[]) => {
+    setExpenses(updatedExpenses);
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const membersData = await ApiService.getGroupMembers(groupId as string);
+      setMembers(membersData);
+    } catch (error) {
+      console.error('Failed to fetch members:', error);
+    }
+  };
+
+  const fetchGroupProfile = async () => {
+    try {
+      const profileData = await ApiService.getGroupProfile(groupId as string);
+      setGroupProfile(profileData);
+    } catch (error) {
+      console.error('Failed to fetch group profile:', error);
     }
   };
 
@@ -184,16 +230,16 @@ export default function EventDetailScreen() {
     </View>
   );
 
-  const ExpenseRow = ({ expense }: { expense: Expense }) => (
+  const ExpenseRow = ({ expense }: { expense: ExpenseItem }) => (
     <View style={styles.expenseRow}>
       <Text style={styles.expenseDescription}>{expense.description}</Text>
-      <Text style={styles.expenseAmount}>${expense.amount.toFixed(2)}</Text>
-      <Text style={styles.expensePaidBy}>{expense.paid_by}</Text>
-      <Text style={styles.expenseDate}>{expense.date}</Text>
+      <Text style={styles.expenseAmount}>${expense.totalAmount.toFixed(2)}</Text>
+      <Text style={styles.expensePaidBy}>{expense.paidBy.length} payer{expense.paidBy.length === 1 ? '' : 's'}</Text>
+      <Text style={styles.expenseDate}>{new Date(expense.createdAt).toLocaleDateString()}</Text>
     </View>
   );
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.totalAmount, 0);
 
   // Normalize event data for display (handles both legacy and new formats)
   const getDisplayEvent = () => {
@@ -388,6 +434,50 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
+        {/* Car Seats and Expenses Side by Side */}
+        <View style={styles.sideBySideContainer}>
+          <View style={styles.halfBlock}>
+            <CarSeatIndicator 
+              groupId={groupId as string}
+              currentUserId={currentDeviceId}
+              userColor={groupProfile?.color}
+              members={members}
+            />
+          </View>
+          
+          <View style={styles.halfBlock}>
+            <TouchableOpacity 
+              style={styles.costBlock}
+              onPress={() => setShowExpenseTracker(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.costHeader}>
+                <Text style={styles.costLabel}>Cost:</Text>
+                <Text style={styles.costAmount}>${totalExpenses.toFixed(2)}</Text>
+              </View>
+              
+              {expenses.length === 0 ? (
+                <View style={styles.addExpenseButton}>
+                  <Ionicons name="add" size={16} color="#10b981" />
+                  <Text style={styles.addExpenseButtonText}>Add Expense</Text>
+                </View>
+              ) : (
+                <View style={styles.expensePreviewList}>
+                  {expenses.slice(0, 2).map(expense => (
+                    <View key={expense.id} style={styles.expensePreviewItem}>
+                      <Text style={styles.expensePreviewName}>{expense.description}</Text>
+                      <Text style={styles.expensePreviewAmount}>${expense.totalAmount.toFixed(2)}</Text>
+                    </View>
+                  ))}
+                  {expenses.length > 2 && (
+                    <Text style={styles.expensePreviewMore}>+{expenses.length - 2} more</Text>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Expenses Section */}
         <View style={styles.expensesContainer}>
           <Text style={styles.sectionTitle}>Expenses</Text>
@@ -467,6 +557,16 @@ export default function EventDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Expense Tracker */}
+      <ExpenseTracker
+        visible={showExpenseTracker}
+        onClose={() => setShowExpenseTracker(false)}
+        groupName={displayEvent.displayName}
+        groupId={groupId as string}
+        members={members}
+        onExpensesChange={handleExpensesChange}
+      />
     </View>
   );
 }
@@ -586,6 +686,99 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  sideBySideContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  halfBlock: {
+    flex: 1,
+  },
+  costBlock: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    padding: 16,
+  },
+  costHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  costLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  costAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  addExpenseButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  addExpenseButtonText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#10b981',
+    marginLeft: 3,
+  },
+  expensePreviewList: {
+    gap: 6,
+  },
+  expensePreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  expensePreviewName: {
+    fontSize: 11,
+    color: '#ffffff',
+    fontWeight: '500',
+    flex: 1,
+  },
+  expensePreviewAmount: {
+    fontSize: 11,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  expensePreviewMore: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  addExpenseButtonSmall: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginTop: 4,
+  },
+  addExpenseButtonTextSmall: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#10b981',
+    marginLeft: 2,
   },
   expensesContainer: {
     padding: 20,

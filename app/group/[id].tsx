@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ScrollView,
   Dimensions,
   Modal,
+  RefreshControl,
+  AppState,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +23,8 @@ import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
 import GroupChat from '@/components/GroupChat';
+import ChatPreviewBubble from '@/components/ChatPreviewBubble';
+import CarSeatIndicator from '@/components/CarSeatIndicator';
 import { calendarCache } from '@/utils/calendarCache';
 
 interface GroupPermissions {
@@ -70,9 +74,11 @@ export default function GroupDetailScreen() {
   const [isEditingFromMembers, setIsEditingFromMembers] = useState(false);
   const [pendingEventData, setPendingEventData] = useState<any>(null);
   const [groupEvents, setGroupEvents] = useState<any[]>([]);
-  const [showGroupChat, setShowGroupChat] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const group = getGroup(id as string);
+  const appStateRef = useRef(AppState.currentState);
+  const backgroundTimeRef = useRef<number | null>(null);
   
   useEffect(() => {
     if (id) {
@@ -100,6 +106,41 @@ export default function GroupDetailScreen() {
       }
     }
   }, [pendingEvent]);
+
+  // Handle app state changes - force refresh after long background
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      console.log('Group screen - App state changed from', appStateRef.current, 'to', nextAppState);
+      
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // App is going to background - record the time
+        backgroundTimeRef.current = Date.now();
+      } else if (nextAppState === 'active' && backgroundTimeRef.current) {
+        // App came to foreground - check how long it was in background
+        const backgroundDuration = Date.now() - backgroundTimeRef.current;
+        const LONG_BACKGROUND_THRESHOLD = 30000; // 30 seconds
+        
+        console.log(`App was in background for ${backgroundDuration}ms`);
+        
+        if (backgroundDuration > LONG_BACKGROUND_THRESHOLD) {
+          console.log('App was in background for a long time - forcing complete refresh');
+          
+          // Force complete refresh of all data (like opening the screen fresh)
+          handleRefresh();
+        }
+        
+        backgroundTimeRef.current = null;
+      }
+      
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   const getCurrentDeviceId = async () => {
     try {
@@ -171,6 +212,7 @@ export default function GroupDetailScreen() {
 
 
   const handleRefresh = async () => {
+    setIsRefreshing(true);
     try {
       await loadGroups(); // Refresh the groups list
       await fetchInviteCode(); // Refresh invite code
@@ -180,6 +222,8 @@ export default function GroupDetailScreen() {
       await fetchGroupEvents(); // Refresh group events
     } catch (error) {
       console.error('Failed to refresh group data:', error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -373,12 +417,28 @@ export default function GroupDetailScreen() {
         return eventDate === dateString;
       });
       
+      // Create abbreviations for events (first letter of each word)
+      const eventsWithAbbreviations = dayEvents.map(event => {
+        const title = event.custom_name || event.original_event_data?.title || 'Event';
+        const abbreviation = title
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase())
+          .join('');
+        
+        return {
+          ...event,
+          abbreviation,
+          color: event.created_by_color || '#60a5fa' // Use creator's color, default blue if no color
+        };
+      });
+      
       days.push({
         dayName,
         dayNumber,
         hasEvents: dayEvents.length > 0,
         eventCount: dayEvents.length,
-        dateString
+        dateString,
+        events: eventsWithAbbreviations
       });
     }
     
@@ -453,14 +513,16 @@ export default function GroupDetailScreen() {
           </View>
         </TouchableOpacity>
         
+        {/* Separator line between calendar button and 4-day preview */}
+        <View style={styles.calendarPreviewSeparator} />
+        
         <View style={styles.fourDayPreviewContent}>
           {next4Days.map((day, index) => (
             <TouchableOpacity 
               key={index} 
               style={[
                 styles.dayPreviewItem,
-                index === 0 && styles.dayPreviewToday,
-                day.hasEvents && styles.dayPreviewWithEvents
+                index === 0 && styles.dayPreviewToday
               ]}
               activeOpacity={0.7}
               onPress={(e) => {
@@ -502,15 +564,34 @@ export default function GroupDetailScreen() {
               <Text style={styles.dayPreviewName}>{day.dayName}</Text>
               <Text style={[
                 styles.dayPreviewNumber,
-                index === 0 && styles.dayPreviewTodayText,
-                day.hasEvents && styles.dayPreviewWithEventsText
+                index === 0 && styles.dayPreviewTodayText
               ]}>
                 {day.dayNumber}
               </Text>
               <View style={styles.dayPreviewEventContainer}>
-                {day.hasEvents && (
-                  <View style={styles.dayPreviewEventDot}>
-                    <Text style={styles.dayPreviewEventCount}>{day.eventCount}</Text>
+                {day.events && day.events.slice(0, 3).map((event, eventIndex) => (
+                  <View 
+                    key={eventIndex} 
+                    style={[
+                      styles.eventAbbreviation,
+                      { backgroundColor: event.color }
+                    ]}
+                  >
+                    <Text style={styles.eventAbbreviationText}>
+                      {event.abbreviation}
+                    </Text>
+                  </View>
+                ))}
+                {day.events && day.events.length > 3 && (
+                  <View 
+                    style={[
+                      styles.eventAbbreviation,
+                      { backgroundColor: '#666' }
+                    ]}
+                  >
+                    <Text style={styles.eventAbbreviationText}>
+                      +{day.events.length - 3}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -837,16 +918,16 @@ export default function GroupDetailScreen() {
               <Ionicons name="refresh" size={20} color="#60a5fa" />
             </TouchableOpacity>
           </View>
+          <View style={styles.headerGroupInfo}>
+            <Text style={styles.headerGroupName}>{group.name}</Text>
+            <Text style={styles.headerMemberCount}>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</Text>
+          </View>
           <View style={styles.headerButtons}>
             {permissions?.permissions?.can_invite && (
               <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
                 <Text style={styles.inviteButtonText}>Invite</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.chatButton} onPress={() => setShowGroupChat(true)}>
-              <Ionicons name="chatbubbles" size={18} color="#ffffff" />
-              <Text style={styles.chatButtonText}>Chat</Text>
-            </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.headerMenuButton} onPress={() => setShowMembersModal(true)}>
             <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
@@ -854,14 +935,25 @@ export default function GroupDetailScreen() {
         </View>
       </View>
       
-      {/* Group Info Block - Full Width */}
-      <View style={styles.groupInfoBlock}>
-        <Text style={styles.groupName}>{group.name}</Text>
-        <Text style={styles.groupMemberCount}>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</Text>
+      <ScrollView 
+        style={styles.scrollContainer} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#60a5fa"
+            colors={["#60a5fa"]}
+          />
+        }
+      >
+        {/* Chat Preview Bar - Under title */}
+        <ChatPreviewBubble 
+          groupId={id as string}
+          groupName={group.name}
+          currentUsername={groupProfile?.username}
+        />
         
-      </View>
-      
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Side by Side: Upcoming Events and 4-Day Preview with integrated Calendar Button */}
         <View style={styles.sideBySideContainer}>
           <View style={styles.upcomingEventsSection}>
@@ -870,14 +962,22 @@ export default function GroupDetailScreen() {
           <FourDayPreview />
         </View>
         
+        {/* Car Seats and Calendar Side by Side */}
+        <View style={styles.sideBySideContainer}>
+          <CarSeatIndicator 
+            groupId={id as string}
+            currentUserId={currentDeviceId}
+            userColor={groupProfile?.color}
+            members={members}
+          />
+          <View style={styles.spacer} />
+        </View>
+        
         {/* Events Section */}
         <View style={styles.eventsSection}>
           <Text style={styles.sectionTitle}>Events</Text>
-          {groupEvents.map(event => (
-            <EventBlock key={event.id} event={event} />
-          ))}
           
-          {/* Create Event Block */}
+          {/* Create Event Block - Always at top */}
           <TouchableOpacity 
             style={[
               styles.createEventBlock,
@@ -897,20 +997,13 @@ export default function GroupDetailScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* Add Event Block */}
-          <TouchableOpacity style={styles.addEventBlock} activeOpacity={0.8} onPress={() => router.push('/(tabs)/events')}>
-            <View style={styles.addEventContent}>
-              <View style={styles.addEventIconContainer}>
-                <Ionicons name="add" size={20} color="#ffffff" />
-              </View>
-              <Text style={styles.addEventText}>Add Event from Events Tab</Text>
-            </View>
-          </TouchableOpacity>
+          {groupEvents.map(event => (
+            <EventBlock key={event.id} event={event} />
+          ))}
           
           {groupEvents.length === 0 && (
             <View style={styles.noEventsContainer}>
               <Text style={styles.noEventsText}>No events yet</Text>
-              <Text style={styles.noEventsSubtext}>Add events from the Events tab!</Text>
             </View>
           )}
         </View>
@@ -964,26 +1057,6 @@ export default function GroupDetailScreen() {
         members={members}
       />
 
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={showGroupChat}
-        onRequestClose={() => setShowGroupChat(false)}
-      >
-        <View style={styles.chatContainer}>
-          <View style={[styles.chatHeader, { paddingTop: insets.top }]}>
-            <TouchableOpacity onPress={() => setShowGroupChat(false)} style={styles.chatBackButton}>
-              <Ionicons name="chevron-back" size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <Text style={styles.chatTitle}>{group.name} Chat</Text>
-            <View style={styles.chatHeaderSpacer} />
-          </View>
-          <GroupChat 
-            groupId={id as string} 
-            currentUsername={groupProfile?.username}
-          />
-        </View>
-      </Modal>
 
       {/* Leave Group Modal */}
       <Modal
@@ -1100,6 +1173,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerGroupInfo: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  headerGroupName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  headerMemberCount: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   groupInfoBlock: {
     backgroundColor: '#1a1a1a',
     paddingHorizontal: 20,
@@ -1126,6 +1216,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  spacer: {
+    flex: 1,
+  },
   // Side by Side Container
   sideBySideContainer: {
     flexDirection: 'row',
@@ -1140,6 +1233,13 @@ const styles = StyleSheet.create({
   },
   calendarButtonArrow: {
     marginLeft: 6,
+  },
+  calendarPreviewSeparator: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 0,
   },
   // 4-Day Preview
   fourDayPreview: {
@@ -1182,11 +1282,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#60a5fa',
   },
-  dayPreviewWithEvents: {
-    backgroundColor: 'rgba(212, 165, 116, 0.1)',
-    borderWidth: 1,
-    borderColor: '#D4A574',
-  },
   dayPreviewName: {
     fontSize: 10,
     color: '#9ca3af',
@@ -1201,25 +1296,24 @@ const styles = StyleSheet.create({
   dayPreviewTodayText: {
     color: '#ffffff',
   },
-  dayPreviewWithEventsText: {
-    color: '#D4A574',
-  },
   dayPreviewEventContainer: {
+    minHeight: 16,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  eventAbbreviation: {
+    minWidth: 16,
     height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayPreviewEventDot: {
-    width: 18,
-    height: 14,
-    backgroundColor: '#D4A574',
-    borderRadius: 7,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  dayPreviewEventCount: {
+  eventAbbreviationText: {
     fontSize: 8,
-    color: '#2A1F14',
+    color: '#ffffff',
     fontWeight: '700',
   },
   // Upcoming Events

@@ -271,6 +271,43 @@ export class ApiService {
   // Note: Individual event endpoint removed to stay under Vercel function limit
   // Events are fetched through group context instead
 
+  // Expenses endpoints
+  static async getGroupExpenses(groupId: string): Promise<{ expenses: any[] }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/expenses?device_id=${device_id}`);
+  }
+
+  static async createGroupExpense(groupId: string, expenseData: {
+    description: string;
+    totalAmount: number;
+    paidBy: string[];  // device_ids who paid upfront
+    splitBetween: string[];  // device_ids who owe money
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/expenses`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        description: expenseData.description,
+        total_amount: expenseData.totalAmount,
+        paid_by: expenseData.paidBy,
+        split_between: expenseData.splitBetween
+      })
+    });
+  }
+
+  static async updateExpensePaymentStatus(groupId: string, expenseId: string, participantId: string, status: 'pending' | 'sent' | 'completed'): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/expenses/${expenseId}/payment`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_id,
+        participant_id: participantId,
+        payment_status: status
+      })
+    });
+  }
+
   // Permissions endpoint
   static async getPermissions(groupId: string): Promise<{
     is_member: boolean;

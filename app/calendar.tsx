@@ -39,6 +39,7 @@ const DateCell = memo(({
   hasEvents,
   eventCount,
   events,
+  userColor,
   onPress 
 }: {
   date: number | null;
@@ -50,6 +51,7 @@ const DateCell = memo(({
   hasEvents: boolean;
   eventCount: number;
   events: any[];
+  userColor: string;
   onPress?: () => void;
 }) => {
   if (!date) {
@@ -60,19 +62,41 @@ const DateCell = memo(({
     <View style={styles.dateCellContent}>
       <Text style={[
         styles.dateText,
-        isSelected && styles.selectedDateText,
-        hasEvents && styles.dateTextWithEvents
+        isSelected && styles.selectedDateText
       ]}>
         {date}
       </Text>
       {hasEvents && events.length > 0 && (
-        <View style={[
-          styles.eventPill, 
-          { backgroundColor: (events[0].color || '#D4A574') + '80' }
-        ]}>
-          <Text style={styles.eventPillText}>
-            {eventCount} event{eventCount > 1 ? 's' : ''}
-          </Text>
+        <View style={styles.eventPillsContainer}>
+          {events.slice(0, 2).map((event, index) => {
+            // Create abbreviation from event title (first letter of each word)
+            const abbreviation = event.title
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase())
+              .join('')
+              .substring(0, 3); // Limit to 3 characters for wide pills
+            
+            return (
+              <View 
+                key={index}
+                style={[
+                  styles.eventWidePill,
+                  { backgroundColor: event.color || '#60a5fa' }
+                ]}
+              >
+                <Text style={styles.eventWidePillText}>
+                  {abbreviation}
+                </Text>
+              </View>
+            );
+          })}
+          {events.length > 2 && (
+            <View style={[styles.eventWidePill, { backgroundColor: '#666' }]}>
+              <Text style={styles.eventWidePillText}>
+                +{events.length - 2}
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -87,8 +111,7 @@ const DateCell = memo(({
             top: row * 70,
             left: col * DAY_WIDTH,
           },
-          isSelected && styles.selectedDateCell,
-          styles.dateCellWithEvents
+          isSelected && [styles.selectedDateCell, { backgroundColor: userColor + '30' }]
         ]}
         onPress={onPress}
       >
@@ -105,7 +128,7 @@ const DateCell = memo(({
           top: row * 70,
           left: col * DAY_WIDTH,
         },
-        isSelected && styles.selectedDateCell
+        isSelected && [styles.selectedDateCell, { backgroundColor: userColor + '30' }]
       ]}
     >
       {cellContent}
@@ -130,6 +153,7 @@ export default function CalendarScreen() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<{day: number, month: number, year: number} | null>(null);
   const [monthsRange, setMonthsRange] = useState({ start: -2, end: 3 }); // Start with 5 months (2 before, 3 after)
+  const [userColor, setUserColor] = useState('#60a5fa'); // Default blue, will be updated with user's color
   const scrollViewRef = useRef<ScrollView>(null);
   const isLoadingRef = useRef(false);
   const scrollPositionRef = useRef(0);
@@ -137,8 +161,22 @@ export default function CalendarScreen() {
   useEffect(() => {
     if (groupId) {
       fetchGroupEvents();
+      fetchUserColor();
     }
   }, [groupId]);
+
+  const fetchUserColor = async () => {
+    try {
+      // Try to get user's color from group profile or API
+      const response = await ApiService.getGroupProfile(groupId as string);
+      if (response?.color) {
+        setUserColor(response.color);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user color:', error);
+      // Keep default blue color
+    }
+  };
 
   // Scroll to current month on initial load and set current date
   useEffect(() => {
@@ -191,6 +229,8 @@ export default function CalendarScreen() {
         const startDate = formatEventDate(event.original_event_data?.date) || '';
         const creatorColor = event.created_by_color || '#D4A574'; // Use creator's color or default
         
+        console.log('Event:', title, 'Original date:', event.original_event_data?.date, 'Formatted date:', startDate);
+        
         return {
           id: String(event.id || ''),
           title: String(title),
@@ -213,6 +253,11 @@ export default function CalendarScreen() {
     if (!dateString || typeof dateString !== 'string') return null;
     
     try {
+      // If it's already in YYYY-MM-DD format, return as-is
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      
       let date: Date;
       
       if (dateString.includes('FALLBACK')) {
@@ -225,9 +270,19 @@ export default function CalendarScreen() {
         } else {
           return null;
         }
+      } else if (dateString.includes('T') || dateString.includes('Z')) {
+        // Handle ISO date strings - parse as UTC and extract date part only
+        const isoDate = new Date(dateString);
+        if (isNaN(isoDate.getTime())) return null;
+        
+        // Use UTC methods to avoid timezone conversion
+        const year = isoDate.getUTCFullYear();
+        const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(isoDate.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
       } else {
-        // Try to parse the date directly
-        date = new Date(dateString);
+        // For other formats, create date in local timezone
+        date = new Date(dateString + 'T00:00:00'); // Add time to prevent timezone issues
       }
       
       if (isNaN(date.getTime())) {
@@ -356,32 +411,33 @@ export default function CalendarScreen() {
   const getEventsForDate = (date: number, year: number, month: number): CalendarEvent[] => {
     const dateString = getDateString(date, year, month);
     return events.filter(event => {
-      const eventStart = new Date(event.startDate);
-      const eventEnd = event.endDate ? new Date(event.startDate) : eventStart;
-      // Parse dateString as local time to avoid UTC timezone issues
-      const currentDateObj = new Date(year, month, date);
-      
-      return currentDateObj >= eventStart && currentDateObj <= eventEnd;
+      // Direct string comparison to avoid timezone issues
+      return event.startDate === dateString;
     });
   };
 
 
   const renderMonth = (monthData: any) => {
     const { dates, year, month, rowsNeeded } = monthData;
-    const monthEvents = events.filter(event => {
-      const eventDate = new Date(event.startDate);
-      return eventDate.getMonth() === month && eventDate.getFullYear() === year;
-    });
-
+    
     // Create a map of date to events for quick lookup
     const eventsPerDate = new Map<number, CalendarEvent[]>();
-    monthEvents.forEach(event => {
-      const eventDate = new Date(event.startDate);
-      const day = eventDate.getDate();
-      if (!eventsPerDate.has(day)) {
-        eventsPerDate.set(day, []);
+    events.forEach(event => {
+      // Parse the date string directly to avoid timezone issues
+      const dateParts = event.startDate.split('-');
+      if (dateParts.length === 3) {
+        const eventYear = parseInt(dateParts[0]);
+        const eventMonth = parseInt(dateParts[1]); // Don't subtract 1 - keep as is
+        const eventDay = parseInt(dateParts[2]);
+        
+        // Compare with month + 1 since calendar month is 0-indexed but date string month is 1-indexed
+        if (eventYear === year && eventMonth === month + 1) {
+          if (!eventsPerDate.has(eventDay)) {
+            eventsPerDate.set(eventDay, []);
+          }
+          eventsPerDate.get(eventDay)!.push(event);
+        }
       }
-      eventsPerDate.get(day)!.push(event);
     });
 
     return (
@@ -422,10 +478,14 @@ export default function CalendarScreen() {
                 hasEvents={hasEvents}
                 eventCount={dateEvents.length}
                 events={dateEvents}
+                userColor={userColor}
                 onPress={hasEvents ? () => {
                   if (date) {
                     setSelectedDate({day: date, month, year});
                     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+                    
+                    console.log('Clicked date:', dateString);
+                    console.log('Events for this date:', dateEvents.map(e => ({ title: e.title, startDate: e.startDate })));
                     
                     // If only one event, go directly to event screen; otherwise go to date list
                     if (dateEvents.length === 1) {
@@ -448,14 +508,19 @@ export default function CalendarScreen() {
                       return;
                     }
                     
-                    // Multiple events - go to date list
-                    router.push(`/date-events?date=${dateString}&groupId=${groupId}`);
+                    // Multiple events - go to date list  
+                    // Use the actual event's startDate to ensure consistency
+                    const eventDate = dateEvents[0].startDate;
+                    router.push(`/date-events?date=${eventDate}&groupId=${groupId}`);
                   }
                 } : undefined}
               />
             );
           })}
         </View>
+        
+        {/* Month separator line */}
+        <View style={styles.monthSeparator} />
       </View>
     );
   };
@@ -530,6 +595,13 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 0,
   },
+  monthSeparator: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginHorizontal: 0,
+    marginTop: 16,
+    marginBottom: 8,
+  },
   monthHeader: {
     fontSize: 48,
     fontWeight: 'bold',
@@ -567,13 +639,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  dateCellWithEvents: {
-    backgroundColor: 'rgba(212, 165, 116, 0.1)', // Subtle background for clickable dates
-    borderRadius: 8,
-  },
   selectedDateCell: {
-    backgroundColor: '#ef4444',
     borderRadius: 20,
+    borderWidth: 1,
   },
   dateText: {
     fontSize: 18,
@@ -581,26 +649,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 4,
   },
-  dateTextWithEvents: {
-    color: '#D4A574', // Golden color for dates with events
-    fontWeight: '600',
-  },
   selectedDateText: {
     color: '#ffffff',
     fontWeight: 'bold',
   },
-  eventPill: {
-    backgroundColor: '#D4A574',
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 40,
+  eventPillsContainer: {
+    flexDirection: 'column',
     alignItems: 'center',
+    gap: 2,
+    width: '100%',
   },
-  eventPillText: {
-    fontSize: 10,
-    color: '#2A1F14',
-    fontWeight: '600',
+  eventWidePill: {
+    width: DAY_WIDTH - 8,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  eventWidePillText: {
+    fontSize: 8,
+    color: '#ffffff',
+    fontWeight: '700',
   },
   eventsOverlay: {
     position: 'absolute',

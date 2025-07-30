@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRealtimeChat } from '../hooks/useRealtimeChat';
 
@@ -24,13 +25,15 @@ interface Message {
 interface GroupChatProps {
   groupId: string;
   currentUsername?: string;
+  modalVisible?: boolean;
 }
 
-export default function GroupChat({ groupId, currentUsername }: GroupChatProps) {
+export default function GroupChat({ groupId, currentUsername, modalVisible = true }: GroupChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
   
-  // Use the Supabase realtime chat hook
+  // Use the Supabase realtime chat hook - only when modal is visible
   const { 
     messages, 
     isConnected,
@@ -42,17 +45,24 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
   } = useRealtimeChat({
     roomType: 'group',
     roomId: groupId,
-    enabled: true,
+    enabled: modalVisible,
   });
 
-  // Auto-scroll when new messages arrive
+  // Debug connection status for GroupChat
   useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages]);
+    console.log('GroupChat - Connection status:', {
+      isConnected,
+      isLoading,
+      error,
+      messagesCount: messages.length,
+      groupId
+    });
+  }, [isConnected, isLoading, error, messages.length, groupId]);
+
+  // Simple scroll to bottom - only when user sends a message
+  const scrollToBottom = useCallback(() => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+  }, []);
 
   // Handle message sending
   const handleSendMessage = async () => {
@@ -65,6 +75,9 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
     if (!success) {
       // Restore message on failure
       setNewMessage(messageText);
+    } else {
+      // Scroll to bottom after sending message
+      scrollToBottom();
     }
   };
 
@@ -110,41 +123,23 @@ export default function GroupChat({ groupId, currentUsername }: GroupChatProps) 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.chatHeader}>
-        <Ionicons name="chatbubbles" size={20} color="#60a5fa" />
-        <Text style={styles.chatTitle}>Group Chat</Text>
-        <View style={styles.connectionStatus}>
-          {isLoading && (
-            <Text style={styles.connectingText}>Loading...</Text>
-          )}
-          {isConnected && !isLoading && (
-            <View style={styles.connectedIndicator}>
-              <View style={styles.connectedDot} />
-              <Text style={styles.connectedText}>Live</Text>
-            </View>
-          )}
-          {!isConnected && !isLoading && !error && (
-            <Text style={styles.connectingText}>Connecting...</Text>
-          )}
-          {error && (
-            <TouchableOpacity onPress={reconnect} style={styles.errorContainer}>
-              <Text style={styles.errorText}>Reconnect</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
 
       <FlatList
         ref={flatListRef}
-        data={messages}
+        data={[...messages].reverse()}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         style={styles.messagesList}
+        contentContainerStyle={{ paddingTop: 10 }}
         showsVerticalScrollIndicator={false}
+        inverted
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+        }}
       />
 
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TextInput
           style={styles.messageInput}
           placeholder="Type a message..."
