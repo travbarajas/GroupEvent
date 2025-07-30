@@ -117,34 +117,29 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Generate UUID for expense
-      const expenseId = `expense_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-      
-      // Create the expense
+      // Create the expense (let database generate UUID automatically)
       const [newExpense] = await sql`
-        INSERT INTO group_expenses (id, group_id, description, total_amount, created_by_device_id)
-        VALUES (${expenseId}, ${groupId}, ${description}, ${total_amount}, ${device_id})
+        INSERT INTO group_expenses (group_id, description, total_amount, created_by_device_id)
+        VALUES (${groupId}::uuid, ${description}, ${total_amount}, ${device_id})
         RETURNING *
       `;
 
       // Calculate individual amount for owers
       const individualAmount = parseFloat(total_amount) / split_between.length;
 
-      // Insert payers
+      // Insert payers (let database generate UUIDs)
       for (const payerId of paid_by) {
-        const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
         await sql`
-          INSERT INTO expense_participants (id, expense_id, member_device_id, role, individual_amount, payment_status)
-          VALUES (${participantId}, ${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
+          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)
+          VALUES (${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
         `;
       }
 
-      // Insert owers
+      // Insert owers (let database generate UUIDs)
       for (const owerId of split_between) {
-        const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
         await sql`
-          INSERT INTO expense_participants (id, expense_id, member_device_id, role, individual_amount, payment_status)  
-          VALUES (${participantId}, ${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
+          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)  
+          VALUES (${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
         `;
       }
       
