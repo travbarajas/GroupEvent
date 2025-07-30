@@ -194,6 +194,22 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     setShowPaymentWebView(true);
   };
 
+  const handleMarkAsPaid = async (expenseId: string, memberId: string) => {
+    try {
+      // Update payment status to completed
+      await ApiService.updateExpensePaymentStatus(groupId, expenseId, memberId, 'completed');
+      
+      // Reload expenses to get updated data
+      await loadExpenses();
+      
+      // Notify parent of expense changes
+      onExpensesChange?.(expenses);
+    } catch (error) {
+      console.error('Failed to mark as paid:', error);
+      Alert.alert('Error', 'Failed to mark payment as paid. Please try again.');
+    }
+  };
+
   const handlePaymentComplete = (success: boolean) => {
     if (success && processingExpenseId && currentPayment) {
       // Update payment status
@@ -204,7 +220,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
             ...expense,
             paymentStatus: {
               ...expense.paymentStatus,
-              [currentUserId]: 'sent'
+              [currentUserId]: 'sent'  
             }
           };
         }
@@ -239,6 +255,27 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     setSelectedOwers(newSelected);
   };
 
+  // Helper function to check if all owers have paid
+  const isExpenseFullyPaid = (expense: ExpenseItem) => {
+    return expense.splitBetween.every(memberId => 
+      expense.paymentStatus[memberId] === 'completed'
+    );
+  };
+
+  // Helper function to sort expenses
+  const getSortedExpenses = () => {
+    const unpaidExpenses = expenses.filter(expense => !isExpenseFullyPaid(expense));
+    const paidExpenses = expenses.filter(expense => isExpenseFullyPaid(expense));
+
+    // Sort unpaid by amount (highest first)
+    unpaidExpenses.sort((a, b) => b.totalAmount - a.totalAmount);
+    
+    // Sort paid by amount (highest first) 
+    paidExpenses.sort((a, b) => b.totalAmount - a.totalAmount);
+
+    return [...unpaidExpenses, ...paidExpenses];
+  };
+
   const renderExpenseList = () => (
     <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
@@ -260,51 +297,76 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
             <Text style={styles.emptyStateSubtext}>Add an expense to start tracking payments</Text>
           </View>
         ) : (
-          expenses.map(expense => (
-            <View key={expense.id} style={styles.expenseCard}>
-              <View style={styles.expenseHeader}>
-                <Text style={styles.expenseTitle}>{expense.description}</Text>
-                <Text style={styles.expenseAmount}>${expense.totalAmount.toFixed(2)}</Text>
-              </View>
-              
-              <Text style={styles.expenseDetails}>
-                Paid by {expense.paidBy.map(id => validMembers.find(m => m.member_id === id)?.username || 'Unknown').join(', ')} • 
-                {expense.splitBetween.length} people owe ${expense.individualAmount.toFixed(2)} each
-              </Text>
+          getSortedExpenses().map(expense => {
+            const isFullyPaid = isExpenseFullyPaid(expense);
+            
+            return (
+              <View key={expense.id} style={[
+                styles.expenseCard,
+                isFullyPaid && styles.expenseCardPaid
+              ]}>
+                <View style={styles.expenseHeader}>
+                  <Text style={[
+                    styles.expenseTitle,
+                    isFullyPaid && styles.expenseTitlePaid
+                  ]}>
+                    {expense.description}
+                  </Text>
+                  <Text style={[
+                    styles.expenseAmount,
+                    isFullyPaid && styles.expenseAmountPaid
+                  ]}>
+                    ${expense.totalAmount.toFixed(2)}
+                  </Text>
+                </View>
+                
+                <Text style={[
+                  styles.expenseDetails,
+                  isFullyPaid && styles.expenseDetailsPaid
+                ]}>
+                  Paid by {expense.paidBy.map(id => validMembers.find(m => m.member_id === id)?.username || 'Unknown').join(', ')} • 
+                  {expense.splitBetween.length} people owe ${expense.individualAmount.toFixed(2)} each
+                </Text>
 
-              <View style={styles.paymentStatusContainer}>
-                {expense.splitBetween.map(memberId => {
-                  const member = validMembers.find(m => m.member_id === memberId);
-                  const status = expense.paymentStatus[memberId] || 'pending';
-                  const isPayer = expense.paidBy.includes(memberId);
-                  
-                  if (!member) return null;
+                <View style={styles.paymentStatusContainer}>
+                  {expense.splitBetween.map(memberId => {
+                    const member = validMembers.find(m => m.member_id === memberId);
+                    const status = expense.paymentStatus[memberId] || 'pending';
+                    const isPayer = expense.paidBy.includes(memberId);
+                    
+                    if (!member) return null;
 
-                  return (
-                    <View key={memberId} style={styles.paymentStatusRow}>
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{member.username}</Text>
-                        <View style={[styles.statusBadge, styles[`status${status.charAt(0).toUpperCase() + status.slice(1)}`]]}>
-                          <Text style={styles.statusText}>
-                            {isPayer ? 'Paid' : status === 'pending' ? 'Owes' : status === 'sent' ? 'Sent' : 'Paid'}
+                    return (
+                      <View key={memberId} style={styles.paymentStatusRow}>
+                        <View style={styles.memberInfo}>
+                          <Text style={[
+                            styles.memberName,
+                            isFullyPaid && styles.memberNamePaid
+                          ]}>
+                            {member.username}
                           </Text>
+                          <View style={[styles.statusBadge, styles[`status${status.charAt(0).toUpperCase() + status.slice(1)}`]]}>
+                            <Text style={styles.statusText}>
+                              {isPayer ? 'Paid' : status === 'pending' ? 'Owes' : status === 'sent' ? 'Sent' : 'Paid'}
+                            </Text>
+                          </View>
                         </View>
+                        
+                        {!isPayer && status === 'pending' && (
+                          <TouchableOpacity
+                            style={styles.markPaidButton}
+                            onPress={() => handleMarkAsPaid(expense.id, memberId)}
+                          >
+                            <Text style={styles.markPaidButtonText}>Mark Paid</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
-                      
-                      {!isPayer && status === 'pending' && (
-                        <TouchableOpacity
-                          style={styles.payButton}
-                          onPress={() => handlePayExpense(expense, 'current-user-id', memberId)}
-                        >
-                          <Text style={styles.payButtonText}>Pay ${expense.individualAmount.toFixed(2)}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
       </View>
     </ScrollView>
@@ -620,6 +682,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#ffffff',
     fontWeight: '500',
+  },
+  markPaidButton: {
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  markPaidButtonText: {
+    fontSize: 11,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  expenseCardPaid: {
+    backgroundColor: '#1a1a1a',
+    opacity: 0.6,
+  },
+  expenseTitlePaid: {
+    color: '#9ca3af',
+  },
+  expenseAmountPaid: {
+    color: '#9ca3af',
+  },
+  expenseDetailsPaid: {
+    color: '#6b7280',
+  },
+  memberNamePaid: {
+    color: '#9ca3af',
   },
   inputContainer: {
     marginBottom: 16,
