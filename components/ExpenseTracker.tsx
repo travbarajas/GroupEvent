@@ -332,7 +332,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                 </Text>
 
                 <View style={styles.paymentStatusContainer}>
-                  {expense.splitBetween.map(memberId => {
+                  {[...new Set([...expense.paidBy, ...expense.splitBetween])].map(memberId => {
                     const member = validMembers.find(m => m.member_id === memberId);
                     const status = expense.paymentStatus[memberId] || 'pending';
                     const isPayer = expense.paidBy.includes(memberId);
