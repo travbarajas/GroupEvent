@@ -41,6 +41,7 @@ export default function CarSeatIndicator({
   const [loading, setLoading] = useState(false);
   const [updatingSeats, setUpdatingSeats] = useState<Set<string>>(new Set());
   const [creatingCar, setCreatingCar] = useState(false);
+  const [updatingCapacity, setUpdatingCapacity] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (showModal) {
@@ -221,13 +222,35 @@ export default function CarSeatIndicator({
 
   // Change car capacity (only creator can do this)
   const handleCapacityChange = async (carId: string, delta: number) => {
+    if (updatingCapacity.has(carId)) return;
+    
     try {
       const car = cars.find(c => c.id === carId);
       if (!car || car.createdBy !== currentUserId) return;
 
       const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
+      if (newCapacity === car.capacity) return; // No change needed
       
-      // Direct API call as workaround
+      // Mark as updating to prevent multiple clicks
+      setUpdatingCapacity(prev => new Set([...prev, carId]));
+      
+      // OPTIMISTIC UPDATE: Update UI immediately
+      const optimisticCars = cars.map(c => {
+        if (c.id === carId) {
+          const newSeats = Array(newCapacity).fill(null);
+          // Copy existing seats up to new capacity
+          for (let i = 0; i < Math.min(c.seats.length, newCapacity); i++) {
+            newSeats[i] = c.seats[i];
+          }
+          return { ...c, capacity: newCapacity, seats: newSeats };
+        }
+        return c;
+      });
+      
+      // Update UI immediately for instant feedback
+      setCars(optimisticCars);
+      
+      // Background API call
       const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}`, {
         method: 'PUT',
         headers: {
@@ -243,11 +266,20 @@ export default function CarSeatIndicator({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Reload cars to get the latest data
+      // Reload cars to get authoritative data
       await loadCars();
     } catch (error) {
       console.error('Failed to update car capacity:', error);
       Alert.alert('Error', 'Failed to update car capacity. Please try again.');
+      // Revert optimistic update on error
+      await loadCars();
+    } finally {
+      // Remove car from updating set
+      setUpdatingCapacity(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(carId);
+        return newSet;
+      });
     }
   };
 
@@ -375,27 +407,36 @@ export default function CarSeatIndicator({
           
           {/* Plus/minus buttons under the seat pills */}
           {isCreator && (
-            <View style={styles.capacityButtonRowUnder}>
+            <View style={[
+              styles.capacityButtonRowUnder,
+              updatingCapacity.has(car.id) && styles.capacityButtonRowUpdating
+            ]}>
               <TouchableOpacity 
-                style={styles.capacityButton}
+                style={[
+                  styles.capacityButton,
+                  updatingCapacity.has(car.id) && styles.capacityButtonUpdating
+                ]}
                 onPress={() => handleCapacityChange(car.id, -1)}
-                disabled={car.capacity <= 1}
+                disabled={car.capacity <= 1 || updatingCapacity.has(car.id)}
               >
                 <Ionicons 
                   name="remove" 
                   size={12} 
-                  color={car.capacity <= 1 ? '#666' : '#60a5fa'} 
+                  color={car.capacity <= 1 || updatingCapacity.has(car.id) ? '#666' : '#60a5fa'} 
                 />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.capacityButton}
+                style={[
+                  styles.capacityButton,
+                  updatingCapacity.has(car.id) && styles.capacityButtonUpdating
+                ]}
                 onPress={() => handleCapacityChange(car.id, 1)}
-                disabled={false}
+                disabled={updatingCapacity.has(car.id)}
               >
                 <Ionicons 
                   name="add" 
                   size={12} 
-                  color={'#60a5fa'} 
+                  color={updatingCapacity.has(car.id) ? '#666' : '#60a5fa'} 
                 />
               </TouchableOpacity>
             </View>
@@ -683,6 +724,12 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
     justifyContent: 'center',
+  },
+  capacityButtonRowUpdating: {
+    opacity: 0.7,
+  },
+  capacityButtonUpdating: {
+    opacity: 0.5,
   },
   deleteButton: {
     width: 18,
