@@ -38,6 +38,7 @@ interface ExpenseTrackerProps {
   groupName: string;
   groupId: string;
   members: GroupMember[];
+  currentDeviceId?: string;
   onExpensesChange?: (expenses: ExpenseItem[]) => void;
 }
 
@@ -47,6 +48,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
   groupName,
   groupId,
   members,
+  currentDeviceId,
   onExpensesChange,
 }) => {
   const insets = useSafeAreaInsets();
@@ -334,6 +336,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                     const member = validMembers.find(m => m.member_id === memberId);
                     const status = expense.paymentStatus[memberId] || 'pending';
                     const isPayer = expense.paidBy.includes(memberId);
+                    const isCurrentUser = member?.device_id === currentDeviceId;
                     
                     if (!member) return null;
 
@@ -353,7 +356,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                           </View>
                         </View>
                         
-                        {!isPayer && (
+                        {isCurrentUser && (
                           <TouchableOpacity
                             style={[
                               styles.markPaidButton,
@@ -365,7 +368,10 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                               styles.markPaidButtonText,
                               status === 'completed' && styles.markUnpaidButtonText
                             ]}>
-                              {status === 'completed' ? 'Mark Unpaid' : 'Mark Paid'}
+                              {isPayer 
+                                ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
+                                : (status === 'completed' ? "Haven't paid" : "I've paid")
+                              }
                             </Text>
                           </TouchableOpacity>
                         )}
@@ -622,6 +628,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3a3a3a',
   },
+  expenseCardPaid: {
+    backgroundColor: '#1a1a1a',
+    opacity: 0.7,
+  },
   expenseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -634,15 +644,24 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     flex: 1,
   },
+  expenseTitlePaid: {
+    color: '#6b7280',
+  },
   expenseAmount: {
     fontSize: 16,
     fontWeight: '700',
     color: '#22c55e',
   },
+  expenseAmountPaid: {
+    color: '#6b7280',
+  },
   expenseDetails: {
     fontSize: 12,
     color: '#9ca3af',
     marginBottom: 12,
+  },
+  expenseDetailsPaid: {
+    color: '#6b7280',
   },
   paymentStatusContainer: {
     gap: 8,
@@ -661,6 +680,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#e5e7eb',
     marginRight: 8,
+  },
+  memberNamePaid: {
+    color: '#6b7280',
   },
   statusBadge: {
     paddingHorizontal: 6,
@@ -710,22 +732,6 @@ const styles = StyleSheet.create({
   },
   markUnpaidButtonText: {
     color: '#ffffff',
-  },
-  expenseCardPaid: {
-    backgroundColor: '#1a1a1a',
-    opacity: 0.6,
-  },
-  expenseTitlePaid: {
-    color: '#9ca3af',
-  },
-  expenseAmountPaid: {
-    color: '#9ca3af',
-  },
-  expenseDetailsPaid: {
-    color: '#6b7280',
-  },
-  memberNamePaid: {
-    color: '#9ca3af',
   },
   inputContainer: {
     marginBottom: 16,

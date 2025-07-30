@@ -52,7 +52,7 @@ export default function CarSeatIndicator({
     const username = getCurrentUsername();
     const newCar: Car = {
       id: Date.now().toString(),
-      name: `${username}'s car`,
+      name: `${username}'s vehicle`,
       capacity: 5,
       seats: Array(5).fill(null),
       createdBy: currentUserId || '',
@@ -60,17 +60,18 @@ export default function CarSeatIndicator({
     setCars([...cars, newCar]);
   };
 
-  // Join/leave car - fills in order
+  // Join/leave car - fills in order, only one car per user
   const handleClaimSeat = (carId: string) => {
     if (!currentUserId) return;
 
     setCars(cars.map(car => {
+      const newSeats = [...car.seats];
+      const userSeatIndex = newSeats.findIndex(seat => seat === currentUserId);
+      
       if (car.id === carId) {
-        const newSeats = [...car.seats];
-        const userSeatIndex = newSeats.findIndex(seat => seat === currentUserId);
-        
+        // This is the car being clicked
         if (userSeatIndex !== -1) {
-          // User is already in car - remove them and shift others left
+          // User is already in this car - remove them and shift others left
           newSeats[userSeatIndex] = null;
           // Shift all seats after this one to the left
           for (let i = userSeatIndex; i < newSeats.length - 1; i++) {
@@ -78,16 +79,25 @@ export default function CarSeatIndicator({
             newSeats[i + 1] = null;
           }
         } else {
-          // User not in car - add them to first empty seat
+          // User not in this car - add them to first empty seat
           const firstEmptyIndex = newSeats.findIndex(seat => seat === null);
           if (firstEmptyIndex !== -1) {
             newSeats[firstEmptyIndex] = currentUserId;
           }
         }
-        
-        return { ...car, seats: newSeats };
+      } else {
+        // This is a different car - remove user if they're in it
+        if (userSeatIndex !== -1) {
+          newSeats[userSeatIndex] = null;
+          // Shift all seats after this one to the left
+          for (let i = userSeatIndex; i < newSeats.length - 1; i++) {
+            newSeats[i] = newSeats[i + 1];
+            newSeats[i + 1] = null;
+          }
+        }
       }
-      return car;
+      
+      return { ...car, seats: newSeats };
     }));
   };
 
@@ -100,7 +110,7 @@ export default function CarSeatIndicator({
   const handleCapacityChange = (carId: string, delta: number) => {
     setCars(cars.map(car => {
       if (car.id === carId && car.createdBy === currentUserId) {
-        const newCapacity = Math.max(1, Math.min(8, car.capacity + delta)); // Min 1, Max 8
+        const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
         const newSeats = Array(newCapacity).fill(null);
         
         // Copy existing seats up to new capacity
@@ -122,6 +132,11 @@ export default function CarSeatIndicator({
       }
       return car;
     }));
+  };
+
+  // Delete vehicle (only creator can do this)
+  const handleDeleteVehicle = (carId: string) => {
+    setCars(cars.filter(car => !(car.id === carId && car.createdBy === currentUserId)));
   };
 
   const renderCar = (car: Car) => {
@@ -156,27 +171,29 @@ export default function CarSeatIndicator({
           </TouchableOpacity>
         )}
         
-        {/* Horizontal seat pills in the middle */}
-        <TouchableOpacity 
-          style={styles.seatsRow}
-          onPress={() => handleClaimSeat(car.id)}
-          activeOpacity={0.7}
-        >
-          {car.seats.map((seat, index) => (
-            <View
-              key={index}
-              style={[
-                styles.seatPill,
-                seat && { backgroundColor: getUserColor(seat) }
-              ]}
-            />
-          ))}
-        </TouchableOpacity>
-        
-        {/* Capacity controls and counter on the right */}
-        <View style={styles.capacityContainer}>
+        {/* Horizontal seat pills in the middle - entire area clickable */}
+        <View style={styles.seatsAndControlsContainer}>
+          <TouchableOpacity 
+            style={styles.seatsRowContainer}
+            onPress={() => handleClaimSeat(car.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.seatsRow}>
+              {car.seats.map((seat, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.seatPill,
+                    seat && { backgroundColor: getUserColor(seat) }
+                  ]}
+                />
+              ))}
+            </View>
+          </TouchableOpacity>
+          
+          {/* Plus/minus buttons under the seat pills */}
           {isCreator && (
-            <>
+            <View style={styles.capacityButtonRowUnder}>
               <TouchableOpacity 
                 style={styles.capacityButton}
                 onPress={() => handleCapacityChange(car.id, -1)}
@@ -191,19 +208,35 @@ export default function CarSeatIndicator({
               <TouchableOpacity 
                 style={styles.capacityButton}
                 onPress={() => handleCapacityChange(car.id, 1)}
-                disabled={car.capacity >= 8}
+                disabled={false}
               >
                 <Ionicons 
                   name="add" 
                   size={12} 
-                  color={car.capacity >= 8 ? '#666' : '#60a5fa'} 
+                  color={'#60a5fa'} 
                 />
               </TouchableOpacity>
-            </>
+            </View>
           )}
+        </View>
+        
+        {/* Capacity count and delete button on the right */}
+        <View style={styles.capacityContainer}>
           <Text style={styles.capacityText}>
             {getOccupiedSeats(car)}/{car.capacity}
           </Text>
+          {isCreator && (
+            <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={() => handleDeleteVehicle(car.id)}
+            >
+              <Ionicons 
+                name="close" 
+                size={10} 
+                color="#ef4444" 
+              />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -395,16 +428,26 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     flex: 0.3,
   },
+  seatsAndControlsContainer: {
+    flex: 0.5,
+    alignItems: 'center',
+  },
+  seatsRowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
   seatsRow: {
     flexDirection: 'row',
-    gap: 6,
-    flex: 0.4,
+    gap: 4,
     justifyContent: 'center',
+    flexWrap: 'wrap',
   },
   seatPill: {
-    width: 24,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#2a2a2a',
     backgroundColor: 'transparent',
@@ -412,14 +455,14 @@ const styles = StyleSheet.create({
   capacityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 0.3,
-    justifyContent: 'flex-end',
-    gap: 4,
+    flex: 0.2,
+    justifyContent: 'center',
+    gap: 6,
   },
   capacityButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     backgroundColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,6 +471,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9ca3af',
     fontWeight: '500',
-    marginLeft: 8,
+    textAlign: 'center',
+  },
+  capacityButtonRowUnder: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 4,
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    width: 18,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
   },
 });

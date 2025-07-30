@@ -230,14 +230,6 @@ export default function EventDetailScreen() {
     </View>
   );
 
-  const ExpenseRow = ({ expense }: { expense: ExpenseItem }) => (
-    <View style={styles.expenseRow}>
-      <Text style={styles.expenseDescription}>{expense.description}</Text>
-      <Text style={styles.expenseAmount}>${expense.totalAmount.toFixed(2)}</Text>
-      <Text style={styles.expensePaidBy}>{expense.paidBy.length} payer{expense.paidBy.length === 1 ? '' : 's'}</Text>
-      <Text style={styles.expenseDate}>{new Date(expense.createdAt).toLocaleDateString()}</Text>
-    </View>
-  );
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.totalAmount, 0);
 
@@ -478,40 +470,6 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
-        {/* Expenses Section */}
-        <View style={styles.expensesContainer}>
-          <Text style={styles.sectionTitle}>Expenses</Text>
-          
-          <View style={styles.expensesTable}>
-            <View style={styles.expenseHeader}>
-              <Text style={styles.expenseHeaderText}>Description</Text>
-              <Text style={styles.expenseHeaderText}>Amount</Text>
-              <Text style={styles.expenseHeaderText}>Paid By</Text>
-              <Text style={styles.expenseHeaderText}>Date</Text>
-            </View>
-            
-            {expenses.map(expense => (
-              <ExpenseRow key={expense.id} expense={expense} />
-            ))}
-            
-            {expenses.length === 0 && (
-              <View style={styles.emptyExpensesContainer}>
-                <Text style={styles.emptyExpensesText}>No expenses yet</Text>
-              </View>
-            )}
-            
-            <View style={styles.expensesTotal}>
-              <Text style={styles.expensesTotalText}>
-                Total: ${totalExpenses.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-          
-          <TouchableOpacity style={styles.addExpenseButton}>
-            <Ionicons name="add" size={20} color="#ffffff" />
-            <Text style={styles.addExpenseButtonText}>Add Expense</Text>
-          </TouchableOpacity>
-        </View>
         
         {/* Bottom spacing */}
         <View style={styles.bottomSpacer} />
@@ -565,6 +523,7 @@ export default function EventDetailScreen() {
         groupName={displayEvent.displayName}
         groupId={groupId as string}
         members={members}
+        currentDeviceId={currentDeviceId}
         onExpensesChange={handleExpensesChange}
       />
     </View>

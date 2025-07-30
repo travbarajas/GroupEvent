@@ -47,16 +47,16 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ error: 'Expense not found' });
       }
 
-      // Update payment status
+      // Update payment status (allow both payers and owers to update their status)
       const [updatedParticipant] = await sql`
         UPDATE expense_participants 
         SET payment_status = ${payment_status}, updated_at = NOW()
-        WHERE expense_id = ${expenseId} AND member_device_id = ${participant_id} AND role = 'ower'
+        WHERE expense_id = ${expenseId} AND member_device_id = ${participant_id}
         RETURNING *
       `;
 
       if (!updatedParticipant) {
-        return res.status(404).json({ error: 'Participant not found or not an ower' });
+        return res.status(404).json({ error: 'Participant not found' });
       }
       
       return res.status(200).json({ success: true, participant: updatedParticipant });
