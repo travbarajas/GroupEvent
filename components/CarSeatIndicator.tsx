@@ -51,7 +51,20 @@ export default function CarSeatIndicator({
       setLoading(true);
       console.log('ApiService methods:', Object.getOwnPropertyNames(ApiService));
       console.log('getGroupCars method:', ApiService.getGroupCars);
-      const { cars: apiCars } = await ApiService.getGroupCars(groupId, eventId);
+      
+      // Direct API call as workaround
+      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars?device_id=${currentUserId}${eventId ? `&event_id=${eventId}` : ''}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const { cars: apiCars } = await response.json();
       setCars(apiCars);
     } catch (error) {
       console.error('Failed to load cars:', error);
