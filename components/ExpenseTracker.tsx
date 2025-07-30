@@ -356,25 +356,27 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                           </View>
                         </View>
                         
-                        {isCurrentUser && (
-                          <TouchableOpacity
-                            style={[
-                              styles.markPaidButton,
-                              status === 'completed' && styles.markUnpaidButton
-                            ]}
-                            onPress={() => handleTogglePaymentStatus(expense.id, memberId, status)}
-                          >
-                            <Text style={[
-                              styles.markPaidButtonText,
-                              status === 'completed' && styles.markUnpaidButtonText
-                            ]}>
-                              {isPayer 
-                                ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
-                                : (status === 'completed' ? "Haven't paid" : "I've paid")
-                              }
-                            </Text>
-                          </TouchableOpacity>
-                        )}
+                        <View style={styles.buttonContainer}>
+                          {isCurrentUser && (
+                            <TouchableOpacity
+                              style={[
+                                styles.markPaidButton,
+                                status === 'completed' && styles.markUnpaidButton
+                              ]}
+                              onPress={() => handleTogglePaymentStatus(expense.id, memberId, status)}
+                            >
+                              <Text style={[
+                                styles.markPaidButtonText,
+                                status === 'completed' && styles.markUnpaidButtonText
+                              ]}>
+                                {isPayer 
+                                  ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
+                                  : (status === 'completed' ? "Haven't paid" : "I've paid")
+                                }
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
                     );
                   })}
@@ -669,7 +671,12 @@ const styles = StyleSheet.create({
   paymentStatusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingVertical: 4,
+  },
+  buttonContainer: {
+    alignSelf: 'flex-end',
+    marginTop: 'auto',
   },
   memberInfo: {
     flexDirection: 'row',

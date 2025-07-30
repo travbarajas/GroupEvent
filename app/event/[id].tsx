@@ -431,6 +431,7 @@ export default function EventDetailScreen() {
           <View style={styles.halfBlock}>
             <CarSeatIndicator 
               groupId={groupId as string}
+              eventId={id as string}
               currentUserId={currentDeviceId}
               userColor={groupProfile?.color}
               members={members}

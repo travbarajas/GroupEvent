@@ -418,4 +418,72 @@ export class GroupService {
     }
   }
 
+  // Car Seats API methods
+  static async getGroupCars(groupId: string, eventId?: string): Promise<{ cars: any[] }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    const eventParam = eventId ? `&event_id=${eventId}` : '';
+    return this.request(`/groups/${groupId}/cars?device_id=${device_id}${eventParam}`);
+  }
+
+  static async createGroupCar(groupId: string, carData: {
+    name: string;
+    capacity: number;
+    eventId?: string;
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/cars`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        name: carData.name,
+        capacity: carData.capacity,
+        event_id: carData.eventId
+      })
+    });
+  }
+
+  static async updateGroupCar(groupId: string, carId: string, updates: {
+    name?: string;
+    capacity?: number;
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/cars/${carId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_id,
+        ...updates
+      })
+    });
+  }
+
+  static async deleteGroupCar(groupId: string, carId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/cars/${carId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        device_id
+      })
+    });
+  }
+
+  static async joinCarSeat(groupId: string, carId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/cars/${carId}/seats`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id
+      })
+    });
+  }
+
+  static async leaveCarSeat(groupId: string, carId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/cars/${carId}/seats`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        device_id
+      })
+    });
+  }
+
 }

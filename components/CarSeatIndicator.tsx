@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,10 @@ import {
   Modal,
   ScrollView,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ApiService } from '@/services/api';
 
 interface Car {
   id: string;
@@ -20,6 +22,7 @@ interface Car {
 
 interface CarSeatIndicatorProps {
   groupId: string;
+  eventId?: string;
   currentUserId?: string;
   userColor?: string;
   members: any[];
@@ -27,6 +30,7 @@ interface CarSeatIndicatorProps {
 
 export default function CarSeatIndicator({ 
   groupId, 
+  eventId,
   currentUserId, 
   userColor,
   members 
@@ -34,6 +38,26 @@ export default function CarSeatIndicator({
   const [cars, setCars] = useState<Car[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingCarName, setEditingCarName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (showModal) {
+      loadCars();
+    }
+  }, [showModal]);
+
+  const loadCars = async () => {
+    try {
+      setLoading(true);
+      const { cars: apiCars } = await ApiService.getGroupCars(groupId, eventId);
+      setCars(apiCars);
+    } catch (error) {
+      console.error('Failed to load cars:', error);
+      Alert.alert('Error', 'Failed to load cars. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get user color by ID
   const getUserColor = (userId: string) => {
@@ -48,57 +72,49 @@ export default function CarSeatIndicator({
   };
 
   // Add a new car
-  const handleAddCar = () => {
-    const username = getCurrentUsername();
-    const newCar: Car = {
-      id: Date.now().toString(),
-      name: `${username}'s vehicle`,
-      capacity: 5,
-      seats: Array(5).fill(null),
-      createdBy: currentUserId || '',
-    };
-    setCars([...cars, newCar]);
+  const handleAddCar = async () => {
+    if (!currentUserId) return;
+    
+    try {
+      const username = getCurrentUsername();
+      await ApiService.createGroupCar(groupId, {
+        name: `${username}'s vehicle`,
+        capacity: 5,
+        eventId
+      });
+      
+      // Reload cars to get the latest data
+      await loadCars();
+    } catch (error) {
+      console.error('Failed to create car:', error);
+      Alert.alert('Error', 'Failed to create car. Please try again.');
+    }
   };
 
   // Join/leave car - fills in order, only one car per user
-  const handleClaimSeat = (carId: string) => {
+  const handleClaimSeat = async (carId: string) => {
     if (!currentUserId) return;
 
-    setCars(cars.map(car => {
-      const newSeats = [...car.seats];
-      const userSeatIndex = newSeats.findIndex(seat => seat === currentUserId);
+    try {
+      const car = cars.find(c => c.id === carId);
+      if (!car) return;
+
+      const userSeatIndex = car.seats.findIndex(seat => seat === currentUserId);
       
-      if (car.id === carId) {
-        // This is the car being clicked
-        if (userSeatIndex !== -1) {
-          // User is already in this car - remove them and shift others left
-          newSeats[userSeatIndex] = null;
-          // Shift all seats after this one to the left
-          for (let i = userSeatIndex; i < newSeats.length - 1; i++) {
-            newSeats[i] = newSeats[i + 1];
-            newSeats[i + 1] = null;
-          }
-        } else {
-          // User not in this car - add them to first empty seat
-          const firstEmptyIndex = newSeats.findIndex(seat => seat === null);
-          if (firstEmptyIndex !== -1) {
-            newSeats[firstEmptyIndex] = currentUserId;
-          }
-        }
+      if (userSeatIndex !== -1) {
+        // User is already in this car - leave the seat
+        await ApiService.leaveCarSeat(groupId, carId);
       } else {
-        // This is a different car - remove user if they're in it
-        if (userSeatIndex !== -1) {
-          newSeats[userSeatIndex] = null;
-          // Shift all seats after this one to the left
-          for (let i = userSeatIndex; i < newSeats.length - 1; i++) {
-            newSeats[i] = newSeats[i + 1];
-            newSeats[i + 1] = null;
-          }
-        }
+        // User not in this car - join the seat (API will handle removing from other cars)
+        await ApiService.joinCarSeat(groupId, carId);
       }
       
-      return { ...car, seats: newSeats };
-    }));
+      // Reload cars to get the latest data
+      await loadCars();
+    } catch (error) {
+      console.error('Failed to update seat assignment:', error);
+      Alert.alert('Error', 'Failed to update seat assignment. Please try again.');
+    }
   };
 
   // Count occupied seats
@@ -107,36 +123,64 @@ export default function CarSeatIndicator({
   };
 
   // Change car capacity (only creator can do this)
-  const handleCapacityChange = (carId: string, delta: number) => {
-    setCars(cars.map(car => {
-      if (car.id === carId && car.createdBy === currentUserId) {
-        const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
-        const newSeats = Array(newCapacity).fill(null);
-        
-        // Copy existing seats up to new capacity
-        for (let i = 0; i < Math.min(car.seats.length, newCapacity); i++) {
-          newSeats[i] = car.seats[i];
-        }
-        
-        return { ...car, capacity: newCapacity, seats: newSeats };
-      }
-      return car;
-    }));
+  const handleCapacityChange = async (carId: string, delta: number) => {
+    try {
+      const car = cars.find(c => c.id === carId);
+      if (!car || car.createdBy !== currentUserId) return;
+
+      const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
+      
+      await ApiService.updateGroupCar(groupId, carId, {
+        capacity: newCapacity
+      });
+      
+      // Reload cars to get the latest data
+      await loadCars();
+    } catch (error) {
+      console.error('Failed to update car capacity:', error);
+      Alert.alert('Error', 'Failed to update car capacity. Please try again.');
+    }
   };
 
   // Change car name (only creator can do this)
-  const handleNameChange = (carId: string, newName: string) => {
-    setCars(cars.map(car => {
-      if (car.id === carId && car.createdBy === currentUserId) {
-        return { ...car, name: newName };
-      }
-      return car;
-    }));
+  const handleNameChange = async (carId: string, newName: string) => {
+    try {
+      const car = cars.find(c => c.id === carId);
+      if (!car || car.createdBy !== currentUserId) return;
+      
+      await ApiService.updateGroupCar(groupId, carId, {
+        name: newName
+      });
+      
+      // Update local state immediately for better UX
+      setCars(cars.map(car => {
+        if (car.id === carId) {
+          return { ...car, name: newName };
+        }
+        return car;
+      }));
+    } catch (error) {
+      console.error('Failed to update car name:', error);
+      Alert.alert('Error', 'Failed to update car name. Please try again.');
+      // Reload cars to revert any local changes
+      await loadCars();
+    }
   };
 
   // Delete vehicle (only creator can do this)
-  const handleDeleteVehicle = (carId: string) => {
-    setCars(cars.filter(car => !(car.id === carId && car.createdBy === currentUserId)));
+  const handleDeleteVehicle = async (carId: string) => {
+    try {
+      const car = cars.find(c => c.id === carId);
+      if (!car || car.createdBy !== currentUserId) return;
+      
+      await ApiService.deleteGroupCar(groupId, carId);
+      
+      // Reload cars to get the latest data
+      await loadCars();
+    } catch (error) {
+      console.error('Failed to delete car:', error);
+      Alert.alert('Error', 'Failed to delete car. Please try again.');
+    }
   };
 
   const renderCar = (car: Car) => {
