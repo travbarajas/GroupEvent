@@ -97,24 +97,34 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
+      console.log('POST request received for groupId:', groupId);
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      
       const { device_id, description, total_amount, paid_by, split_between } = req.body;
       
       if (!device_id) {
+        console.log('Missing device_id');
         return res.status(400).json({ error: 'device_id is required' });
       }
 
       if (!description || !total_amount || !paid_by || !split_between) {
+        console.log('Missing required fields:', { description, total_amount, paid_by, split_between });
         return res.status(400).json({ error: 'description, total_amount, paid_by, and split_between are required' });
       }
 
+      console.log('Checking membership for device_id:', device_id, 'in group:', groupId);
+      
       // Check if user is a member of this group
       const [membership] = await sql`
         SELECT 1 FROM members WHERE group_id = ${groupId} AND device_id = ${device_id}
       `;
 
       if (!membership) {
+        console.log('User not a member of group');
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
+
+      console.log('Membership verified, creating expense...');
 
       // Create the expense
       const [newExpense] = await sql`
@@ -123,10 +133,14 @@ module.exports = async function handler(req, res) {
         RETURNING *
       `;
 
+      console.log('Expense created:', newExpense);
+
       // Calculate individual amount for owers
       const individualAmount = parseFloat(total_amount) / split_between.length;
+      console.log('Individual amount calculated:', individualAmount);
 
       // Insert payers
+      console.log('Inserting payers:', paid_by);
       for (const payerId of paid_by) {
         await sql`
           INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)
@@ -135,6 +149,7 @@ module.exports = async function handler(req, res) {
       }
 
       // Insert owers
+      console.log('Inserting owers:', split_between);
       for (const owerId of split_between) {
         await sql`
           INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)  
@@ -142,11 +157,18 @@ module.exports = async function handler(req, res) {
         `;
       }
       
+      console.log('Expense creation completed successfully');
       return res.status(201).json({ success: true, expense: newExpense });
 
     } catch (error) {
       console.error('Error creating expense:', error);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      return res.status(500).json({ 
+        error: 'Internal server error', 
+        details: error.message,
+        stack: error.stack?.substring(0, 500) // Truncate stack trace
+      });
     }
   }
 
