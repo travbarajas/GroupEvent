@@ -39,6 +39,8 @@ export default function CarSeatIndicator({
   const [showModal, setShowModal] = useState(false);
   const [editingCarName, setEditingCarName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [updatingSeats, setUpdatingSeats] = useState<Set<string>>(new Set());
+  const [creatingCar, setCreatingCar] = useState(false);
 
   useEffect(() => {
     if (showModal) {
@@ -88,9 +90,10 @@ export default function CarSeatIndicator({
 
   // Add a new car
   const handleAddCar = async () => {
-    if (!currentUserId) return;
+    if (!currentUserId || creatingCar) return;
     
     try {
+      setCreatingCar(true);
       const username = getCurrentUsername();
       
       // OPTIMISTIC UPDATE: Add car to UI immediately
@@ -131,14 +134,19 @@ export default function CarSeatIndicator({
       Alert.alert('Error', 'Failed to create car. Please try again.');
       // Revert optimistic update on error
       await loadCars();
+    } finally {
+      setCreatingCar(false);
     }
   };
 
   // Join/leave car - fills in order, only one car per user
   const handleClaimSeat = async (carId: string) => {
-    if (!currentUserId) return;
+    if (!currentUserId || updatingSeats.has(carId)) return;
 
     try {
+      // Mark this car as updating to prevent multiple clicks
+      setUpdatingSeats(prev => new Set([...prev, carId]));
+      
       const car = cars.find(c => c.id === carId);
       if (!car) return;
 
@@ -196,6 +204,13 @@ export default function CarSeatIndicator({
       Alert.alert('Error', 'Failed to update seat assignment. Please try again.');
       // Revert optimistic update on error
       await loadCars();
+    } finally {
+      // Remove car from updating set
+      setUpdatingSeats(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(carId);
+        return newSet;
+      });
     }
   };
 
@@ -337,9 +352,13 @@ export default function CarSeatIndicator({
         {/* Horizontal seat pills in the middle - entire area clickable */}
         <View style={styles.seatsAndControlsContainer}>
           <TouchableOpacity 
-            style={styles.seatsRowContainer}
+            style={[
+              styles.seatsRowContainer,
+              updatingSeats.has(car.id) && styles.seatsRowUpdating
+            ]}
             onPress={() => handleClaimSeat(car.id)}
             activeOpacity={0.7}
+            disabled={updatingSeats.has(car.id)}
           >
             <View style={styles.seatsRow}>
               {car.seats.map((seat, index) => (
@@ -456,11 +475,24 @@ export default function CarSeatIndicator({
           <ScrollView style={styles.modalContent}>
             {/* Add Car Button */}
             <TouchableOpacity 
-              style={styles.addCarButton}
+              style={[
+                styles.addCarButton,
+                creatingCar && styles.addCarButtonDisabled
+              ]}
               onPress={handleAddCar}
+              disabled={creatingCar}
             >
-              <Ionicons name="add" size={20} color="#60a5fa" />
-              <Text style={styles.addCarText}>Add Car</Text>
+              <Ionicons 
+                name="add" 
+                size={20} 
+                color={creatingCar ? "#666" : "#60a5fa"} 
+              />
+              <Text style={[
+                styles.addCarText,
+                creatingCar && styles.addCarTextDisabled
+              ]}>
+                {creatingCar ? 'Creating...' : 'Add Car'}
+              </Text>
             </TouchableOpacity>
 
             {/* Cars List */}
@@ -562,6 +594,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  addCarButtonDisabled: {
+    opacity: 0.5,
+    borderColor: '#666',
+  },
+  addCarTextDisabled: {
+    color: '#666',
+  },
   carContainer: {
     backgroundColor: '#1a1a1a',
     borderRadius: 8,
@@ -600,6 +639,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 4,
+  },
+  seatsRowUpdating: {
+    opacity: 0.7,
   },
   seatsRow: {
     flexDirection: 'row',
