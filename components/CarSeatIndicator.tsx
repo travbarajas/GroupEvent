@@ -167,9 +167,21 @@ export default function CarSeatIndicator({
 
       const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
       
-      await ApiService.updateGroupCar(groupId, carId, {
-        capacity: newCapacity
+      // Direct API call as workaround
+      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: currentUserId,
+          capacity: newCapacity
+        }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       // Reload cars to get the latest data
       await loadCars();
@@ -185,9 +197,21 @@ export default function CarSeatIndicator({
       const car = cars.find(c => c.id === carId);
       if (!car || car.createdBy !== currentUserId) return;
       
-      await ApiService.updateGroupCar(groupId, carId, {
-        name: newName
+      // Direct API call as workaround
+      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: currentUserId,
+          name: newName
+        }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       // Update local state immediately for better UX
       setCars(cars.map(car => {
@@ -210,7 +234,20 @@ export default function CarSeatIndicator({
       const car = cars.find(c => c.id === carId);
       if (!car || car.createdBy !== currentUserId) return;
       
-      await ApiService.deleteGroupCar(groupId, carId);
+      // Direct API call as workaround
+      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: currentUserId
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       // Reload cars to get the latest data
       await loadCars();
