@@ -49,6 +49,8 @@ export default function CarSeatIndicator({
   const loadCars = async () => {
     try {
       setLoading(true);
+      console.log('ApiService methods:', Object.getOwnPropertyNames(ApiService));
+      console.log('getGroupCars method:', ApiService.getGroupCars);
       const { cars: apiCars } = await ApiService.getGroupCars(groupId, eventId);
       setCars(apiCars);
     } catch (error) {
