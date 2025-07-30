@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiService } from '@/services/api';
-import { supabase } from '@/lib/supabase';
 
 interface Car {
   id: string;
@@ -44,52 +43,82 @@ export default function CarSeatIndicator({
   const [creatingCar, setCreatingCar] = useState(false);
   const [updatingCapacity, setUpdatingCapacity] = useState<Set<string>>(new Set());
 
-  // Load cars initially and set up real-time subscriptions
+  // Load cars initially when we have required data
   useEffect(() => {
-    loadCars();
+    if (groupId && currentUserId) {
+      loadCars();
+    }
+  }, [groupId, eventId, currentUserId]);
+
+  // Set up real-time subscriptions only when modal is open
+  useEffect(() => {
+    if (!showModal) return;
     
-    // Subscribe to car seat changes for this group
-    const carSeatsChannel = supabase
-      .channel(`car-seats-${groupId}`)
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'car_seat_assignments',
-          filter: `car_id=in.(select id from group_cars where group_id=eq.${groupId})`
-        },
-        () => {
-          console.log('Car seat assignment changed, reloading...');
-          loadCars();
-        }
-      )
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public', 
-          table: 'group_cars',
-          filter: `group_id=eq.${groupId}`
-        },
-        () => {
-          console.log('Car changed, reloading...');
-          loadCars();
-        }
-      )
-      .subscribe();
+    let supabase: any;
+    let carSeatsChannel: any;
+    
+    const setupRealtime = async () => {
+      try {
+        // Dynamically import supabase only when needed
+        const { supabase: supabaseClient } = await import('@/lib/supabase');
+        supabase = supabaseClient;
+        
+        // Subscribe to car seat changes for this group
+        carSeatsChannel = supabase
+          .channel(`car-seats-${groupId}`)
+          .on('postgres_changes', 
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'car_seat_assignments',
+              filter: `car_id=in.(select id from group_cars where group_id=eq.${groupId})`
+            },
+            () => {
+              console.log('Car seat assignment changed, reloading...');
+              loadCars();
+            }
+          )
+          .on('postgres_changes',
+            {
+              event: '*',
+              schema: 'public', 
+              table: 'group_cars',
+              filter: `group_id=eq.${groupId}`
+            },
+            () => {
+              console.log('Car changed, reloading...');
+              loadCars();
+            }
+          )
+          .subscribe();
+      } catch (error) {
+        console.log('Supabase realtime not available, falling back to manual refresh');
+      }
+    };
+    
+    setupRealtime();
     
     return () => {
-      supabase.removeChannel(carSeatsChannel);
+      if (supabase && carSeatsChannel) {
+        supabase.removeChannel(carSeatsChannel);
+      }
     };
-  }, [groupId, eventId]);
+  }, [showModal, groupId]);
 
   const loadCars = async () => {
+    // Don't load if we don't have required data
+    if (!groupId || !currentUserId) {
+      console.log('Skipping loadCars - missing required data:', { groupId, currentUserId });
+      return;
+    }
+    
     try {
       setLoading(true);
-      console.log('ApiService methods:', Object.getOwnPropertyNames(ApiService));
-      console.log('getGroupCars method:', ApiService.getGroupCars);
       
-      // Direct API call as workaround
-      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars?device_id=${currentUserId}${eventId ? `&event_id=${eventId}` : ''}`, {
+      const url = `https://group-event.vercel.app/api/groups/${groupId}/cars?device_id=${currentUserId}${eventId ? `&event_id=${eventId}` : ''}`;
+      console.log('Loading cars from:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -97,14 +126,17 @@ export default function CarSeatIndicator({
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const { cars: apiCars } = await response.json();
-      setCars(apiCars);
+      setCars(apiCars || []);
     } catch (error) {
       console.error('Failed to load cars:', error);
-      Alert.alert('Error', 'Failed to load cars. Please try again.');
+      // Don't show alert for now, just log the error
+      setCars([]);
     } finally {
       setLoading(false);
     }
