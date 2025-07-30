@@ -93,7 +93,20 @@ export default function CarSeatIndicator({
     try {
       const username = getCurrentUsername();
       
-      // Direct API call as workaround
+      // OPTIMISTIC UPDATE: Add car to UI immediately
+      const tempCar = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        name: `${username}'s vehicle`,
+        capacity: 5,
+        seats: Array(5).fill(null),
+        createdBy: currentUserId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      setCars([...cars, tempCar]);
+      
+      // Background API call
       const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars`, {
         method: 'POST',
         headers: {
@@ -111,11 +124,13 @@ export default function CarSeatIndicator({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Reload cars to get the latest data
+      // Reload cars to get real data with proper IDs
       await loadCars();
     } catch (error) {
       console.error('Failed to create car:', error);
       Alert.alert('Error', 'Failed to create car. Please try again.');
+      // Revert optimistic update on error
+      await loadCars();
     }
   };
 
@@ -128,10 +143,38 @@ export default function CarSeatIndicator({
       if (!car) return;
 
       const userSeatIndex = car.seats.findIndex(seat => seat === currentUserId);
+      const isLeaving = userSeatIndex !== -1;
       
-      const method = userSeatIndex !== -1 ? 'DELETE' : 'POST';
+      // OPTIMISTIC UPDATE: Update UI immediately
+      const optimisticCars = cars.map(c => {
+        const newSeats = [...c.seats];
+        const userIndex = newSeats.findIndex(seat => seat === currentUserId);
+        
+        if (c.id === carId && !isLeaving) {
+          // User joining this car - add to first empty spot
+          const firstEmpty = newSeats.findIndex(seat => seat === null);
+          if (firstEmpty !== -1) {
+            newSeats[firstEmpty] = currentUserId;
+          }
+        } else if (userIndex !== -1) {
+          // Remove user from any car they're currently in
+          newSeats[userIndex] = null;
+          // Compact seats (shift left)
+          for (let i = userIndex; i < newSeats.length - 1; i++) {
+            newSeats[i] = newSeats[i + 1];
+            newSeats[i + 1] = null;
+          }
+        }
+        
+        return { ...c, seats: newSeats };
+      });
       
-      // Direct API call as workaround
+      // Update UI immediately for instant feedback
+      setCars(optimisticCars);
+      
+      const method = isLeaving ? 'DELETE' : 'POST';
+      
+      // Background API call
       const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}/seats`, {
         method,
         headers: {
@@ -146,11 +189,13 @@ export default function CarSeatIndicator({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Reload cars to get the latest data
+      // Reload from server to get authoritative state (and sync with other users)
       await loadCars();
     } catch (error) {
       console.error('Failed to update seat assignment:', error);
       Alert.alert('Error', 'Failed to update seat assignment. Please try again.');
+      // Revert optimistic update on error
+      await loadCars();
     }
   };
 
