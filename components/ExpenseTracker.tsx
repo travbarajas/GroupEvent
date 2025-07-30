@@ -194,10 +194,11 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     setShowPaymentWebView(true);
   };
 
-  const handleMarkAsPaid = async (expenseId: string, memberId: string) => {
+  const handleTogglePaymentStatus = async (expenseId: string, memberId: string, currentStatus: string) => {
     try {
-      // Update payment status to completed
-      await ApiService.updateExpensePaymentStatus(groupId, expenseId, memberId, 'completed');
+      // Toggle between 'pending' and 'completed'
+      const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+      await ApiService.updateExpensePaymentStatus(groupId, expenseId, memberId, newStatus);
       
       // Reload expenses to get updated data
       await loadExpenses();
@@ -205,8 +206,8 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
       // Notify parent of expense changes
       onExpensesChange?.(expenses);
     } catch (error) {
-      console.error('Failed to mark as paid:', error);
-      Alert.alert('Error', 'Failed to mark payment as paid. Please try again.');
+      console.error('Failed to update payment status:', error);
+      Alert.alert('Error', 'Failed to update payment status. Please try again.');
     }
   };
 
@@ -352,12 +353,20 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                           </View>
                         </View>
                         
-                        {!isPayer && status === 'pending' && (
+                        {!isPayer && (
                           <TouchableOpacity
-                            style={styles.markPaidButton}
-                            onPress={() => handleMarkAsPaid(expense.id, memberId)}
+                            style={[
+                              styles.markPaidButton,
+                              status === 'completed' && styles.markUnpaidButton
+                            ]}
+                            onPress={() => handleTogglePaymentStatus(expense.id, memberId, status)}
                           >
-                            <Text style={styles.markPaidButtonText}>Mark Paid</Text>
+                            <Text style={[
+                              styles.markPaidButtonText,
+                              status === 'completed' && styles.markUnpaidButtonText
+                            ]}>
+                              {status === 'completed' ? 'Mark Unpaid' : 'Mark Paid'}
+                            </Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -685,14 +694,22 @@ const styles = StyleSheet.create({
   },
   markPaidButton: {
     backgroundColor: '#22c55e',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 80,
+    alignItems: 'center',
   },
   markPaidButtonText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#ffffff',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  markUnpaidButton: {
+    backgroundColor: '#f59e0b',
+  },
+  markUnpaidButtonText: {
+    color: '#ffffff',
   },
   expenseCardPaid: {
     backgroundColor: '#1a1a1a',
