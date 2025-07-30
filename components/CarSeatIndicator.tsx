@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiService } from '@/services/api';
+import { supabase } from '@/lib/supabase';
 
 interface Car {
   id: string;
@@ -43,11 +44,43 @@ export default function CarSeatIndicator({
   const [creatingCar, setCreatingCar] = useState(false);
   const [updatingCapacity, setUpdatingCapacity] = useState<Set<string>>(new Set());
 
+  // Load cars initially and set up real-time subscriptions
   useEffect(() => {
-    if (showModal) {
-      loadCars();
-    }
-  }, [showModal]);
+    loadCars();
+    
+    // Subscribe to car seat changes for this group
+    const carSeatsChannel = supabase
+      .channel(`car-seats-${groupId}`)
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'car_seat_assignments',
+          filter: `car_id=in.(select id from group_cars where group_id=eq.${groupId})`
+        },
+        () => {
+          console.log('Car seat assignment changed, reloading...');
+          loadCars();
+        }
+      )
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public', 
+          table: 'group_cars',
+          filter: `group_id=eq.${groupId}`
+        },
+        () => {
+          console.log('Car changed, reloading...');
+          loadCars();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(carSeatsChannel);
+    };
+  }, [groupId, eventId]);
 
   const loadCars = async () => {
     try {
@@ -222,65 +255,43 @@ export default function CarSeatIndicator({
 
   // Change car capacity (only creator can do this)
   const handleCapacityChange = async (carId: string, delta: number) => {
-    if (updatingCapacity.has(carId)) return;
-    
-    try {
-      const car = cars.find(c => c.id === carId);
-      if (!car || car.createdBy !== currentUserId) return;
+    const car = cars.find(c => c.id === carId);
+    if (!car || car.createdBy !== currentUserId) return;
 
-      const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
-      if (newCapacity === car.capacity) return; // No change needed
-      
-      // Mark as updating to prevent multiple clicks
-      setUpdatingCapacity(prev => new Set([...prev, carId]));
-      
-      // OPTIMISTIC UPDATE: Update UI immediately
-      const optimisticCars = cars.map(c => {
-        if (c.id === carId) {
-          const newSeats = Array(newCapacity).fill(null);
-          // Copy existing seats up to new capacity
-          for (let i = 0; i < Math.min(c.seats.length, newCapacity); i++) {
-            newSeats[i] = c.seats[i];
-          }
-          return { ...c, capacity: newCapacity, seats: newSeats };
+    const newCapacity = Math.max(1, car.capacity + delta); // Min 1, no max
+    if (newCapacity === car.capacity) return; // No change needed
+    
+    // OPTIMISTIC UPDATE: Update UI immediately without any blocking
+    const optimisticCars = cars.map(c => {
+      if (c.id === carId) {
+        const newSeats = Array(newCapacity).fill(null);
+        // Copy existing seats up to new capacity
+        for (let i = 0; i < Math.min(c.seats.length, newCapacity); i++) {
+          newSeats[i] = c.seats[i];
         }
-        return c;
-      });
-      
-      // Update UI immediately for instant feedback
-      setCars(optimisticCars);
-      
-      // Background API call
-      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          device_id: currentUserId,
-          capacity: newCapacity
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        return { ...c, capacity: newCapacity, seats: newSeats };
       }
-      
-      // Reload cars to get authoritative data
-      await loadCars();
-    } catch (error) {
+      return c;
+    });
+    
+    // Update UI immediately for instant feedback
+    setCars(optimisticCars);
+    
+    // Background API call (fire and forget for speed)
+    fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        device_id: currentUserId,
+        capacity: newCapacity
+      }),
+    }).catch(error => {
       console.error('Failed to update car capacity:', error);
-      Alert.alert('Error', 'Failed to update car capacity. Please try again.');
-      // Revert optimistic update on error
-      await loadCars();
-    } finally {
-      // Remove car from updating set
-      setUpdatingCapacity(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(carId);
-        return newSet;
-      });
-    }
+      // Silently revert on error after a delay
+      setTimeout(() => loadCars(), 1000);
+    });
   };
 
   // Change car name (only creator can do this)
@@ -404,61 +415,55 @@ export default function CarSeatIndicator({
               ))}
             </View>
           </TouchableOpacity>
-          
-          {/* Plus/minus buttons under the seat pills */}
-          {isCreator && (
-            <View style={[
-              styles.capacityButtonRowUnder,
-              updatingCapacity.has(car.id) && styles.capacityButtonRowUpdating
-            ]}>
+        </View>
+        
+        {/* 2x2 grid: capacity, X, minus, plus */}
+        <View style={styles.controlsGrid}>
+          <View style={styles.gridTopRow}>
+            <View style={styles.capacityBox}>
+              <Text style={styles.capacityText}>
+                {getOccupiedSeats(car)}/{car.capacity}
+              </Text>
+            </View>
+            
+            {isCreator && (
               <TouchableOpacity 
-                style={[
-                  styles.capacityButton,
-                  updatingCapacity.has(car.id) && styles.capacityButtonUpdating
-                ]}
+                style={styles.deleteButton}
+                onPress={() => handleDeleteVehicle(car.id)}
+              >
+                <Ionicons 
+                  name="close" 
+                  size={12} 
+                  color="#ef4444" 
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {isCreator && (
+            <View style={styles.gridBottomRow}>
+              <TouchableOpacity 
+                style={styles.capacityButton}
                 onPress={() => handleCapacityChange(car.id, -1)}
-                disabled={car.capacity <= 1 || updatingCapacity.has(car.id)}
+                disabled={car.capacity <= 1}
               >
                 <Ionicons 
                   name="remove" 
                   size={12} 
-                  color={car.capacity <= 1 || updatingCapacity.has(car.id) ? '#666' : '#60a5fa'} 
+                  color={car.capacity <= 1 ? '#666' : '#60a5fa'} 
                 />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[
-                  styles.capacityButton,
-                  updatingCapacity.has(car.id) && styles.capacityButtonUpdating
-                ]}
+                style={styles.capacityButton}
                 onPress={() => handleCapacityChange(car.id, 1)}
-                disabled={updatingCapacity.has(car.id)}
               >
                 <Ionicons 
                   name="add" 
                   size={12} 
-                  color={updatingCapacity.has(car.id) ? '#666' : '#60a5fa'} 
+                  color="#60a5fa"
                 />
               </TouchableOpacity>
             </View>
-          )}
-        </View>
-        
-        {/* Capacity count and delete button on the right */}
-        <View style={styles.capacityContainer}>
-          <Text style={styles.capacityText}>
-            {getOccupiedSeats(car)}/{car.capacity}
-          </Text>
-          {isCreator && (
-            <TouchableOpacity 
-              style={styles.deleteButton}
-              onPress={() => handleDeleteVehicle(car.id)}
-            >
-              <Ionicons 
-                name="close" 
-                size={10} 
-                color="#ef4444" 
-              />
-            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -674,12 +679,14 @@ const styles = StyleSheet.create({
   seatsAndControlsContainer: {
     flex: 0.5,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   seatsRowContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    flex: 1,
   },
   seatsRowUpdating: {
     opacity: 0.7,
@@ -691,32 +698,47 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   seatPill: {
-    width: 18,
-    height: 12,
-    borderRadius: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#2a2a2a',
     backgroundColor: 'transparent',
   },
-  capacityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  controlsGrid: {
     flex: 0.2,
     justifyContent: 'center',
+    alignItems: 'flex-end',
     gap: 6,
   },
+  gridTopRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  gridBottomRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  capacityBox: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   capacityButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
   },
   capacityText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#9ca3af',
-    fontWeight: '500',
+    fontWeight: '600',
     textAlign: 'center',
   },
   capacityButtonRowUnder: {
@@ -732,9 +754,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   deleteButton: {
-    width: 18,
-    height: 12,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
