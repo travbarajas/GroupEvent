@@ -35,35 +35,59 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Get all expenses for this group with participant data
-      const expenses = await sql`
-        SELECT 
-          ge.id,
-          ge.description,
-          ge.total_amount,
-          ge.created_by_device_id,
-          ge.created_at,
-          array_agg(
-            CASE WHEN ep.role = 'payer' THEN ep.member_device_id END
-          ) FILTER (WHERE ep.role = 'payer') as payers,
-          array_agg(
-            CASE WHEN ep.role = 'ower' THEN ep.member_device_id END  
-          ) FILTER (WHERE ep.role = 'ower') as owers,
-          jsonb_object_agg(
-            CASE WHEN ep.role = 'ower' THEN ep.member_device_id END,
-            CASE WHEN ep.role = 'ower' THEN ep.payment_status END
-          ) FILTER (WHERE ep.role = 'ower') as payment_status,
-          CASE 
-            WHEN array_length(array_agg(CASE WHEN ep.role = 'ower' THEN ep.member_device_id END) FILTER (WHERE ep.role = 'ower'), 1) > 0
-            THEN ge.total_amount / array_length(array_agg(CASE WHEN ep.role = 'ower' THEN ep.member_device_id END) FILTER (WHERE ep.role = 'ower'), 1)
-            ELSE 0
-          END as individual_amount
-        FROM group_expenses ge
-        LEFT JOIN expense_participants ep ON ge.id = ep.expense_id
-        WHERE ge.group_id = ${groupId}
-        GROUP BY ge.id, ge.description, ge.total_amount, ge.created_by_device_id, ge.created_at
-        ORDER BY ge.created_at DESC
-      `;
+      // Get all expenses for this group (simplified query to avoid empty table issues)
+      let expenses = [];
+      
+      try {
+        // First check if any expenses exist for this group
+        const expenseCount = await sql`
+          SELECT COUNT(*) as count FROM group_expenses WHERE group_id = ${groupId}
+        `;
+        
+        if (expenseCount[0].count > 0) {
+          // Get expenses with participant data
+          expenses = await sql`
+            SELECT 
+              ge.id,
+              ge.description,
+              ge.total_amount,
+              ge.created_by_device_id,
+              ge.created_at,
+              COALESCE(
+                array_agg(
+                  CASE WHEN ep.role = 'payer' THEN ep.member_device_id END
+                ) FILTER (WHERE ep.role = 'payer'), 
+                ARRAY[]::text[]
+              ) as payers,
+              COALESCE(
+                array_agg(
+                  CASE WHEN ep.role = 'ower' THEN ep.member_device_id END  
+                ) FILTER (WHERE ep.role = 'ower'), 
+                ARRAY[]::text[]
+              ) as owers,
+              COALESCE(
+                jsonb_object_agg(
+                  CASE WHEN ep.role = 'ower' THEN ep.member_device_id END,
+                  CASE WHEN ep.role = 'ower' THEN ep.payment_status END
+                ) FILTER (WHERE ep.role = 'ower'), 
+                '{}'::jsonb
+              ) as payment_status,
+              CASE 
+                WHEN COUNT(CASE WHEN ep.role = 'ower' THEN 1 END) > 0
+                THEN ge.total_amount / COUNT(CASE WHEN ep.role = 'ower' THEN 1 END)
+                ELSE 0
+              END as individual_amount
+            FROM group_expenses ge
+            LEFT JOIN expense_participants ep ON ge.id = ep.expense_id
+            WHERE ge.group_id = ${groupId}
+            GROUP BY ge.id, ge.description, ge.total_amount, ge.created_by_device_id, ge.created_at
+            ORDER BY ge.created_at DESC
+          `;
+        }
+      } catch (tableError) {
+        console.log('Table query error, returning empty expenses:', tableError.message);
+        expenses = [];
+      }
       
       return res.status(200).json({ expenses });
     } catch (error) {
