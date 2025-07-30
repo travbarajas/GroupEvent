@@ -143,8 +143,8 @@ module.exports = async function handler(req, res) {
       console.log('Inserting payers:', paid_by);
       for (const payerId of paid_by) {
         await sql`
-          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)
-          VALUES (${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
+          INSERT INTO expense_participants (id, expense_id, member_device_id, role, individual_amount, payment_status)
+          VALUES (gen_random_uuid(), ${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
         `;
       }
 
@@ -152,8 +152,8 @@ module.exports = async function handler(req, res) {
       console.log('Inserting owers:', split_between);
       for (const owerId of split_between) {
         await sql`
-          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)  
-          VALUES (${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
+          INSERT INTO expense_participants (id, expense_id, member_device_id, role, individual_amount, payment_status)  
+          VALUES (gen_random_uuid(), ${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
         `;
       }
       
