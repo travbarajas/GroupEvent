@@ -92,11 +92,24 @@ export default function CarSeatIndicator({
     
     try {
       const username = getCurrentUsername();
-      await ApiService.createGroupCar(groupId, {
-        name: `${username}'s vehicle`,
-        capacity: 5,
-        eventId
+      
+      // Direct API call as workaround
+      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: currentUserId,
+          name: `${username}'s vehicle`,
+          capacity: 5,
+          event_id: eventId
+        }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       // Reload cars to get the latest data
       await loadCars();
@@ -116,12 +129,21 @@ export default function CarSeatIndicator({
 
       const userSeatIndex = car.seats.findIndex(seat => seat === currentUserId);
       
-      if (userSeatIndex !== -1) {
-        // User is already in this car - leave the seat
-        await ApiService.leaveCarSeat(groupId, carId);
-      } else {
-        // User not in this car - join the seat (API will handle removing from other cars)
-        await ApiService.joinCarSeat(groupId, carId);
+      const method = userSeatIndex !== -1 ? 'DELETE' : 'POST';
+      
+      // Direct API call as workaround
+      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/cars/${carId}/seats`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: currentUserId
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       // Reload cars to get the latest data
