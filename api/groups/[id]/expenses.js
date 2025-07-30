@@ -35,54 +35,53 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Get all expenses for this group (simplified query to avoid empty table issues)
+      // Get all expenses for this group with proper data structure
       let expenses = [];
       
       try {
-        // First check if any expenses exist for this group
-        const expenseCount = await sql`
-          SELECT COUNT(*) as count FROM group_expenses WHERE group_id = ${groupId}
+        const rawExpenses = await sql`
+          SELECT 
+            ge.id,
+            ge.description,
+            ge.total_amount,
+            ge.created_by_device_id,
+            ge.created_at
+          FROM group_expenses ge
+          WHERE ge.group_id = ${groupId}
+          ORDER BY ge.created_at DESC
         `;
-        
-        if (expenseCount[0].count > 0) {
-          // Get expenses with participant data
-          expenses = await sql`
-            SELECT 
-              ge.id,
-              ge.description,
-              ge.total_amount,
-              ge.created_by_device_id,
-              ge.created_at,
-              COALESCE(
-                array_agg(
-                  CASE WHEN ep.role = 'payer' THEN ep.member_device_id END
-                ) FILTER (WHERE ep.role = 'payer'), 
-                ARRAY[]::text[]
-              ) as payers,
-              COALESCE(
-                array_agg(
-                  CASE WHEN ep.role = 'ower' THEN ep.member_device_id END  
-                ) FILTER (WHERE ep.role = 'ower'), 
-                ARRAY[]::text[]
-              ) as owers,
-              COALESCE(
-                jsonb_object_agg(
-                  CASE WHEN ep.role = 'ower' THEN ep.member_device_id END,
-                  CASE WHEN ep.role = 'ower' THEN ep.payment_status END
-                ) FILTER (WHERE ep.role = 'ower'), 
-                '{}'::jsonb
-              ) as payment_status,
-              CASE 
-                WHEN COUNT(CASE WHEN ep.role = 'ower' THEN 1 END) > 0
-                THEN ge.total_amount / COUNT(CASE WHEN ep.role = 'ower' THEN 1 END)
-                ELSE 0
-              END as individual_amount
-            FROM group_expenses ge
-            LEFT JOIN expense_participants ep ON ge.id = ep.expense_id
-            WHERE ge.group_id = ${groupId}
-            GROUP BY ge.id, ge.description, ge.total_amount, ge.created_by_device_id, ge.created_at
-            ORDER BY ge.created_at DESC
+
+        // For each expense, get participants separately to ensure proper data structure
+        for (const expense of rawExpenses) {
+          const participants = await sql`
+            SELECT member_device_id, role, individual_amount, payment_status
+            FROM expense_participants
+            WHERE expense_id = ${expense.id}
           `;
+
+          const payers = participants.filter(p => p.role === 'payer').map(p => p.member_device_id);
+          const owers = participants.filter(p => p.role === 'ower').map(p => p.member_device_id);
+          const paymentStatus = {};
+          let individualAmount = 0;
+
+          participants.forEach(p => {
+            if (p.role === 'ower') {
+              paymentStatus[p.member_device_id] = p.payment_status;
+              individualAmount = parseFloat(p.individual_amount);
+            }
+          });
+
+          expenses.push({
+            id: expense.id,
+            description: expense.description,
+            total_amount: expense.total_amount,
+            created_by_device_id: expense.created_by_device_id,
+            created_at: expense.created_at,
+            payers,
+            owers,
+            payment_status: paymentStatus,
+            individual_amount: individualAmount
+          });
         }
       } catch (tableError) {
         console.log('Table query error, returning empty expenses:', tableError.message);
@@ -98,21 +97,56 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      // Return success immediately to test if the endpoint is reachable
-      return res.status(200).json({ 
-        message: 'Endpoint reached successfully',
-        groupId,
-        body: req.body,
-        method: req.method
-      });
+      const { device_id, description, total_amount, paid_by, split_between } = req.body;
+      
+      if (!device_id) {
+        return res.status(400).json({ error: 'device_id is required' });
+      }
+
+      if (!description || !total_amount || !paid_by || !split_between) {
+        return res.status(400).json({ error: 'description, total_amount, paid_by, and split_between are required' });
+      }
+
+      // Check if user is a member of this group
+      const [membership] = await sql`
+        SELECT 1 FROM members WHERE group_id = ${groupId} AND device_id = ${device_id}
+      `;
+
+      if (!membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
+
+      // Create the expense
+      const [newExpense] = await sql`
+        INSERT INTO group_expenses (group_id, description, total_amount, created_by_device_id)
+        VALUES (${groupId}, ${description}, ${total_amount}, ${device_id})
+        RETURNING *
+      `;
+
+      // Calculate individual amount for owers
+      const individualAmount = parseFloat(total_amount) / split_between.length;
+
+      // Insert payers
+      for (const payerId of paid_by) {
+        await sql`
+          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)
+          VALUES (${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
+        `;
+      }
+
+      // Insert owers
+      for (const owerId of split_between) {
+        await sql`
+          INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)  
+          VALUES (${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
+        `;
+      }
+      
+      return res.status(201).json({ success: true, expense: newExpense });
 
     } catch (error) {
-      console.error('Error in POST handler:', error);
-      return res.status(500).json({ 
-        error: 'Internal server error', 
-        details: error.message,
-        stack: error.stack 
-      });
+      console.error('Error creating expense:', error);
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
