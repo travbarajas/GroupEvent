@@ -48,15 +48,7 @@ export default function GroupChat({ groupId, currentUsername, modalVisible = tru
     enabled: modalVisible,
   });
 
-  // Debug connection status for GroupChat
-  useEffect(() => {
-    console.log('GroupChat - Connection status:', {
-      isConnected,
-      isLoading,
-      error,
-      messagesCount: messages.length,
-      groupId
-    });
+  // Debug connection status for GroupChat (removed)
   }, [isConnected, isLoading, error, messages.length, groupId]);
 
   // Simple scroll to bottom - only when user sends a message

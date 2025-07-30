@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiService } from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Car {
   id: string;
@@ -42,6 +43,7 @@ export default function CarSeatIndicator({
   const [updatingSeats, setUpdatingSeats] = useState<Set<string>>(new Set());
   const [creatingCar, setCreatingCar] = useState(false);
   const [updatingCapacity, setUpdatingCapacity] = useState<Set<string>>(new Set());
+  const insets = useSafeAreaInsets();
 
   // Load cars initially when we have required data
   useEffect(() => {
@@ -50,59 +52,28 @@ export default function CarSeatIndicator({
     }
   }, [groupId, eventId, currentUserId]);
 
-  // Set up real-time subscriptions only when modal is open
+  // Background polling for preview updates (slower)
   useEffect(() => {
-    if (!showModal) return;
+    if (!groupId || !currentUserId) return;
     
-    let supabase: any;
-    let carSeatsChannel: any;
+    // Poll every 10 seconds for preview updates when component is mounted
+    const backgroundPoll = setInterval(() => {
+      loadCars();
+    }, 10000);
     
-    const setupRealtime = async () => {
-      try {
-        // Dynamically import supabase only when needed
-        const { supabase: supabaseClient } = await import('@/lib/supabase');
-        supabase = supabaseClient;
-        
-        // Subscribe to car seat changes for this group
-        carSeatsChannel = supabase
-          .channel(`car-seats-${groupId}`)
-          .on('postgres_changes', 
-            { 
-              event: '*', 
-              schema: 'public', 
-              table: 'car_seat_assignments',
-              filter: `car_id=in.(select id from group_cars where group_id=eq.${groupId})`
-            },
-            () => {
-              console.log('Car seat assignment changed, reloading...');
-              loadCars();
-            }
-          )
-          .on('postgres_changes',
-            {
-              event: '*',
-              schema: 'public', 
-              table: 'group_cars',
-              filter: `group_id=eq.${groupId}`
-            },
-            () => {
-              console.log('Car changed, reloading...');
-              loadCars();
-            }
-          )
-          .subscribe();
-      } catch (error) {
-        console.log('Supabase realtime not available, falling back to manual refresh');
-      }
-    };
+    return () => clearInterval(backgroundPoll);
+  }, [groupId, currentUserId]);
+
+  // Fast polling when modal is open
+  useEffect(() => {
+    if (!showModal || !groupId) return;
     
-    setupRealtime();
+    // Poll every 2 seconds when actively viewing modal
+    const activePoll = setInterval(() => {
+      loadCars();
+    }, 2000);
     
-    return () => {
-      if (supabase && carSeatsChannel) {
-        supabase.removeChannel(carSeatsChannel);
-      }
-    };
+    return () => clearInterval(activePoll);
   }, [showModal, groupId]);
 
   const loadCars = async () => {
@@ -541,9 +512,9 @@ export default function CarSeatIndicator({
       >
         <View style={styles.modalContainer}>
           {/* Header */}
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowModal(false)}>
-              <Ionicons name="close" size={24} color="#ffffff" />
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+            <TouchableOpacity onPress={() => setShowModal(false)} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Car Seats</Text>
             <View style={styles.headerSpacer} />
@@ -637,11 +608,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 50,
+    paddingBottom: 12,
     backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
   },
   modalTitle: {
     fontSize: 18,

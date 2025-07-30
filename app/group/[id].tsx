@@ -24,7 +24,7 @@ import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
 import GroupChat from '@/components/GroupChat';
 import ChatPreviewBubble from '@/components/ChatPreviewBubble';
-import CarSeatIndicator from '@/components/CarSeatIndicator';
+import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
 import { calendarCache } from '@/utils/calendarCache';
 
 interface GroupPermissions {
@@ -962,13 +962,12 @@ export default function GroupDetailScreen() {
           <FourDayPreview />
         </View>
         
-        {/* Car Seats and Calendar Side by Side */}
+        {/* Side by Side: Group Expenses and Calendar Block */}
         <View style={styles.sideBySideContainer}>
-          <CarSeatIndicator 
+          <GroupExpenseIndicator 
             groupId={id as string}
             currentUserId={currentDeviceId}
-            userColor={groupProfile?.color}
-            members={members}
+            events={groupEvents}
           />
           <View style={styles.spacer} />
         </View>

@@ -190,7 +190,7 @@ export default function EventDetailScreen() {
     
     // If no creator ID found, allow deletion (for very old events)
     if (possibleCreatorIds.length === 0) {
-      console.log('No creator ID found for event, allowing deletion for cleanup');
+      // No creator ID found for event, allowing deletion for cleanup
       return true;
     }
     

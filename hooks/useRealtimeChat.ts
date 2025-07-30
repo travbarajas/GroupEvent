@@ -91,7 +91,7 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
     
     reconnectTimeoutRef.current = setTimeout(() => {
       if (mountedRef.current && enabled && roomId) {
-        console.log('Auto-reconnecting chat...');
+        // Auto-reconnecting chat
         initializeConnection();
       }
     }, 5000); // Retry every 5 seconds
@@ -150,7 +150,7 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
       const subscription = await channel.subscribe((status) => {
         if (!mountedRef.current) return;
 
-        console.log(`Realtime connection status: ${status}`);
+        // Realtime connection status updated
         
         if (status === 'SUBSCRIBED') {
           setState(prev => ({ ...prev, isConnected: true, error: null }));
@@ -277,16 +277,16 @@ export function useRealtimeChat({ roomType, roomId, enabled = true }: UseRealtim
   // Handle app state changes (foreground/background) - simple reconnect for short backgrounds
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
-      console.log('Chat - App state changed from', appStateRef.current, 'to', nextAppState);
+      // Chat - App state changed
       
       if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('App came to foreground - checking chat connection');
+        // App came to foreground - checking chat connection
         
         // Simple reconnect check for short backgrounds (page-level refresh handles long ones)
         if (enabled && roomId && mountedRef.current) {
           setTimeout(() => {
             if (mountedRef.current && !state.isConnected) {
-              console.log('Chat appears disconnected - attempting simple reconnect');
+              // Chat appears disconnected - attempting simple reconnect
               initializeConnection();
             }
           }, 1000);

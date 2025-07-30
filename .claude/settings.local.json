@@ -32,7 +32,8 @@
       "Bash(npx partykit:*)",
       "Bash(partykit:*)",
       "Bash(node:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
