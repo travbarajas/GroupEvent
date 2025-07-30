@@ -100,6 +100,8 @@ module.exports = async function handler(req, res) {
     try {
       const { device_id, description, total_amount, paid_by, split_between } = req.body;
       
+      console.log('POST expense request:', { groupId, device_id, description, total_amount, paid_by, split_between });
+      
       if (!device_id) {
         return res.status(400).json({ error: 'device_id is required' });
       }
@@ -117,18 +119,24 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Create the expense (let database generate UUID automatically)
+      console.log('Membership check passed, creating expense...');
+
+      // For now, let's try without the UUID cast since group IDs might be strings
       const [newExpense] = await sql`
         INSERT INTO group_expenses (group_id, description, total_amount, created_by_device_id)
-        VALUES (${groupId}::uuid, ${description}, ${total_amount}, ${device_id})
+        VALUES (${groupId}, ${description}, ${total_amount}, ${device_id})
         RETURNING *
       `;
 
+      console.log('Expense created:', newExpense);
+
       // Calculate individual amount for owers
       const individualAmount = parseFloat(total_amount) / split_between.length;
+      console.log('Individual amount:', individualAmount);
 
       // Insert payers (let database generate UUIDs)
       for (const payerId of paid_by) {
+        console.log('Inserting payer:', payerId);
         await sql`
           INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)
           VALUES (${newExpense.id}, ${payerId}, 'payer', ${individualAmount}, 'completed')
@@ -137,17 +145,21 @@ module.exports = async function handler(req, res) {
 
       // Insert owers (let database generate UUIDs)
       for (const owerId of split_between) {
+        console.log('Inserting ower:', owerId);
         await sql`
           INSERT INTO expense_participants (expense_id, member_device_id, role, individual_amount, payment_status)  
           VALUES (${newExpense.id}, ${owerId}, 'ower', ${individualAmount}, 'pending')
         `;
       }
       
+      console.log('Expense creation completed successfully');
       return res.status(201).json({ success: true, expense: newExpense });
 
     } catch (error) {
       console.error('Error creating expense:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
