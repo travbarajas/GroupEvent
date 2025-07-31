@@ -72,21 +72,37 @@ module.exports = async function handler(req, res) {
     
     console.log('Group expenses for group', groupId, ':', totals);
 
-    // Get amount the current user owes (unpaid expenses only)
+    // Get amount the current user owes (as an ower with pending status)
     const userOwesResult = await sql`
       SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
       FROM expense_participants ep
       JOIN group_expenses ge ON ep.expense_id = ge.id
       WHERE ge.group_id = ${groupId} 
         AND ep.member_device_id = ${device_id} 
+        AND ep.role = 'ower'
         AND ep.payment_status = 'pending'
     `;
     const userOwes = userOwesResult[0] || { user_owes: 0 };
+
+    // Get amount the current user is owed (as a payer for expenses with pending owers)
+    const userOwedResult = await sql`
+      SELECT COALESCE(SUM(CAST(ep_ower.individual_amount AS DECIMAL)), 0) as user_owed
+      FROM expense_participants ep_payer
+      JOIN group_expenses ge ON ep_payer.expense_id = ge.id
+      JOIN expense_participants ep_ower ON ge.id = ep_ower.expense_id
+      WHERE ge.group_id = ${groupId}
+        AND ep_payer.member_device_id = ${device_id}
+        AND ep_payer.role = 'payer'
+        AND ep_ower.role = 'ower'
+        AND ep_ower.payment_status = 'pending'
+    `;
+    const userOwed = userOwedResult[0] || { user_owed: 0 };
 
     const summary = {
       totalAmount: parseFloat(totals.total_amount) || 0,
       expenseCount: parseInt(totals.expense_count) || 0,
       userOwes: parseFloat(userOwes.user_owes) || 0,
+      userOwed: parseFloat(userOwed.user_owed) || 0,
       eventsWithExpenses: 0 // Not tracked in current schema
     };
 

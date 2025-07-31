@@ -14,6 +14,7 @@ interface ExpenseData {
   totalAmount: number;
   eventCount: number;
   userOwes: number;
+  userOwed: number;
 }
 
 interface GroupExpenseIndicatorProps {
@@ -36,6 +37,7 @@ export default function GroupExpenseIndicator({
     totalAmount: 0,
     eventCount: 0,
     userOwes: 0,
+    userOwed: 0,
   });
   const [loading, setLoading] = useState(false);
 
@@ -57,6 +59,7 @@ export default function GroupExpenseIndicator({
         totalAmount: summary.totalAmount,
         eventCount: summary.expenseCount,
         userOwes: summary.userOwes,
+        userOwed: summary.userOwed,
       });
     } catch (error) {
       console.error('Failed to load expense summary:', error);
@@ -93,6 +96,9 @@ export default function GroupExpenseIndicator({
             <Text style={styles.eventCount}>{expenseData.eventCount} expenses</Text>
             {expenseData.userOwes > 0 && (
               <Text style={styles.userOwes}>You owe: ${expenseData.userOwes.toFixed(2)}</Text>
+            )}
+            {expenseData.userOwed > 0 && (
+              <Text style={styles.userOwed}>You are owed: ${expenseData.userOwed.toFixed(2)}</Text>
             )}
           </View>
         ) : (
@@ -210,6 +216,11 @@ const styles = StyleSheet.create({
   userOwes: {
     fontSize: 12,
     color: '#f59e0b',
+    fontWeight: '500',
+  },
+  userOwed: {
+    fontSize: 12,
+    color: '#10b981',
     fontWeight: '500',
   },
   modalContainer: {
