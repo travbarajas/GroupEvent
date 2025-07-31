@@ -83,6 +83,18 @@ module.exports = async function handler(req, res) {
     `;
     console.log('User participant records:', debugParticipants);
 
+    // Debug: Check ALL participants for this group to see what device IDs exist
+    const allParticipants = await sql`
+      SELECT DISTINCT ep.member_device_id, ep.role, COUNT(*) as count
+      FROM expense_participants ep
+      JOIN group_expenses ge ON ep.expense_id = ge.id
+      WHERE ge.group_id = ${groupId}
+      GROUP BY ep.member_device_id, ep.role
+      LIMIT 10
+    `;
+    console.log('All participant device IDs in group:', allParticipants);
+    console.log('Looking for device ID:', device_id);
+
     // Get amount the current user owes (as an ower with pending status)
     const userOwesResult = await sql`
       SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
