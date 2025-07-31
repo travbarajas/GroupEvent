@@ -72,6 +72,17 @@ module.exports = async function handler(req, res) {
     
     console.log('Group expenses for group', groupId, ':', totals);
 
+    // Debug: Check what participants exist for this user
+    const debugParticipants = await sql`
+      SELECT ep.*, ge.description 
+      FROM expense_participants ep
+      JOIN group_expenses ge ON ep.expense_id = ge.id
+      WHERE ge.group_id = ${groupId} 
+        AND ep.member_device_id = ${device_id}
+      LIMIT 5
+    `;
+    console.log('User participant records:', debugParticipants);
+
     // Get amount the current user owes (as an ower with pending status)
     const userOwesResult = await sql`
       SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
