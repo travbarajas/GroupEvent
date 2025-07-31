@@ -267,11 +267,20 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     setSelectedOwers(newSelected);
   };
 
-  // Helper function to check if all owers have paid
+  // Helper function to check if expense is fully settled
   const isExpenseFullyPaid = (expense: ExpenseItem) => {
-    return expense.splitBetween.every(memberId => 
+    // Check if all owers have marked themselves as paid
+    const allOwersHavePaid = expense.splitBetween.every(memberId => 
       expense.paymentStatus[memberId] === 'completed'
     );
+    
+    // Check if all payers have marked themselves as "been paid"
+    const allPayersHaveBeenPaid = expense.paidBy.every(memberId => 
+      expense.paymentStatus[memberId] === 'completed'
+    );
+    
+    // Expense is fully settled if EITHER all owers have paid OR all payers have been paid
+    return allOwersHavePaid || allPayersHaveBeenPaid;
   };
 
   // Helper function to sort expenses
