@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface ExpenseData {
   totalAmount: number;
@@ -82,6 +83,15 @@ export default function GroupExpenseIndicator({
       loadExpenseSummary();
     }
   }, [groupId, currentUserId]);
+
+  // Reload summary when screen comes back into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (groupId && currentUserId) {
+        loadExpenseSummary();
+      }
+    }, [groupId, currentUserId])
+  );
 
   return (
     <>
