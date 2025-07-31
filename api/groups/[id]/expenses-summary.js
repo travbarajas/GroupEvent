@@ -95,6 +95,15 @@ module.exports = async function handler(req, res) {
     console.log('All participant device IDs in group:', allParticipants);
     console.log('Looking for device ID:', device_id);
 
+    // Debug: Check if there's a mapping in members table
+    const memberMapping = await sql`
+      SELECT id, device_id, username 
+      FROM members 
+      WHERE group_id = ${groupId}
+      LIMIT 10
+    `;
+    console.log('Members in group:', memberMapping);
+
     // Get amount the current user owes (as an ower with pending status)
     const userOwesResult = await sql`
       SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
