@@ -83,11 +83,20 @@ module.exports = async function handler(req, res) {
     `;
     const userOwes = userOwesResult[0] || { user_owes: 0 };
 
+    // Get count of events that have expenses
+    const eventCountResult = await sql`
+      SELECT COUNT(DISTINCT event_id) as events_with_expenses
+      FROM group_expenses 
+      WHERE group_id = ${groupId} 
+        AND event_id IS NOT NULL
+    `;
+    const eventCount = eventCountResult[0] || { events_with_expenses: 0 };
+
     const summary = {
       totalAmount: parseFloat(totals.total_amount) || 0,
       expenseCount: parseInt(totals.expense_count) || 0,
       userOwes: parseFloat(userOwes.user_owes) || 0,
-      eventsWithExpenses: 0 // We'll skip this complex query for now
+      eventsWithExpenses: parseInt(eventCount.events_with_expenses) || 0
     };
 
     return res.status(200).json({ summary });
