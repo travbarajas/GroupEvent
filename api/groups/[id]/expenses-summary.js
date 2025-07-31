@@ -60,15 +60,34 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Simple query first - just count all expenses
-    const simpleCount = await sql`SELECT COUNT(*) as total FROM group_expenses`;
-    console.log('Total expenses in database:', simpleCount[0]?.total);
+    // Get actual expense data for this group
+    const totalsResult = await sql`
+      SELECT 
+        COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total_amount,
+        COUNT(*) as expense_count
+      FROM group_expenses 
+      WHERE group_id = ${groupId}
+    `;
+    const totals = totalsResult[0] || { total_amount: 0, expense_count: 0 };
+    
+    console.log('Group expenses for group', groupId, ':', totals);
+
+    // Get amount the current user owes (unpaid expenses only)
+    const userOwesResult = await sql`
+      SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
+      FROM expense_participants ep
+      JOIN group_expenses ge ON ep.expense_id = ge.id
+      WHERE ge.group_id = ${groupId} 
+        AND ep.member_device_id = ${device_id} 
+        AND ep.payment_status = 'pending'
+    `;
+    const userOwes = userOwesResult[0] || { user_owes: 0 };
 
     const summary = {
-      totalAmount: 0,
-      expenseCount: parseInt(simpleCount[0]?.total) || 0,
-      userOwes: 0,
-      eventsWithExpenses: 0
+      totalAmount: parseFloat(totals.total_amount) || 0,
+      expenseCount: parseInt(totals.expense_count) || 0,
+      userOwes: parseFloat(userOwes.user_owes) || 0,
+      eventsWithExpenses: 0 // We'll skip this complex query for now
     };
 
     return res.status(200).json({ summary });
