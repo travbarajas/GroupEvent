@@ -104,13 +104,34 @@ module.exports = async function handler(req, res) {
     `;
     console.log('Members in group:', memberMapping);
 
+    // Get the member ID for this device_id to bridge the ID formats
+    const [memberRecord] = await sql`
+      SELECT id FROM members WHERE group_id = ${groupId} AND device_id = ${device_id}
+    `;
+    
+    if (!memberRecord) {
+      console.log('No member record found for device_id:', device_id);
+      return res.status(200).json({ 
+        summary: {
+          totalAmount: parseFloat(totals.total_amount) || 0,
+          expenseCount: parseInt(totals.expense_count) || 0,
+          userOwes: 0,
+          userOwed: 0,
+          eventsWithExpenses: 0
+        }
+      });
+    }
+
+    const memberId = memberRecord.id;
+    console.log('Found member ID:', memberId, 'for device_id:', device_id);
+
     // Get amount the current user owes (as an ower with pending status)
     const userOwesResult = await sql`
       SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
       FROM expense_participants ep
       JOIN group_expenses ge ON ep.expense_id = ge.id
       WHERE ge.group_id = ${groupId} 
-        AND ep.member_device_id = ${device_id} 
+        AND ep.member_device_id = ${memberId}
         AND ep.role = 'ower'
         AND ep.payment_status = 'pending'
     `;
@@ -123,7 +144,7 @@ module.exports = async function handler(req, res) {
       JOIN group_expenses ge ON ep_payer.expense_id = ge.id
       JOIN expense_participants ep_ower ON ge.id = ep_ower.expense_id
       WHERE ge.group_id = ${groupId}
-        AND ep_payer.member_device_id = ${device_id}
+        AND ep_payer.member_device_id = ${memberId}
         AND ep_payer.role = 'payer'
         AND ep_ower.role = 'ower'
         AND ep_ower.payment_status = 'pending'
