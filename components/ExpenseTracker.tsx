@@ -200,7 +200,16 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     try {
       // Toggle between 'pending' and 'completed'
       const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-      await ApiService.updateExpensePaymentStatus(groupId, expenseId, memberId, newStatus);
+      
+      // Find the current user's device_id to pass as participant_id
+      const currentMember = validMembers.find(m => m.device_id === currentDeviceId);
+      if (!currentMember) {
+        Alert.alert('Error', 'Current user not found in group members');
+        return;
+      }
+      
+      // Pass the current user's member_id (which should match member_device_id in the database)
+      await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.member_id, newStatus);
       
       // Reload expenses to get updated data
       await loadExpenses();

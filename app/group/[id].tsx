@@ -962,14 +962,21 @@ export default function GroupDetailScreen() {
           <FourDayPreview />
         </View>
         
-        {/* Side by Side: Group Expenses and Calendar Block */}
+        {/* Side by Side: Group Expenses and Another Block */}
         <View style={styles.sideBySideContainer}>
-          <GroupExpenseIndicator 
-            groupId={id as string}
-            currentUserId={currentDeviceId}
-            events={groupEvents}
-          />
-          <View style={styles.spacer} />
+          <View style={styles.halfBlock}>
+            <GroupExpenseIndicator 
+              groupId={id as string}
+              currentUserId={currentDeviceId}
+              events={groupEvents}
+            />
+          </View>
+          <View style={styles.halfBlock}>
+            {/* Placeholder for future feature */}
+            <View style={styles.placeholderBlock}>
+              <Text style={styles.placeholderText}>Future Feature</Text>
+            </View>
+          </View>
         </View>
         
         {/* Events Section */}
@@ -1617,5 +1624,23 @@ const styles = StyleSheet.create({
   },
   chatHeaderSpacer: {
     width: 32, // Same width as back button to center title
+  },
+  halfBlock: {
+    flex: 1,
+  },
+  placeholderBlock: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    padding: 16,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
   },
 });
