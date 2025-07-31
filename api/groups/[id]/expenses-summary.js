@@ -106,6 +106,8 @@ module.exports = async function handler(req, res) {
       eventsWithExpenses: 0 // Not tracked in current schema
     };
 
+    console.log('Final summary for user', device_id, ':', summary);
+
     return res.status(200).json({ summary });
 
   } catch (error) {

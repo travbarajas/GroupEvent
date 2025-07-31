@@ -55,7 +55,14 @@ export default function GroupExpenseIndicator({
       }
       
       const { summary } = await response.json();
+      console.log('Received expense summary:', summary);
       setExpenseData({
+        totalAmount: summary.totalAmount,
+        eventCount: summary.expenseCount,
+        userOwes: summary.userOwes,
+        userOwed: summary.userOwed,
+      });
+      console.log('Updated expense data:', {
         totalAmount: summary.totalAmount,
         eventCount: summary.expenseCount,
         userOwes: summary.userOwes,
