@@ -55,7 +55,7 @@ export default function GroupExpenseIndicator({
       const { summary } = await response.json();
       setExpenseData({
         totalAmount: summary.totalAmount,
-        eventCount: summary.eventsWithExpenses,
+        eventCount: summary.expenseCount,
         userOwes: summary.userOwes,
       });
     } catch (error) {
@@ -90,7 +90,7 @@ export default function GroupExpenseIndicator({
         {expenseData.totalAmount > 0 ? (
           <View style={styles.expensePreview}>
             <Text style={styles.totalAmount}>${expenseData.totalAmount.toFixed(2)}</Text>
-            <Text style={styles.eventCount}>{expenseData.eventCount} events</Text>
+            <Text style={styles.eventCount}>{expenseData.eventCount} expenses</Text>
             {expenseData.userOwes > 0 && (
               <Text style={styles.userOwes}>You owe: ${expenseData.userOwes.toFixed(2)}</Text>
             )}
