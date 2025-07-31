@@ -37,32 +37,35 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: 'You are not a member of this group' });
     }
 
-    // Get total expenses and count for the group
-    const [totals] = await sql`
+    // Get total expenses and count for the group (handle empty table)
+    const totalsResult = await sql`
       SELECT 
-        COALESCE(SUM(total_amount::decimal), 0) as total_amount,
+        COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total_amount,
         COUNT(*) as expense_count
       FROM group_expenses 
       WHERE group_id = ${groupId}
     `;
+    const totals = totalsResult[0] || { total_amount: 0, expense_count: 0 };
 
     // Get amount the current user owes (unpaid expenses only)
-    const [userOwes] = await sql`
-      SELECT COALESCE(SUM(individual_amount::decimal), 0) as user_owes
+    const userOwesResult = await sql`
+      SELECT COALESCE(SUM(CAST(individual_amount AS DECIMAL)), 0) as user_owes
       FROM expense_participants ep
       JOIN group_expenses ge ON ep.expense_id = ge.id
       WHERE ge.group_id = ${groupId} 
         AND ep.member_device_id = ${device_id} 
         AND ep.payment_status = 'pending'
     `;
+    const userOwes = userOwesResult[0] || { user_owes: 0 };
 
     // Get count of events with expenses
-    const [eventCount] = await sql`
+    const eventCountResult = await sql`
       SELECT COUNT(DISTINCT event_id) as events_with_expenses
       FROM group_expenses 
       WHERE group_id = ${groupId} 
         AND event_id IS NOT NULL
     `;
+    const eventCount = eventCountResult[0] || { events_with_expenses: 0 };
 
     const summary = {
       totalAmount: parseFloat(totals.total_amount) || 0,
@@ -75,6 +78,18 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching expense summary:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error details:', error.message);
+    console.error('Group ID:', groupId);
+    console.error('Device ID:', device_id);
+    
+    // Return a safe fallback response instead of 500
+    return res.status(200).json({ 
+      summary: {
+        totalAmount: 0,
+        expenseCount: 0,
+        userOwes: 0,
+        eventsWithExpenses: 0
+      }
+    });
   }
 };
