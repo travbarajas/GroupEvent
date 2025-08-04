@@ -1009,11 +1009,18 @@ export default function GroupDetailScreen() {
       {/* Secondary Header Bar */}
       <View style={styles.secondaryHeaderContainer}>
         <View style={styles.secondaryHeader}>
-          <View style={styles.memberCountSection}>
-            <Ionicons name="people" size={16} color="#9ca3af" />
-            <Text style={styles.memberCountText}>
-              {group.memberCount} member{group.memberCount === 1 ? '' : 's'}
-            </Text>
+          <View style={styles.leftSection}>
+            <View style={styles.memberCountSection}>
+              <Ionicons name="people" size={16} color="#9ca3af" />
+              <Text style={styles.memberCountText}>
+                {group.memberCount} member{group.memberCount === 1 ? '' : 's'}
+              </Text>
+            </View>
+            {unreadCount > 0 && (
+              <Text style={styles.unreadMessagesText}>
+                {unreadCount} unread message{unreadCount === 1 ? '' : 's'}
+              </Text>
+            )}
           </View>
           <TouchableOpacity 
             style={styles.chatButton} 
@@ -1022,21 +1029,6 @@ export default function GroupDetailScreen() {
             <View style={styles.chatButtonContent}>
               <Ionicons name="chatbubbles" size={16} color="#ffffff" />
               <Text style={styles.chatButtonText}>Chat</Text>
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationText}>
-                    {unreadCount > 99 ? '99+' : unreadCount.toString()}
-                  </Text>
-                </View>
-              )}
-              {/* Debug badge - temporary */}
-              {__DEV__ && (
-                <View style={[styles.notificationBadge, { backgroundColor: '#ff9500', top: -25 }]}>
-                  <Text style={styles.notificationText}>
-                    {chatMessages.length}
-                  </Text>
-                </View>
-              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -1757,39 +1749,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  leftSection: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
   memberCountSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 4,
   },
   memberCountText: {
     fontSize: 14,
     color: '#9ca3af',
     fontWeight: '500',
   },
-  // Chat notification styles
+  unreadMessagesText: {
+    fontSize: 12,
+    color: '#ef4444',
+    fontWeight: '600',
+    marginLeft: 24, // Align with member count text (icon width + gap)
+  },
+  // Chat button styles
   chatButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    position: 'relative',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  notificationText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 16,
   },
 });
