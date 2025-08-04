@@ -208,8 +208,8 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
         return;
       }
       
-      // Pass the current user's member_id (which should match member_device_id in the database)
-      await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.member_id, newStatus);
+      // Pass the current user's device_id (which matches member_device_id in the database)
+      await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.device_id, newStatus);
       
       // Reload expenses to get updated data
       await loadExpenses();
@@ -269,18 +269,12 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
 
   // Helper function to check if expense is fully settled
   const isExpenseFullyPaid = (expense: ExpenseItem) => {
-    // Check if all owers have marked themselves as paid
-    const allOwersHavePaid = expense.splitBetween.every(memberId => 
-      expense.paymentStatus[memberId] === 'completed'
+    // Expense is complete when all owers have marked themselves as paid
+    const allOwersHavePaid = expense.splitBetween.every(deviceId => 
+      expense.paymentStatus[deviceId] === 'completed'
     );
     
-    // Check if all payers have marked themselves as "been paid"
-    const allPayersHaveBeenPaid = expense.paidBy.every(memberId => 
-      expense.paymentStatus[memberId] === 'completed'
-    );
-    
-    // Expense is fully settled if EITHER all owers have paid OR all payers have been paid
-    return allOwersHavePaid || allPayersHaveBeenPaid;
+    return allOwersHavePaid;
   };
 
   // Helper function to sort expenses
@@ -345,21 +339,21 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                   styles.expenseDetails,
                   isFullyPaid && styles.expenseDetailsPaid
                 ]}>
-                  Paid by {expense.paidBy.map(id => validMembers.find(m => m.member_id === id)?.username || 'Unknown').join(', ')} • 
+                  Paid by {expense.paidBy.map(id => validMembers.find(m => m.device_id === id)?.username || 'Unknown').join(', ')} • 
                   {expense.splitBetween.length} people owe ${expense.individualAmount.toFixed(2)} each
                 </Text>
 
                 <View style={styles.paymentStatusContainer}>
-                  {[...new Set([...expense.paidBy, ...expense.splitBetween])].map(memberId => {
-                    const member = validMembers.find(m => m.member_id === memberId);
-                    const status = expense.paymentStatus[memberId] || 'pending';
-                    const isPayer = expense.paidBy.includes(memberId);
+                  {[...new Set([...expense.paidBy, ...expense.splitBetween])].map(deviceId => {
+                    const member = validMembers.find(m => m.device_id === deviceId);
+                    const status = expense.paymentStatus[deviceId] || 'pending';
+                    const isPayer = expense.paidBy.includes(deviceId);
                     const isCurrentUser = member?.device_id === currentDeviceId;
                     
                     if (!member) return null;
 
                     return (
-                      <View key={memberId} style={styles.paymentStatusRow}>
+                      <View key={deviceId} style={styles.paymentStatusRow}>
                         <View style={styles.memberInfo}>
                           <Text style={[
                             styles.memberName,
@@ -381,7 +375,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                                 styles.markPaidButton,
                                 status === 'completed' && styles.markUnpaidButton
                               ]}
-                              onPress={() => handleTogglePaymentStatus(expense.id, memberId, status)}
+                              onPress={() => handleTogglePaymentStatus(expense.id, deviceId, status)}
                             >
                               <Text style={[
                                 styles.markPaidButtonText,
@@ -715,7 +709,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusPending: {
-    backgroundColor: '#fbbf24',
+    backgroundColor: '#ef4444',
   },
   statusSent: {
     backgroundColor: '#3b82f6',

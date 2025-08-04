@@ -308,6 +308,14 @@ export class ApiService {
     });
   }
 
+  static async deleteGroupExpense(groupId: string, expenseId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/expenses/${expenseId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ device_id })
+    });
+  }
+
   // Permissions endpoint
   static async getPermissions(groupId: string): Promise<{
     is_member: boolean;

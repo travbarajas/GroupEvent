@@ -108,6 +108,12 @@ export default function GroupDetailScreen() {
     }
   }, [chatMessages, lastSeenMessageId]);
 
+  // Get latest message for preview
+  const latestMessage = useMemo(() => {
+    if (chatMessages.length === 0) return null;
+    return chatMessages[chatMessages.length - 1];
+  }, [chatMessages]);
+
   // Calculate unread messages count
   const unreadCount = useMemo(() => {
     if (!lastSeenMessageId || chatMessages.length === 0) {
@@ -1010,13 +1016,13 @@ export default function GroupDetailScreen() {
       <View style={styles.secondaryHeaderContainer}>
         <View style={styles.secondaryHeader}>
           <View style={styles.messagePreviewSection}>
-            {chatMessages.length > 0 ? (
-              <View style={styles.recentMessageContainer}>
+            {latestMessage ? (
+              <View style={styles.recentMessageContainer} key={latestMessage.id}>
                 <Text style={styles.recentMessageSender}>
-                  {chatMessages[chatMessages.length - 1].username}:
+                  {latestMessage.username}:
                 </Text>
                 <Text style={styles.recentMessageText} numberOfLines={1}>
-                  {chatMessages[chatMessages.length - 1].message}
+                  {latestMessage.message}
                 </Text>
               </View>
             ) : (
@@ -1071,6 +1077,8 @@ export default function GroupDetailScreen() {
               groupId={id as string}
               currentUserId={currentDeviceId}
               events={groupEvents}
+              members={members}
+              groupName={group?.name || ''}
             />
           </View>
           <View style={styles.halfBlock}>
