@@ -26,9 +26,10 @@ interface GroupChatProps {
   groupId: string;
   currentUsername?: string;
   modalVisible?: boolean;
+  standalone?: boolean; // New prop to indicate if used in standalone screen
 }
 
-export default function GroupChat({ groupId, currentUsername, modalVisible = true }: GroupChatProps) {
+export default function GroupChat({ groupId, currentUsername, modalVisible = true, standalone = false }: GroupChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
@@ -48,8 +49,6 @@ export default function GroupChat({ groupId, currentUsername, modalVisible = tru
     enabled: modalVisible,
   });
 
-  // Debug connection status for GroupChat (removed)
-  }, [isConnected, isLoading, error, messages.length, groupId]);
 
   // Simple scroll to bottom - only when user sends a message
   const scrollToBottom = useCallback(() => {
@@ -131,7 +130,10 @@ export default function GroupChat({ groupId, currentUsername, modalVisible = tru
       />
 
 
-      <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[
+        styles.inputContainer, 
+        { paddingBottom: standalone ? 16 : Math.max(insets.bottom, 16) }
+      ]}>
         <TextInput
           style={styles.messageInput}
           placeholder="Type a message..."

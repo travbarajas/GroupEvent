@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroups } from '@/contexts/GroupsContext';
 import { ApiService } from '@/services/api';
@@ -22,10 +22,9 @@ import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
-import GroupChat from '@/components/GroupChat';
-import ChatPreviewBubble from '@/components/ChatPreviewBubble';
 import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
 import { calendarCache } from '@/utils/calendarCache';
+import { useRealtimeChat } from '@/hooks/useRealtimeChat';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -75,10 +74,49 @@ export default function GroupDetailScreen() {
   const [pendingEventData, setPendingEventData] = useState<any>(null);
   const [groupEvents, setGroupEvents] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(null);
   
   const group = getGroup(id as string);
+  
+  // Chat notifications - only track messages for notification badge
+  const { messages: chatMessages } = useRealtimeChat({
+    roomType: 'group',
+    roomId: id as string,
+    enabled: true,
+  });
   const appStateRef = useRef(AppState.currentState);
   const backgroundTimeRef = useRef<number | null>(null);
+  
+  // Calculate unread messages count
+  const unreadCount = (() => {
+    if (!lastSeenMessageId || chatMessages.length === 0) {
+      return chatMessages.length;
+    }
+    
+    const lastSeenIndex = chatMessages.findIndex(msg => msg.id === lastSeenMessageId);
+    if (lastSeenIndex === -1) {
+      return chatMessages.length;
+    }
+    
+    return chatMessages.length - (lastSeenIndex + 1);
+  })();
+  
+  // Handle chat button press - clear notifications
+  const handleChatPress = () => {
+    // Mark all messages as seen
+    if (chatMessages.length > 0) {
+      setLastSeenMessageId(chatMessages[chatMessages.length - 1].id);
+    }
+    
+    router.push({
+      pathname: '/group-chat',
+      params: { 
+        groupId: id as string,
+        groupName: group.name,
+        currentUsername: groupProfile?.username
+      }
+    });
+  };
   
   useEffect(() => {
     if (id) {
@@ -106,6 +144,15 @@ export default function GroupDetailScreen() {
       }
     }
   }, [pendingEvent]);
+
+  // Clear notifications when returning from chat screen
+  useFocusEffect(
+    useCallback(() => {
+      if (chatMessages.length > 0) {
+        setLastSeenMessageId(chatMessages[chatMessages.length - 1].id);
+      }
+    }, [chatMessages])
+  );
 
   // Handle app state changes - force refresh after long background
   useEffect(() => {
@@ -920,7 +967,6 @@ export default function GroupDetailScreen() {
           </View>
           <View style={styles.headerGroupInfo}>
             <Text style={styles.headerGroupName}>{group.name}</Text>
-            <Text style={styles.headerMemberCount}>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</Text>
           </View>
           <View style={styles.headerButtons}>
             {permissions?.permissions?.can_invite && (
@@ -931,6 +977,34 @@ export default function GroupDetailScreen() {
           </View>
           <TouchableOpacity style={styles.headerMenuButton} onPress={() => setShowMembersModal(true)}>
             <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {/* Secondary Header Bar */}
+      <View style={styles.secondaryHeaderContainer}>
+        <View style={styles.secondaryHeader}>
+          <View style={styles.memberCountSection}>
+            <Ionicons name="people" size={16} color="#9ca3af" />
+            <Text style={styles.memberCountText}>
+              {group.memberCount} member{group.memberCount === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.chatButton} 
+            onPress={handleChatPress}
+          >
+            <View style={styles.chatButtonContent}>
+              <Ionicons name="chatbubbles" size={16} color="#ffffff" />
+              <Text style={styles.chatButtonText}>Chat</Text>
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationText}>
+                    {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -947,12 +1021,6 @@ export default function GroupDetailScreen() {
           />
         }
       >
-        {/* Chat Preview Bar - Under title */}
-        <ChatPreviewBubble 
-          groupId={id as string}
-          groupName={group.name}
-          currentUsername={groupProfile?.username}
-        />
         
         {/* Side by Side: Upcoming Events and 4-Day Preview with integrated Calendar Button */}
         <View style={styles.sideBySideContainer}>
@@ -1642,5 +1710,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     fontStyle: 'italic',
+  },
+  // Secondary Header styles
+  secondaryHeaderContainer: {
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  secondaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  memberCountSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  memberCountText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  // Chat notification styles
+  chatButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  notificationText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
   },
 });
