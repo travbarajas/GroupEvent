@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -85,45 +85,58 @@ export default function GroupDetailScreen() {
     enabled: true,
   });
 
-  // Debug chat messages and connection
+  // Debug chat messages and connection - less frequent logging
   useEffect(() => {
     console.log('📱 Group Screen - Chat Debug:', {
       groupId: id,
       messagesCount: chatMessages.length,
       isConnected,
       isLoading,
-      error,
-      messages: chatMessages.slice(-3) // Log last 3 messages
+      error: error || 'none',
+      latestMessage: chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].message?.substring(0, 30) + '...' : 'none'
     });
-  }, [chatMessages, isConnected, isLoading, error, id]);
+  }, [chatMessages.length, isConnected, isLoading, error]); // Only log when these change
   const appStateRef = useRef(AppState.currentState);
   const backgroundTimeRef = useRef<number | null>(null);
   
+  // Initialize lastSeenMessageId when messages first load (mark all as read initially)
+  useEffect(() => {
+    if (chatMessages.length > 0 && !lastSeenMessageId) {
+      const mostRecentMessage = chatMessages[chatMessages.length - 1];
+      setLastSeenMessageId(mostRecentMessage.id);
+      console.log('🔄 Initial lastSeen set to:', mostRecentMessage.id);
+    }
+  }, [chatMessages, lastSeenMessageId]);
+
   // Calculate unread messages count
-  const unreadCount = (() => {
+  const unreadCount = useMemo(() => {
     if (!lastSeenMessageId || chatMessages.length === 0) {
-      const count = chatMessages.length;
-      console.log('🔔 Unread Count (no lastSeen):', count, 'total messages:', chatMessages.length);
-      return count;
+      // If no lastSeen is set, show 0 unread (not all messages as unread)
+      console.log('🔔 Unread Count (no lastSeen): 0');
+      return 0;
     }
     
     const lastSeenIndex = chatMessages.findIndex(msg => msg.id === lastSeenMessageId);
     if (lastSeenIndex === -1) {
+      // If lastSeen message not found, all current messages are unread
       const count = chatMessages.length;
       console.log('🔔 Unread Count (lastSeen not found):', count, 'lastSeenId:', lastSeenMessageId);
       return count;
     }
     
+    // Count messages after the last seen message
     const count = chatMessages.length - (lastSeenIndex + 1);
-    console.log('🔔 Unread Count (calculated):', count, 'total:', chatMessages.length, 'lastSeenIndex:', lastSeenIndex);
-    return count;
-  })();
+    console.log('🔔 Unread Count:', count, 'total:', chatMessages.length, 'lastSeenIndex:', lastSeenIndex, 'lastSeenId:', lastSeenMessageId);
+    return Math.max(0, count); // Ensure non-negative
+  }, [chatMessages, lastSeenMessageId]);
   
   // Handle chat button press - clear notifications
   const handleChatPress = () => {
-    // Mark all messages as seen
+    // Mark all messages as seen before opening chat
     if (chatMessages.length > 0) {
-      setLastSeenMessageId(chatMessages[chatMessages.length - 1].id);
+      const latestMessageId = chatMessages[chatMessages.length - 1].id;
+      console.log('💬 Opening chat, marking as seen:', latestMessageId);
+      setLastSeenMessageId(latestMessageId);
     }
     
     router.push({
@@ -164,13 +177,7 @@ export default function GroupDetailScreen() {
   }, [pendingEvent]);
 
   // Clear notifications when returning from chat screen
-  useFocusEffect(
-    useCallback(() => {
-      if (chatMessages.length > 0) {
-        setLastSeenMessageId(chatMessages[chatMessages.length - 1].id);
-      }
-    }, [chatMessages])
-  );
+  // (Removed auto-clear on focus - let user manually clear by opening chat)
 
   // Handle app state changes - force refresh after long background
   useEffect(() => {
