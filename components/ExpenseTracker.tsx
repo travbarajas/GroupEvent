@@ -359,11 +359,14 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                   {expense.splitBetween.length} people owe ${expense.individualAmount.toFixed(2)} each
                 </Text>
 
+                {/* Content break between details and payment status */}
+                <View style={styles.contentSeparator} />
+
                 <View style={styles.paymentStatusContainer}>
-                  {[...new Set([...expense.paidBy, ...expense.splitBetween])].map(deviceId => {
+                  {/* Payers Section */}
+                  {expense.paidBy.map(deviceId => {
                     const member = validMembers.find(m => m.device_id === deviceId);
                     const status = expense.paymentStatus[deviceId] || 'pending';
-                    const isPayer = expense.paidBy.includes(deviceId);
                     const isCurrentUser = member?.device_id === currentDeviceId;
                     
                     if (!member) return null;
@@ -379,7 +382,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                           </Text>
                           <View style={[styles.statusBadge, styles[`status${status.charAt(0).toUpperCase() + status.slice(1)}`]]}>
                             <Text style={styles.statusText}>
-                              {isPayer ? 'Paid' : status === 'pending' ? 'Owes' : status === 'sent' ? 'Sent' : 'Paid'}
+                              Paid
                             </Text>
                           </View>
                         </View>
@@ -397,10 +400,58 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                                 styles.markPaidButtonText,
                                 status === 'completed' && styles.markUnpaidButtonText
                               ]}>
-                                {isPayer 
-                                  ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
-                                  : (status === 'completed' ? "Haven't paid" : "I've paid")
-                                }
+                                {status === 'completed' ? "Haven't been paid" : "I've been paid"}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  
+                  {/* Separator between payers and owers */}
+                  {expense.paidBy.length > 0 && expense.splitBetween.length > 0 && (
+                    <View style={styles.contentSeparator} />
+                  )}
+                  
+                  {/* Owers Section */}
+                  {expense.splitBetween.map(deviceId => {
+                    const member = validMembers.find(m => m.device_id === deviceId);
+                    const status = expense.paymentStatus[deviceId] || 'pending';
+                    const isCurrentUser = member?.device_id === currentDeviceId;
+                    
+                    if (!member) return null;
+
+                    return (
+                      <View key={deviceId} style={styles.paymentStatusRow}>
+                        <View style={styles.memberInfo}>
+                          <Text style={[
+                            styles.memberName,
+                            isFullyPaid && styles.memberNamePaid
+                          ]}>
+                            {member.username}
+                          </Text>
+                          <View style={[styles.statusBadge, styles[`status${status.charAt(0).toUpperCase() + status.slice(1)}`]]}>
+                            <Text style={styles.statusText}>
+                              {status === 'pending' ? 'Owes' : status === 'sent' ? 'Sent' : 'Paid'}
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.buttonContainer}>
+                          {isCurrentUser && (
+                            <TouchableOpacity
+                              style={[
+                                styles.markPaidButton,
+                                status === 'completed' && styles.markUnpaidButton
+                              ]}
+                              onPress={() => handleTogglePaymentStatus(expense.id, deviceId, status)}
+                            >
+                              <Text style={[
+                                styles.markPaidButtonText,
+                                status === 'completed' && styles.markUnpaidButtonText
+                              ]}>
+                                {status === 'completed' ? "Haven't paid" : "I've paid"}
                               </Text>
                             </TouchableOpacity>
                           )}
@@ -445,6 +496,9 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
           />
         </View>
 
+        {/* Content break between description/amount and payers */}
+        <View style={styles.contentSeparator} />
+
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Who paid upfront?</Text>
           <View style={styles.memberSelection}>
@@ -467,6 +521,9 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
             ))}
           </View>
         </View>
+
+        {/* Content break between payers and owers */}
+        <View style={styles.contentSeparator} />
 
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Who should pay back?</Text>
@@ -699,12 +756,11 @@ const styles = StyleSheet.create({
   paymentStatusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: 4,
   },
   buttonContainer: {
-    alignSelf: 'flex-end',
-    marginTop: 'auto',
+    alignSelf: 'center',
   },
   memberInfo: {
     flexDirection: 'row',
@@ -770,6 +826,12 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 16,
+  },
+  contentSeparator: {
+    height: 1,
+    backgroundColor: '#3a3a3a',
+    marginVertical: 12,
+    marginHorizontal: 0,
   },
   inputLabel: {
     fontSize: 14,

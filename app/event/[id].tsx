@@ -18,7 +18,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiService, Event, LegacyEvent } from '@/services/api';
 import CarSeatIndicator from '@/components/CarSeatIndicator';
-import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
+import ExpenseTracker from '@/components/ExpenseTracker';
 
 type EventData = Event | LegacyEvent;
 
@@ -57,6 +57,7 @@ export default function EventDetailScreen() {
   const [members, setMembers] = useState<any[]>([]);
   const [groupProfile, setGroupProfile] = useState<any>(null);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expensesExpanded, setExpensesExpanded] = useState(false);
 
   useEffect(() => {
     if (id && groupId) {
@@ -426,105 +427,142 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
-        {/* Car Seats and Expenses Side by Side */}
-        <View style={styles.sideBySideContainer}>
-          <View style={styles.halfBlock}>
-            <CarSeatIndicator 
-              groupId={groupId as string}
-              eventId={id as string}
-              currentUserId={currentDeviceId}
-              userColor={groupProfile?.color}
-              members={members}
-            />
-          </View>
-          
-          <View style={styles.halfBlock}>
-            <View style={styles.expenseBlock}>
-              <View style={styles.expenseHeader}>
-                <Ionicons name="wallet" size={20} color="#10b981" />
-                <Text style={styles.expenseTitle}>Expenses</Text>
-              </View>
+        {/* Car Seats Block - Full Width */}
+        <View style={styles.fullWidthContainer}>
+          <CarSeatIndicator 
+            groupId={groupId as string}
+            eventId={id as string}
+            currentUserId={currentDeviceId}
+            userColor={groupProfile?.color}
+            members={members}
+          />
+        </View>
+        
+        {/* Expenses Block - Full Width */}
+        <View style={styles.fullWidthContainer}>
+          <View style={styles.expenseBlockFullWidth}>
+              <TouchableOpacity 
+                style={styles.integratedExpenseButton}
+                activeOpacity={0.6}
+                onPress={() => setShowExpenseModal(true)}
+              >
+                <View style={styles.expenseButtonContent}>
+                  <Ionicons name="wallet" size={20} color="#10b981" />
+                  <Text style={styles.integratedExpenseButtonText}>Expenses</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#9ca3af" style={styles.expenseButtonArrow} />
+                </View>
+              </TouchableOpacity>
               
-              <View style={styles.expenseContent}>
-                {/* Total and count */}
-                <View style={styles.expenseSummary}>
-                  <Text style={styles.totalAmount}>${totalExpenses.toFixed(2)}</Text>
+              {/* Separator line between expense button and content */}
+              <View style={styles.expensePreviewSeparator} />
+              
+              <View style={styles.expenseFullWidthContent}>
+                {/* Left Column - Total and Count */}
+                <View style={styles.expenseLeftColumn}>
+                  <Text style={styles.totalAmount} numberOfLines={1}>${Math.round(totalExpenses)}</Text>
                   <Text style={styles.expenseCount}>{expenses.length} expense{expenses.length === 1 ? '' : 's'}</Text>
                 </View>
                 
-                {/* Expense list */}
-                {expenses.length > 0 ? (
-                  <View style={styles.expenseList}>
-                    {expenses.slice(0, 3).map(expense => (
-                      <View key={expense.id} style={styles.expenseItem}>
-                        <Text style={styles.expenseItemName} numberOfLines={1}>
-                          {expense.description}
-                        </Text>
-                        <Text style={styles.expenseItemAmount}>
-                          ${expense.totalAmount.toFixed(2)}
-                        </Text>
+                {/* Middle Column - Expense List */}
+                <View style={styles.expenseMiddleColumn}>
+                  {expenses.length > 0 ? (
+                    <>
+                      <View style={styles.expenseList}>
+                        {(expensesExpanded ? expenses : expenses.slice(0, 3)).map(expense => (
+                          <View key={expense.id} style={styles.expenseItem}>
+                            <Text style={styles.expenseItemName} numberOfLines={1}>
+                              {expense.description}
+                            </Text>
+                            <Text style={styles.expenseItemAmount}>
+                              ${expense.totalAmount.toFixed(2)}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
-                    {expenses.length > 3 && (
-                      <Text style={styles.moreExpenses}>
-                        +{expenses.length - 3} more
-                      </Text>
-                    )}
-                  </View>
-                ) : (
-                  <Text style={styles.noExpensesText}>No expenses yet</Text>
-                )}
-                
-                {/* User balance */}
-                {totalExpenses > 0 && (() => {
-                  let userOwes = 0;
-                  let userOwed = 0;
-                  
-                  expenses.forEach(expense => {
-                    const isUserPayer = expense.paidBy.includes(currentDeviceId);
-                    const isUserOwer = expense.splitBetween.includes(currentDeviceId);
-                    
-                    if (isUserOwer) {
-                      userOwes += expense.individualAmount || 0;
-                    }
-                    if (isUserPayer) {
-                      userOwed += expense.totalAmount;
-                    }
-                  });
-                  
-                  const netBalance = userOwed - userOwes;
-                  
-                  return (
-                    <View style={styles.userBalance}>
-                      {netBalance > 0 ? (
-                        <Text style={styles.userOwedText}>
-                          You are owed: ${netBalance.toFixed(2)}
-                        </Text>
-                      ) : netBalance < 0 ? (
-                        <Text style={styles.userOwesText}>
-                          You owe: ${Math.abs(netBalance).toFixed(2)}
-                        </Text>
-                      ) : (
-                        <Text style={styles.userEvenText}>
-                          You're all settled up
-                        </Text>
-                      )}
+                      <View style={styles.middleColumnButtons}>
+                        {expenses.length > 3 && (
+                          <TouchableOpacity 
+                            style={styles.expandButton}
+                            onPress={() => setExpensesExpanded(!expensesExpanded)}
+                          >
+                            <Text style={styles.expandButtonText}>
+                              {expensesExpanded ? 'Collapse' : 'Expand'}
+                            </Text>
+                            <Ionicons 
+                              name={expensesExpanded ? "chevron-up" : "chevron-down"} 
+                              size={14} 
+                              color="#10b981" 
+                            />
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity 
+                          style={styles.addExpenseButtonCompact}
+                          onPress={() => setShowExpenseModal(true)}
+                        >
+                          <Ionicons name="add" size={16} color="#10b981" />
+                          <Text style={styles.addExpenseButtonTextCompact}>Add Expense</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.middleColumnButtons}>
+                      <Text style={styles.noExpensesText}>No expenses yet</Text>
+                      <TouchableOpacity 
+                        style={styles.addExpenseButtonCompact}
+                        onPress={() => setShowExpenseModal(true)}
+                      >
+                        <Ionicons name="add" size={16} color="#10b981" />
+                        <Text style={styles.addExpenseButtonTextCompact}>Add Expense</Text>
+                      </TouchableOpacity>
                     </View>
-                  );
-                })()}
+                  )}
+                </View>
                 
-                {/* Add expense button */}
-                <TouchableOpacity 
-                  style={styles.addExpenseButton}
-                  onPress={() => setShowExpenseModal(true)}
-                >
-                  <Ionicons name="add" size={16} color="#10b981" />
-                  <Text style={styles.addExpenseButtonText}>Add Expense</Text>
-                </TouchableOpacity>
+                {/* Right Column - User Balance */}
+                <View style={styles.expenseRightColumn}>
+                  {/* User balance */}
+                  {totalExpenses > 0 && (() => {
+                    let userOwes = 0;
+                    let userOwed = 0;
+                    
+                    expenses.forEach(expense => {
+                      const isUserPayer = expense.paidBy.includes(currentDeviceId);
+                      const isUserOwer = expense.splitBetween.includes(currentDeviceId);
+                      
+                      if (isUserOwer) {
+                        userOwes += expense.individualAmount || 0;
+                      }
+                      if (isUserPayer) {
+                        userOwed += expense.totalAmount;
+                      }
+                    });
+                    
+                    const netBalance = userOwed - userOwes;
+                    
+                    return (
+                      <View style={styles.userBalanceCompact}>
+                        {netBalance > 0 ? (
+                          <>
+                            <Text style={styles.userBalanceLabelCompact}>You are owed</Text>
+                            <Text style={styles.userOwedAmountCompact}>${netBalance.toFixed(2)}</Text>
+                          </>
+                        ) : netBalance < 0 ? (
+                          <>
+                            <Text style={styles.userBalanceLabelCompact}>You owe</Text>
+                            <Text style={styles.userOwesAmountCompact}>${Math.abs(netBalance).toFixed(2)}</Text>
+                          </>
+                        ) : (
+                          <Text style={styles.userEvenTextCompact}>
+                            All settled up
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+                </View>
               </View>
             </View>
           </View>
-        </View>
 
         
         {/* Bottom spacing */}
@@ -572,15 +610,15 @@ export default function EventDetailScreen() {
         </View>
       </Modal>
 
-      {/* Group Expense Modal - Reuse the rich functionality from group page */}
-      <GroupExpenseIndicator 
-        groupId={groupId as string}
-        currentUserId={currentDeviceId}
-        events={[]}
-        members={members}
-        groupName={displayEvent.displayName}
+      {/* Expense Tracker Modal */}
+      <ExpenseTracker
         visible={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
+        groupId={groupId as string}
+        groupName={displayEvent.displayName}
+        members={members}
+        currentDeviceId={currentDeviceId}
+        onExpensesChange={handleExpensesChange}
       />
 
     </View>
@@ -703,22 +741,16 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  sideBySideContainer: {
-    flexDirection: 'row',
+  fullWidthContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 12,
+    paddingBottom: 16,
   },
-  halfBlock: {
-    flex: 1,
-  },
-  expenseBlock: {
+  expenseBlockFullWidth: {
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#2a2a2a',
     padding: 16,
-    flex: 1,
   },
   expenseHeader: {
     flexDirection: 'row',
@@ -731,11 +763,22 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginLeft: 8,
   },
-  expenseContent: {
-    gap: 12,
-  },
-  expenseSummary: {
+  expenseFullWidthContent: {
+    flexDirection: 'row',
+    gap: 16,
     alignItems: 'flex-start',
+  },
+  expenseLeftColumn: {
+    flex: 0.25,
+    alignItems: 'flex-start',
+  },
+  expenseMiddleColumn: {
+    flex: 0.5,
+  },
+  expenseRightColumn: {
+    flex: 0.25,
+    alignItems: 'flex-end',
+    gap: 8,
   },
   totalAmount: {
     fontSize: 18,
@@ -1141,5 +1184,114 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginTop: 16,
     paddingBottom: 8,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 6,
+    marginTop: 8,
+    gap: 4,
+  },
+  expandButtonText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '500',
+  },
+  userBalanceCompact: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userOwedTextCompact: {
+    fontSize: 11,
+    color: '#10b981',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  userOwesTextCompact: {
+    fontSize: 11,
+    color: '#f59e0b',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  userEvenTextCompact: {
+    fontSize: 11,
+    color: '#6b7280',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  addExpenseButtonCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  addExpenseButtonTextCompact: {
+    fontSize: 11,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  middleColumnButtons: {
+    gap: 8,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  userBalanceLabelCompact: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  userOwedAmountCompact: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  userOwesAmountCompact: {
+    fontSize: 12,
+    color: '#f59e0b',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  integratedExpenseButton: {
+    marginBottom: 16,
+  },
+  expenseButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  integratedExpenseButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  expenseButtonArrow: {
+    marginLeft: 6,
+  },
+  expensePreviewSeparator: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 16,
   },
 });
