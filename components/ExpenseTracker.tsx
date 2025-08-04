@@ -252,6 +252,11 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     if (newSelected.has(memberId)) {
       newSelected.delete(memberId);
     } else {
+      // Remove from owers if adding to payers (can't be both)
+      const newOwers = new Set(selectedOwers);
+      newOwers.delete(memberId);
+      setSelectedOwers(newOwers);
+      
       newSelected.add(memberId);
     }
     setSelectedPayers(newSelected);
@@ -262,6 +267,11 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     if (newSelected.has(memberId)) {
       newSelected.delete(memberId);
     } else {
+      // Remove from payers if adding to owers (can't be both)
+      const newPayers = new Set(selectedPayers);
+      newPayers.delete(memberId);
+      setSelectedPayers(newPayers);
+      
       newSelected.add(memberId);
     }
     setSelectedOwers(newSelected);
@@ -269,12 +279,18 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
 
   // Helper function to check if expense is fully settled
   const isExpenseFullyPaid = (expense: ExpenseItem) => {
-    // Expense is complete when all owers have marked themselves as paid
+    // Check if all owers have marked themselves as paid ("I've paid")
     const allOwersHavePaid = expense.splitBetween.every(deviceId => 
       expense.paymentStatus[deviceId] === 'completed'
     );
     
-    return allOwersHavePaid;
+    // Check if all payers have marked themselves as been paid ("I've been paid")
+    const allPayersHaveBeenPaid = expense.paidBy.every(deviceId => 
+      expense.paymentStatus[deviceId] === 'completed'
+    );
+    
+    // Expense is complete when EITHER all owers have paid OR all payers have been paid
+    return allOwersHavePaid || allPayersHaveBeenPaid;
   };
 
   // Helper function to sort expenses

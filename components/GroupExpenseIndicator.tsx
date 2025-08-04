@@ -206,24 +206,52 @@ export default function GroupExpenseIndicator({
   };
 
   const handleTogglePaymentStatus = async (expenseId: string, memberId: string, currentStatus: string) => {
+    console.log('🔄 Payment Status Toggle Debug:', {
+      expenseId,
+      memberId,
+      currentStatus,
+      currentUserId,
+      validMembersCount: validMembers.length
+    });
+
     try {
       // Toggle between 'pending' and 'completed'
       const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+      console.log('🔄 Status change:', currentStatus, '->', newStatus);
       
       // Find the current user's device_id to pass as participant_id
       const currentMember = validMembers.find(m => m.device_id === currentUserId);
+      console.log('👤 Current member found:', {
+        currentMember: currentMember ? {
+          member_id: currentMember.member_id,
+          device_id: currentMember.device_id,
+          username: currentMember.username
+        } : null
+      });
+
       if (!currentMember) {
+        console.error('❌ Current user not found in group members');
         Alert.alert('Error', 'Current user not found in group members');
         return;
       }
       
+      console.log('📡 Making API call with:', {
+        groupId,
+        expenseId,
+        participantId: currentMember.device_id,
+        newStatus
+      });
+
       // Pass the current user's device_id (which matches member_device_id in the database)
-      await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.device_id, newStatus);
+      const result = await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.device_id, newStatus);
+      console.log('✅ API call successful:', result);
       
       // Reload expenses to get updated data
+      console.log('🔄 Reloading expenses...');
       await loadDetailedExpenses();
+      console.log('✅ Expenses reloaded');
     } catch (error) {
-      console.error('Failed to update payment status:', error);
+      console.error('❌ Failed to update payment status:', error);
       Alert.alert('Error', 'Failed to update payment status. Please try again.');
     }
   };
@@ -233,6 +261,11 @@ export default function GroupExpenseIndicator({
     if (newSelected.has(deviceId)) {
       newSelected.delete(deviceId);
     } else {
+      // Remove from owers if adding to payers (can't be both)
+      const newOwers = new Set(selectedOwers);
+      newOwers.delete(deviceId);
+      setSelectedOwers(newOwers);
+      
       newSelected.add(deviceId);
     }
     setSelectedPayers(newSelected);
@@ -243,6 +276,11 @@ export default function GroupExpenseIndicator({
     if (newSelected.has(deviceId)) {
       newSelected.delete(deviceId);
     } else {
+      // Remove from payers if adding to owers (can't be both)
+      const newPayers = new Set(selectedPayers);
+      newPayers.delete(deviceId);
+      setSelectedPayers(newPayers);
+      
       newSelected.add(deviceId);
     }
     setSelectedOwers(newSelected);
@@ -250,12 +288,18 @@ export default function GroupExpenseIndicator({
 
   // Helper function to check if expense is fully settled
   const isExpenseFullyPaid = (expense: ExpenseItem) => {
-    // Expense is complete when all owers have marked themselves as paid
+    // Check if all owers have marked themselves as paid ("I've paid")
     const allOwersHavePaid = expense.splitBetween.every(deviceId => 
       expense.paymentStatus[deviceId] === 'completed'
     );
     
-    return allOwersHavePaid;
+    // Check if all payers have marked themselves as been paid ("I've been paid")
+    const allPayersHaveBeenPaid = expense.paidBy.every(deviceId => 
+      expense.paymentStatus[deviceId] === 'completed'
+    );
+    
+    // Expense is complete when EITHER all owers have paid OR all payers have been paid
+    return allOwersHavePaid || allPayersHaveBeenPaid;
   };
 
   // Helper function to sort expenses
@@ -460,6 +504,28 @@ export default function GroupExpenseIndicator({
                                 const isPayer = expense.paidBy.includes(deviceId);
                                 const isCurrentUser = member?.device_id === currentUserId;
                                 
+                                // Debug logging for each participant
+                                if (isCurrentUser) {
+                                  console.log('👤 Current user participant debug:', {
+                                    expenseId: expense.id,
+                                    expenseDescription: expense.description,
+                                    deviceId,
+                                    memberUsername: member?.username,
+                                    status,
+                                    isPayer,
+                                    isCurrentUser,
+                                    paidByArray: expense.paidBy,
+                                    splitBetweenArray: expense.splitBetween,
+                                    paymentStatus: expense.paymentStatus,
+                                    // Additional debugging
+                                    isInPaidByArray: expense.paidBy.includes(deviceId),
+                                    isInSplitBetweenArray: expense.splitBetween.includes(deviceId),
+                                    calculatedButtonText: isPayer 
+                                      ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
+                                      : (status === 'completed' ? "Haven't paid" : "I've paid")
+                                  });
+                                }
+                                
                                 if (!member) return null;
 
                                 return (
@@ -485,16 +551,39 @@ export default function GroupExpenseIndicator({
                                             styles.markPaidButton,
                                             status === 'completed' && styles.markUnpaidButton
                                           ]}
-                                          onPress={() => handleTogglePaymentStatus(expense.id, deviceId, status)}
+                                          onPress={() => {
+                                            console.log('🔘 Button pressed!', {
+                                              expenseId: expense.id,
+                                              deviceId,
+                                              status,
+                                              isPayer,
+                                              buttonText: isPayer 
+                                                ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
+                                                : (status === 'completed' ? "Haven't paid" : "I've paid")
+                                            });
+                                            handleTogglePaymentStatus(expense.id, deviceId, status);
+                                          }}
                                         >
                                           <Text style={[
                                             styles.markPaidButtonText,
                                             status === 'completed' && styles.markUnpaidButtonText
                                           ]}>
-                                            {isPayer 
-                                              ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
-                                              : (status === 'completed' ? "Haven't paid" : "I've paid")
-                                            }
+                                            {(() => {
+                                              const buttonText = isPayer 
+                                                ? (status === 'completed' ? "Haven't been paid" : "I've been paid")
+                                                : (status === 'completed' ? "Haven't paid" : "I've paid");
+                                              
+                                              if (isCurrentUser) {
+                                                console.log('🔘 Button text being rendered:', {
+                                                  expenseId: expense.id,
+                                                  isPayer,
+                                                  status,
+                                                  renderedText: buttonText
+                                                });
+                                              }
+                                              
+                                              return buttonText;
+                                            })()}
                                           </Text>
                                         </TouchableOpacity>
                                       )}
