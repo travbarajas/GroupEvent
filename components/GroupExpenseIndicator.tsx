@@ -246,9 +246,32 @@ export default function GroupExpenseIndicator({
       const result = await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.device_id, newStatus);
       console.log('✅ API call successful:', result);
       
+      // Debug: Check what the API actually returned
+      console.log('📋 API Response Details:', {
+        success: result?.success,
+        participant: result?.participant,
+        fullResponse: result
+      });
+      
       // Reload expenses to get updated data
       console.log('🔄 Reloading expenses...');
+      const expenseBeforeReload = expenses.find(e => e.id === expenseId);
+      console.log('📊 Expense before reload:', {
+        expenseId,
+        statusBefore: expenseBeforeReload?.paymentStatus,
+        payersBefore: expenseBeforeReload?.paidBy,
+        owersBefore: expenseBeforeReload?.splitBetween
+      });
+      
       await loadDetailedExpenses();
+      
+      const expenseAfterReload = expenses.find(e => e.id === expenseId);
+      console.log('📊 Expense after reload:', {
+        expenseId,
+        statusAfter: expenseAfterReload?.paymentStatus,
+        payersAfter: expenseAfterReload?.paidBy,
+        owersAfter: expenseAfterReload?.splitBetween
+      });
       console.log('✅ Expenses reloaded');
     } catch (error) {
       console.error('❌ Failed to update payment status:', error);
