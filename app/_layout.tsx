@@ -89,6 +89,13 @@ export default function RootLayout() {
               presentation: 'card'
             }} 
           />
+          <Stack.Screen 
+            name="group-chat" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider>

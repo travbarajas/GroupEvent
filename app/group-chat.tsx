@@ -8,17 +8,19 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GroupChat from '@/components/GroupChat';
 
 export default function GroupChatScreen() {
   const { groupId, groupName, currentUsername } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
       
       {/* Header - matching app design */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <View style={styles.leftButtons}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
