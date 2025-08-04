@@ -48,6 +48,9 @@ interface GroupExpenseIndicatorProps {
   events: any[]; // Events data passed from parent
   members: GroupMember[];
   groupName: string;
+  // Optional modal props for use in event screens
+  visible?: boolean;
+  onClose?: () => void;
 }
 
 export default function GroupExpenseIndicator({ 
@@ -55,9 +58,15 @@ export default function GroupExpenseIndicator({
   currentUserId,
   events,
   members,
-  groupName 
+  groupName,
+  visible,
+  onClose 
 }: GroupExpenseIndicatorProps) {
   const [showModal, setShowModal] = useState(false);
+  
+  // Use external modal state if provided, otherwise use internal state
+  const isModalVisible = visible !== undefined ? visible : showModal;
+  const handleCloseModal = onClose || (() => setShowModal(false));
   const [activeTab, setActiveTab] = useState<'expenses' | 'chart'>('expenses');
   const [currentStep, setCurrentStep] = useState<'list' | 'create' | 'payment'>('list');
   const insets = useSafeAreaInsets();
@@ -147,13 +156,13 @@ export default function GroupExpenseIndicator({
     }
   }, [groupId, currentUserId]);
 
-  // Load detailed expenses when modal opens
+  // Load detailed expenses when modal opens (either internal or external modal)
   useEffect(() => {
-    if (showModal && currentUserId) {
+    if (isModalVisible && currentUserId) {
       loadDetailedExpenses();
       resetCreateForm();
     }
-  }, [showModal, groupId, currentUserId]);
+  }, [isModalVisible, groupId, currentUserId]);
 
   const resetCreateForm = () => {
     setExpenseDescription('');
@@ -409,13 +418,13 @@ export default function GroupExpenseIndicator({
       <Modal
         animationType="slide"
         transparent={false}
-        visible={showModal}
-        onRequestClose={() => setShowModal(false)}
+        visible={isModalVisible}
+        onRequestClose={handleCloseModal}
       >
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
-            <TouchableOpacity onPress={() => setShowModal(false)} style={styles.backButton}>
+            <TouchableOpacity onPress={handleCloseModal} style={styles.backButton}>
               <Ionicons name="chevron-back" size={24} color="#ffffff" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Group Expenses</Text>

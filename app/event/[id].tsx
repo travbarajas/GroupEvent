@@ -18,6 +18,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiService, Event, LegacyEvent } from '@/services/api';
 import CarSeatIndicator from '@/components/CarSeatIndicator';
+import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
 
 type EventData = Event | LegacyEvent;
 
@@ -56,7 +57,6 @@ export default function EventDetailScreen() {
   const [members, setMembers] = useState<any[]>([]);
   const [groupProfile, setGroupProfile] = useState<any>(null);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [activeExpenseTab, setActiveExpenseTab] = useState<'expenses' | 'chart'>('expenses');
 
   useEffect(() => {
     if (id && groupId) {
@@ -439,26 +439,90 @@ export default function EventDetailScreen() {
           </View>
           
           <View style={styles.halfBlock}>
-            <TouchableOpacity 
-              style={styles.expenseBlock}
-              onPress={() => setShowExpenseModal(true)}
-              activeOpacity={0.8}
-            >
+            <View style={styles.expenseBlock}>
               <View style={styles.expenseHeader}>
                 <Ionicons name="wallet" size={20} color="#10b981" />
-                <Text style={styles.expenseTitle}>Event Expenses</Text>
-                <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
+                <Text style={styles.expenseTitle}>Expenses</Text>
               </View>
               
-              {totalExpenses > 0 ? (
-                <View style={styles.expensePreview}>
+              <View style={styles.expenseContent}>
+                {/* Total and count */}
+                <View style={styles.expenseSummary}>
                   <Text style={styles.totalAmount}>${totalExpenses.toFixed(2)}</Text>
                   <Text style={styles.expenseCount}>{expenses.length} expense{expenses.length === 1 ? '' : 's'}</Text>
                 </View>
-              ) : (
-                <Text style={styles.noExpenseText}>No expenses yet</Text>
-              )}
-            </TouchableOpacity>
+                
+                {/* Expense list */}
+                {expenses.length > 0 ? (
+                  <View style={styles.expenseList}>
+                    {expenses.slice(0, 3).map(expense => (
+                      <View key={expense.id} style={styles.expenseItem}>
+                        <Text style={styles.expenseItemName} numberOfLines={1}>
+                          {expense.description}
+                        </Text>
+                        <Text style={styles.expenseItemAmount}>
+                          ${expense.totalAmount.toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                    {expenses.length > 3 && (
+                      <Text style={styles.moreExpenses}>
+                        +{expenses.length - 3} more
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={styles.noExpensesText}>No expenses yet</Text>
+                )}
+                
+                {/* User balance */}
+                {totalExpenses > 0 && (() => {
+                  let userOwes = 0;
+                  let userOwed = 0;
+                  
+                  expenses.forEach(expense => {
+                    const isUserPayer = expense.paidBy.includes(currentDeviceId);
+                    const isUserOwer = expense.splitBetween.includes(currentDeviceId);
+                    
+                    if (isUserOwer) {
+                      userOwes += expense.individualAmount || 0;
+                    }
+                    if (isUserPayer) {
+                      userOwed += expense.totalAmount;
+                    }
+                  });
+                  
+                  const netBalance = userOwed - userOwes;
+                  
+                  return (
+                    <View style={styles.userBalance}>
+                      {netBalance > 0 ? (
+                        <Text style={styles.userOwedText}>
+                          You are owed: ${netBalance.toFixed(2)}
+                        </Text>
+                      ) : netBalance < 0 ? (
+                        <Text style={styles.userOwesText}>
+                          You owe: ${Math.abs(netBalance).toFixed(2)}
+                        </Text>
+                      ) : (
+                        <Text style={styles.userEvenText}>
+                          You're all settled up
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })()}
+                
+                {/* Add expense button */}
+                <TouchableOpacity 
+                  style={styles.addExpenseButton}
+                  onPress={() => setShowExpenseModal(true)}
+                >
+                  <Ionicons name="add" size={16} color="#10b981" />
+                  <Text style={styles.addExpenseButtonText}>Add Expense</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -508,101 +572,16 @@ export default function EventDetailScreen() {
         </View>
       </Modal>
 
-      {/* Event Expenses Modal */}
-      <Modal
-        animationType="slide"
-        transparent={false}
+      {/* Group Expense Modal - Reuse the rich functionality from group page */}
+      <GroupExpenseIndicator 
+        groupId={groupId as string}
+        currentUserId={currentDeviceId}
+        events={[]}
+        members={members}
+        groupName={displayEvent.displayName}
         visible={showExpenseModal}
-        onRequestClose={() => setShowExpenseModal(false)}
-      >
-        <View style={styles.expenseModalContainer}>
-          {/* Header */}
-          <View style={[styles.expenseModalHeader, { paddingTop: insets.top + 12 }]}>
-            <TouchableOpacity onPress={() => setShowExpenseModal(false)} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <Text style={styles.expenseModalTitle}>Event Expenses</Text>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          {/* Tabs */}
-          <View style={styles.expenseTabContainer}>
-            <TouchableOpacity 
-              style={[
-                styles.expenseTab,
-                activeExpenseTab === 'expenses' && styles.activeExpenseTab
-              ]}
-              onPress={() => setActiveExpenseTab('expenses')}
-            >
-              <Text style={[
-                styles.expenseTabText,
-                activeExpenseTab === 'expenses' && styles.activeExpenseTabText
-              ]}>
-                Expenses
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.expenseTab,
-                activeExpenseTab === 'chart' && styles.activeExpenseTab
-              ]}
-              onPress={() => setActiveExpenseTab('chart')}
-            >
-              <Text style={[
-                styles.expenseTabText,
-                activeExpenseTab === 'chart' && styles.activeExpenseTabText
-              ]}>
-                Chart
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Content Area */}
-          <View style={styles.expenseContentArea}>
-            {activeExpenseTab === 'expenses' ? (
-              <View style={styles.expensesContainer}>
-                {expenses.length > 0 ? (
-                  <>
-                    <View style={styles.expensesTable}>
-                      <View style={styles.expenseTableHeader}>
-                        <Text style={styles.expenseTableHeaderText}>Description</Text>
-                        <Text style={styles.expenseTableHeaderText}>Amount</Text>
-                        <Text style={styles.expenseTableHeaderText}>Paid By</Text>
-                        <Text style={styles.expenseTableHeaderText}>Date</Text>
-                      </View>
-                      {expenses.map(expense => (
-                        <View key={expense.id} style={styles.expenseTableRow}>
-                          <Text style={styles.expenseTableDescription}>{expense.description}</Text>
-                          <Text style={styles.expenseTableAmount}>${expense.totalAmount.toFixed(2)}</Text>
-                          <Text style={styles.expenseTablePaidBy}>
-                            {expense.paidBy.length > 0 ? expense.paidBy.join(', ') : 'Unknown'}
-                          </Text>
-                          <Text style={styles.expenseTableDate}>
-                            {new Date(expense.createdAt).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      ))}
-                      <View style={styles.expenseTableTotal}>
-                        <Text style={styles.expenseTableTotalText}>
-                          Total: ${expenses.reduce((sum, expense) => sum + expense.totalAmount, 0).toFixed(2)}
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                ) : (
-                  <View style={styles.expensePlaceholder}>
-                    <Text style={styles.expensePlaceholderText}>No expenses yet</Text>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View style={styles.expensePlaceholder}>
-                <Text style={styles.expensePlaceholderText}>Chart content coming soon</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowExpenseModal(false)}
+      />
 
     </View>
   );
@@ -744,33 +723,100 @@ const styles = StyleSheet.create({
   expenseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 12,
   },
   expenseTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
-    flex: 1,
     marginLeft: 8,
   },
-  expensePreview: {
+  expenseContent: {
+    gap: 12,
+  },
+  expenseSummary: {
     alignItems: 'flex-start',
   },
   totalAmount: {
     fontSize: 18,
     fontWeight: '700',
     color: '#10b981',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   expenseCount: {
     fontSize: 12,
     color: '#9ca3af',
   },
-  noExpenseText: {
-    fontSize: 14,
+  expenseList: {
+    gap: 6,
+  },
+  expenseItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  expenseItemName: {
+    fontSize: 12,
+    color: '#e5e7eb',
+    flex: 1,
+    marginRight: 8,
+  },
+  expenseItemAmount: {
+    fontSize: 12,
     color: '#9ca3af',
+    fontWeight: '500',
+  },
+  moreExpenses: {
+    fontSize: 11,
+    color: '#6b7280',
     fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  noExpensesText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  userBalance: {
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+    paddingTop: 8,
+  },
+  userOwedText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  userOwesText: {
+    fontSize: 12,
+    color: '#f59e0b',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  userEvenText: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  addExpenseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 6,
+    padding: 8,
+    gap: 4,
+  },
+  addExpenseButtonText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '500',
   },
   costHeader: {
     flexDirection: 'row',
@@ -1095,128 +1141,5 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginTop: 16,
     paddingBottom: 8,
-  },
-  // Expense Modal styles
-  expenseModalContainer: {
-    flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  expenseModalHeader: {
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 4,
-    marginRight: 8,
-  },
-  expenseModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  headerSpacer: {
-    width: 24,
-  },
-  expenseTabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  expenseTab: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  activeExpenseTab: {
-    borderBottomColor: '#10b981',
-  },
-  expenseTabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#9ca3af',
-  },
-  activeExpenseTabText: {
-    color: '#10b981',
-    fontWeight: '600',
-  },
-  expenseContentArea: {
-    flex: 1,
-    padding: 20,
-  },
-  expensePlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  expensePlaceholderText: {
-    fontSize: 16,
-    color: '#6b7280',
-    fontStyle: 'italic',
-  },
-  // Expense table styles
-  expenseTableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#2a2a2a',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  expenseTableHeaderText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  expenseTableRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  expenseTableDescription: {
-    flex: 1,
-    fontSize: 14,
-    color: '#e5e7eb',
-  },
-  expenseTableAmount: {
-    flex: 1,
-    fontSize: 14,
-    color: '#e5e7eb',
-    textAlign: 'right',
-  },
-  expenseTablePaidBy: {
-    flex: 1,
-    fontSize: 14,
-    color: '#e5e7eb',
-    textAlign: 'center',
-  },
-  expenseTableDate: {
-    flex: 1,
-    fontSize: 14,
-    color: '#9ca3af',
-    textAlign: 'right',
-  },
-  expenseTableTotal: {
-    backgroundColor: '#2a2a2a',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#3a3a3a',
-  },
-  expenseTableTotalText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    textAlign: 'right',
   },
 });
