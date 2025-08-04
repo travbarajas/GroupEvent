@@ -65,8 +65,11 @@ module.exports = async function handler(req, res) {
           let individualAmount = 0;
 
           participants.forEach(p => {
+            // Include payment status for both payers and owers
+            paymentStatus[p.member_device_id] = p.payment_status;
+            
+            // Get individual amount from owers (since that's the amount each ower owes)
             if (p.role === 'ower') {
-              paymentStatus[p.member_device_id] = p.payment_status;
               individualAmount = parseFloat(p.individual_amount);
             }
           });
