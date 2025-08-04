@@ -1027,16 +1027,17 @@ export default function GroupDetailScreen() {
             style={styles.chatButton} 
             onPress={handleChatPress}
           >
-            <View style={styles.chatButtonContent}>
-              <Ionicons name="chatbubbles" size={16} color="#ffffff" />
-              <Text style={styles.chatButtonText}>Chat</Text>
-              {unreadCount > 0 && (
+            <View style={[styles.chatButtonContent, unreadCount === 0 && styles.chatButtonContentCentered]}>
+              {unreadCount > 0 ? (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationText}>
                     {unreadCount > 99 ? '99+' : unreadCount.toString()}
                   </Text>
                 </View>
+              ) : (
+                <Ionicons name="chatbubbles" size={16} color="#ffffff" />
               )}
+              <Text style={styles.chatButtonText}>Chat</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -1788,12 +1789,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    position: 'relative',
+  },
+  chatButtonContentCentered: {
+    justifyContent: 'center',
   },
   notificationBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
     backgroundColor: '#ef4444',
     borderRadius: 10,
     minWidth: 20,
