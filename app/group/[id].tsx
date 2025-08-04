@@ -79,26 +79,44 @@ export default function GroupDetailScreen() {
   const group = getGroup(id as string);
   
   // Chat notifications - only track messages for notification badge
-  const { messages: chatMessages } = useRealtimeChat({
+  const { messages: chatMessages, isConnected, isLoading, error } = useRealtimeChat({
     roomType: 'group',
     roomId: id as string,
     enabled: true,
   });
+
+  // Debug chat messages and connection
+  useEffect(() => {
+    console.log('📱 Group Screen - Chat Debug:', {
+      groupId: id,
+      messagesCount: chatMessages.length,
+      isConnected,
+      isLoading,
+      error,
+      messages: chatMessages.slice(-3) // Log last 3 messages
+    });
+  }, [chatMessages, isConnected, isLoading, error, id]);
   const appStateRef = useRef(AppState.currentState);
   const backgroundTimeRef = useRef<number | null>(null);
   
   // Calculate unread messages count
   const unreadCount = (() => {
     if (!lastSeenMessageId || chatMessages.length === 0) {
-      return chatMessages.length;
+      const count = chatMessages.length;
+      console.log('🔔 Unread Count (no lastSeen):', count, 'total messages:', chatMessages.length);
+      return count;
     }
     
     const lastSeenIndex = chatMessages.findIndex(msg => msg.id === lastSeenMessageId);
     if (lastSeenIndex === -1) {
-      return chatMessages.length;
+      const count = chatMessages.length;
+      console.log('🔔 Unread Count (lastSeen not found):', count, 'lastSeenId:', lastSeenMessageId);
+      return count;
     }
     
-    return chatMessages.length - (lastSeenIndex + 1);
+    const count = chatMessages.length - (lastSeenIndex + 1);
+    console.log('🔔 Unread Count (calculated):', count, 'total:', chatMessages.length, 'lastSeenIndex:', lastSeenIndex);
+    return count;
   })();
   
   // Handle chat button press - clear notifications
@@ -1001,6 +1019,14 @@ export default function GroupDetailScreen() {
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationText}>
                     {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                  </Text>
+                </View>
+              )}
+              {/* Debug badge - temporary */}
+              {__DEV__ && (
+                <View style={[styles.notificationBadge, { backgroundColor: '#ff9500', top: -25 }]}>
+                  <Text style={styles.notificationText}>
+                    {chatMessages.length}
                   </Text>
                 </View>
               )}
