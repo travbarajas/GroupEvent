@@ -487,15 +487,16 @@ export class ApiService {
     not_going: string[];
   }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/events/${eventId}/attendance?device_id=${device_id}`);
+    return this.request(`/groups/${groupId}/attendance?device_id=${device_id}&event_id=${eventId}`);
   }
 
   static async updateEventAttendance(groupId: string, eventId: string, status: 'going' | 'maybe' | 'not_going'): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/events/${eventId}/attendance`, {
+    return this.request(`/groups/${groupId}/attendance`, {
       method: 'POST',
       body: JSON.stringify({
         device_id,
+        event_id: eventId,
         status
       })
     });

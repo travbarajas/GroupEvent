@@ -16,15 +16,15 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
   
-  const { id: groupId, eventId } = req.query;
+  const { id: groupId } = req.query;
 
   if (req.method === 'GET') {
     // Get attendance for an event
     try {
-      const { device_id } = req.query;
+      const { device_id, event_id } = req.query;
       
-      if (!device_id) {
-        return res.status(400).json({ error: 'device_id is required' });
+      if (!device_id || !event_id) {
+        return res.status(400).json({ error: 'device_id and event_id are required' });
       }
 
       // Check if user is a member of this group
@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
       const attendanceRecords = await sql`
         SELECT device_id, status 
         FROM event_attendance 
-        WHERE group_id = ${groupId} AND event_id = ${eventId}
+        WHERE group_id = ${groupId} AND event_id = ${event_id}
       `;
       
       const attendance = {
@@ -67,11 +67,11 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     // Update user's attendance status
-    const { device_id, status } = req.body;
+    const { device_id, event_id, status } = req.body;
     
-    if (!device_id || !status) {
+    if (!device_id || !event_id || !status) {
       return res.status(400).json({ 
-        error: 'device_id and status are required' 
+        error: 'device_id, event_id, and status are required' 
       });
     }
 
@@ -91,24 +91,10 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
 
-      // Create the event_attendance table if it doesn't exist
-      await sql`
-        CREATE TABLE IF NOT EXISTS event_attendance (
-          id SERIAL PRIMARY KEY,
-          group_id VARCHAR(255) NOT NULL,
-          event_id VARCHAR(255) NOT NULL,
-          device_id VARCHAR(255) NOT NULL,
-          status VARCHAR(20) NOT NULL CHECK (status IN ('going', 'maybe', 'not_going')),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(group_id, event_id, device_id)
-        )
-      `;
-
       // Insert or update attendance status using UPSERT
       await sql`
         INSERT INTO event_attendance (group_id, event_id, device_id, status, created_at, updated_at)
-        VALUES (${groupId}, ${eventId}, ${device_id}, ${status}, NOW(), NOW())
+        VALUES (${groupId}, ${event_id}, ${device_id}, ${status}, NOW(), NOW())
         ON CONFLICT (group_id, event_id, device_id)
         DO UPDATE SET 
           status = EXCLUDED.status,
