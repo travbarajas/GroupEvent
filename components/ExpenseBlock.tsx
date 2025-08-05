@@ -68,6 +68,12 @@ export default function ExpenseBlock({
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseItem | null>(null);
   
+  // Local storage for percentage data (workaround for backend not returning percentages)
+  const [localPercentageData, setLocalPercentageData] = useState<{[expenseId: string]: {
+    payersPercentages?: {[deviceId: string]: number};
+    owersPercentages?: {[deviceId: string]: number};
+  }}>({});
+  
   // Editing state variables
   const [editingExpenseDescription, setEditingExpenseDescription] = useState('');
   const [editingExpenseAmount, setEditingExpenseAmount] = useState('');
@@ -79,6 +85,48 @@ export default function ExpenseBlock({
   const [editingLockedPayersPercentages, setEditingLockedPayersPercentages] = useState<Set<string>>(new Set());
 
   const validMembers = members.filter(member => member.has_username && member.username);
+
+  // Load percentage data from localStorage on component mount
+  useEffect(() => {
+    const storageKey = `expense-percentages-${groupId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        setLocalPercentageData(JSON.parse(stored));
+      } catch (error) {
+        console.warn('Failed to parse stored percentage data:', error);
+      }
+    }
+  }, [groupId]);
+  
+  // Save percentage data to localStorage whenever it changes
+  const savePercentageData = (expenseId: string, payersPercentages: {[key: string]: number}, owersPercentages: {[key: string]: number}) => {
+    const storageKey = `expense-percentages-${groupId}`;
+    const newData = {
+      ...localPercentageData,
+      [expenseId]: {
+        payersPercentages,
+        owersPercentages
+      }
+    };
+    setLocalPercentageData(newData);
+    localStorage.setItem(storageKey, JSON.stringify(newData));
+  };
+  
+  // Map percentage data from optimistic ID to real API ID
+  const mapPercentageData = (optimisticId: string, realId: string) => {
+    const storageKey = `expense-percentages-${groupId}`;
+    const data = localPercentageData[optimisticId];
+    if (data) {
+      const newData = {
+        ...localPercentageData,
+        [realId]: data
+      };
+      delete newData[optimisticId]; // Remove the optimistic entry
+      setLocalPercentageData(newData);
+      localStorage.setItem(storageKey, JSON.stringify(newData));
+    }
+  };
 
   // Load expenses from API on component mount
   useEffect(() => {
@@ -106,14 +154,18 @@ export default function ExpenseBlock({
         // Add payers with their contribution amounts and percentages
         if (expense.payers && Array.isArray(expense.payers)) {
           expense.payers.forEach((payerDeviceId: string) => {
-            // Fallback: if payers_percentages doesn't exist, assume equal split among payers
-            const payerPercentage = expense.payers_percentages?.[payerDeviceId] || (100 / expense.payers.length);
+            // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
+            const localData = localPercentageData[expense.id];
+            const payerPercentage = expense.payers_percentages?.[payerDeviceId] 
+              || localData?.payersPercentages?.[payerDeviceId] 
+              || (100 / expense.payers.length);
             const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
             
             console.log(`Payer ${payerDeviceId}:`, {
               percentage: payerPercentage,
               amount: payerAmount,
-              hasPercentageData: !!expense.payers_percentages?.[payerDeviceId]
+              hasPercentageData: !!expense.payers_percentages?.[payerDeviceId],
+              hasLocalData: !!localData?.payersPercentages?.[payerDeviceId]
             });
             
             participants.push({
@@ -128,14 +180,18 @@ export default function ExpenseBlock({
         // Add owers with their share amounts and percentages
         if (expense.owers && Array.isArray(expense.owers)) {
           expense.owers.forEach((owerDeviceId: string) => {
-            // Fallback: if owers_percentages doesn't exist, assume equal split among owers
-            const owerPercentage = expense.owers_percentages?.[owerDeviceId] || (100 / expense.owers.length);
+            // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
+            const localData = localPercentageData[expense.id];
+            const owerPercentage = expense.owers_percentages?.[owerDeviceId] 
+              || localData?.owersPercentages?.[owerDeviceId] 
+              || (100 / expense.owers.length);
             const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
             
             console.log(`Ower ${owerDeviceId}:`, {
               percentage: owerPercentage,
               amount: owerAmount,
-              hasPercentageData: !!expense.owers_percentages?.[owerDeviceId]
+              hasPercentageData: !!expense.owers_percentages?.[owerDeviceId],
+              hasLocalData: !!localData?.owersPercentages?.[owerDeviceId]
             });
             
             participants.push({
@@ -357,6 +413,9 @@ export default function ExpenseBlock({
         ]
       };
       
+      // Save percentage data locally for the edited expense
+      savePercentageData(selectedExpense.id, editingPayersPercentages, editingOwersPercentages);
+      
       // Update the expense in the list optimistically
       const updatedExpenses = expenseItems.map(expense => 
         expense.id === selectedExpense.id ? updatedExpense : expense
@@ -492,6 +551,9 @@ export default function ExpenseBlock({
         participants: [...payerParticipants, ...owerParticipants],
         createdAt: new Date().toISOString(),
       };
+
+      // Save percentage data locally for the optimistic expense
+      savePercentageData(optimisticExpense.id, payersPercentages, owersPercentages);
 
       setExpenseItems(prev => [...prev, optimisticExpense]);
       setNewExpenseDescription('');
