@@ -433,10 +433,10 @@ export default function ExpenseBlock({
         setOwersPercentages={setOwersPercentages}
         lockedPercentages={lockedPercentages}
         setLockedPercentages={setLockedPercentages}
-        updatePercentage={updatePercentage}
-        togglePercentageLock={togglePercentageLock}
-        toggleOwer={toggleOwer}
-        togglePayer={togglePayer}
+        onUpdatePercentage={updatePercentage}
+        onTogglePercentageLock={togglePercentageLock}
+        onToggleOwer={toggleOwer}
+        onTogglePayer={togglePayer}
       />
 
       {/* Expense Detail Modal */}
@@ -519,10 +519,10 @@ function AddExpenseModal({
   setOwersPercentages,
   lockedPercentages,
   setLockedPercentages,
-  updatePercentage,
-  togglePercentageLock,
-  toggleOwer,
-  togglePayer,
+  onUpdatePercentage,
+  onTogglePercentageLock,
+  onToggleOwer,
+  onTogglePayer,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -540,10 +540,10 @@ function AddExpenseModal({
   setOwersPercentages: (percentages: {[key: string]: number}) => void;
   lockedPercentages: Set<string>;
   setLockedPercentages: (locked: Set<string>) => void;
-  updatePercentage: (deviceId: string, newPercentage: number) => void;
-  togglePercentageLock: (deviceId: string) => void;
-  toggleOwer: (deviceId: string) => void;
-  togglePayer: (deviceId: string) => void;
+  onUpdatePercentage: (deviceId: string, newPercentage: number) => void;
+  onTogglePercentageLock: (deviceId: string) => void;
+  onToggleOwer: (deviceId: string) => void;
+  onTogglePayer: (deviceId: string) => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -681,7 +681,7 @@ function AddExpenseModal({
                     styles.memberOption,
                     selectedPayers.has(member.device_id) && styles.memberOptionSelected
                   ]}
-                  onPress={() => togglePayer(member.device_id)}
+                  onPress={() => onTogglePayer(member.device_id)}
                 >
                   <View style={styles.memberAvatar}>
                     <Text style={styles.memberAvatarText}>
@@ -712,7 +712,7 @@ function AddExpenseModal({
                       styles.memberOption,
                       selectedOwers.has(member.device_id) && styles.memberOptionSelected
                     ]}
-                    onPress={() => toggleOwer(member.device_id)}
+                    onPress={() => onToggleOwer(member.device_id)}
                   >
                     <View style={styles.memberAvatar}>
                       <Text style={styles.memberAvatarText}>
@@ -750,7 +750,7 @@ function AddExpenseModal({
                             styles.lockButton,
                             lockedPercentages.has(member.device_id) && styles.lockButtonActive
                           ]}
-                          onPress={() => togglePercentageLock(member.device_id)}
+                          onPress={() => onTogglePercentageLock(member.device_id)}
                         >
                           <Ionicons 
                             name={lockedPercentages.has(member.device_id) ? "lock-closed" : "lock-open"} 
@@ -766,7 +766,7 @@ function AddExpenseModal({
                         value={owersPercentages[member.device_id] || 0}
                         onValueChange={(value) => {
                           if (!lockedPercentages.has(member.device_id)) {
-                            updatePercentage(member.device_id, Math.round(value));
+                            onUpdatePercentage(member.device_id, Math.round(value));
                           }
                         }}
                         disabled={lockedPercentages.has(member.device_id)}
