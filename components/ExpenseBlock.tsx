@@ -332,13 +332,16 @@ export default function ExpenseBlock({
         {canDelete && (
           <TouchableOpacity 
             style={styles.deleteSection}
-            onPress={() => deleteExpense(expense.id)}
+            onPress={(e) => {
+              e.stopPropagation();
+              deleteExpense(expense.id);
+            }}
             activeOpacity={0.8}
           >
             <Ionicons name="close" size={14} color="#ef4444" />
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
