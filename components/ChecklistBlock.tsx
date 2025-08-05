@@ -16,7 +16,6 @@ import { ApiService } from '@/services/api';
 interface ChecklistItem {
   id: string;
   itemName: string;
-  peopleNeeded: number;
   addedBy: string;
   completed: boolean;
   assignedMembers: string[]; // device_ids of assigned members
@@ -42,28 +41,28 @@ interface ChecklistBlockProps {
 // Sample data based on event type
 const sampleChecklists = {
   beach: [
-    { itemName: 'Sunscreen', peopleNeeded: 2 },
-    { itemName: 'Cooler with ice', peopleNeeded: 1 },
-    { itemName: 'Beach chairs', peopleNeeded: 2 },
-    { itemName: 'Snacks and drinks', peopleNeeded: 2 },
-    { itemName: 'Beach volleyball', peopleNeeded: 1 },
-    { itemName: 'Towels', peopleNeeded: 3 },
-    { itemName: 'Bluetooth speaker', peopleNeeded: 1 },
+    { itemName: 'Sunscreen' },
+    { itemName: 'Cooler with ice' },
+    { itemName: 'Beach chairs' },
+    { itemName: 'Snacks and drinks' },
+    { itemName: 'Beach volleyball' },
+    { itemName: 'Towels' },
+    { itemName: 'Bluetooth speaker' },
   ],
   dinner: [
-    { itemName: 'Appetizers', peopleNeeded: 1 },
-    { itemName: 'Main course', peopleNeeded: 2 },
-    { itemName: 'Dessert', peopleNeeded: 1 },
-    { itemName: 'Drinks/wine', peopleNeeded: 1 },
-    { itemName: 'Decorations', peopleNeeded: 1 },
-    { itemName: 'Plates and utensils', peopleNeeded: 1 },
+    { itemName: 'Appetizers' },
+    { itemName: 'Main course' },
+    { itemName: 'Dessert' },
+    { itemName: 'Drinks/wine' },
+    { itemName: 'Decorations' },
+    { itemName: 'Plates and utensils' },
   ],
   default: [
-    { itemName: 'Plan logistics', peopleNeeded: 1 },
-    { itemName: 'Send invitations', peopleNeeded: 1 },
-    { itemName: 'Coordinate timing', peopleNeeded: 1 },
-    { itemName: 'Prepare materials', peopleNeeded: 2 },
-    { itemName: 'Set up venue', peopleNeeded: 2 },
+    { itemName: 'Plan logistics' },
+    { itemName: 'Send invitations' },
+    { itemName: 'Coordinate timing' },
+    { itemName: 'Prepare materials' },
+    { itemName: 'Set up venue' },
   ],
 };
 
@@ -76,8 +75,6 @@ export default function ChecklistBlock({
 }: ChecklistBlockProps) {
   const insets = useSafeAreaInsets();
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ChecklistItem | null>(null);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPeopleNeeded, setNewItemPeopleNeeded] = useState('1');
@@ -97,7 +94,6 @@ export default function ChecklistBlock({
       const transformedItems: ChecklistItem[] = apiItems.map((item: any) => ({
         id: item.id,
         itemName: item.item_name,
-        peopleNeeded: item.people_needed,
         addedBy: item.added_by,
         completed: item.completed,
         assignedMembers: item.assigned_members?.map((assignment: any) => assignment.device_id) || [],
@@ -132,7 +128,6 @@ export default function ChecklistBlock({
       const optimisticItems: ChecklistItem[] = sampleItems.map((item, index) => ({
         id: `optimistic-${Date.now()}-${index}`,
         itemName: item.itemName,
-        peopleNeeded: item.peopleNeeded,
         addedBy: currentDeviceId,
         completed: false,
         assignedMembers: [],
@@ -145,7 +140,7 @@ export default function ChecklistBlock({
       const createPromises = sampleItems.map(item => 
         ApiService.createChecklistItem(groupId, eventId, {
           item_name: item.itemName,
-          people_needed: item.peopleNeeded
+          people_needed: 1
         })
       );
 
@@ -200,31 +195,32 @@ export default function ChecklistBlock({
     }
   };
 
-  const openAssignmentModal = (item: ChecklistItem) => {
-    setSelectedItem(item);
-    setShowAssignmentModal(true);
-  };
 
-  const updateAssignments = async (itemId: string, assignedMemberIds: string[]) => {
+  const toggleMyAssignment = async (itemId: string) => {
     try {
+      const item = checklistItems.find(i => i.id === itemId);
+      if (!item) return;
+
+      const isCurrentlyAssigned = item.assignedMembers.includes(currentDeviceId);
+      const newAssignedMembers = isCurrentlyAssigned
+        ? item.assignedMembers.filter(id => id !== currentDeviceId)
+        : [...item.assignedMembers, currentDeviceId];
+
       // Optimistic update
-      setChecklistItems(prev => prev.map(item => 
-        item.id === itemId ? { ...item, assignedMembers: assignedMemberIds } : item
+      setChecklistItems(prev => prev.map(i => 
+        i.id === itemId ? { ...i, assignedMembers: newAssignedMembers } : i
       ));
-      setShowAssignmentModal(false);
-      setSelectedItem(null);
 
       // Update via API
       await ApiService.updateChecklistItem(groupId, eventId, itemId, 'update_assignments', {
-        assigned_members: assignedMemberIds
+        assigned_members: newAssignedMembers
       });
     } catch (error) {
       // Revert optimistic update on error
       setChecklistItems(prev => prev.map(item => 
-        item.id === itemId ? { ...item, assignedMembers: selectedItem?.assignedMembers || [] } : item
+        item.id === itemId ? { ...item, assignedMembers: item.assignedMembers } : item
       ));
-      setShowAssignmentModal(true);
-      Alert.alert('Error', 'Failed to update assignments. Please try again.');
+      Alert.alert('Error', 'Failed to update assignment. Please try again.');
     }
   };
 
@@ -241,7 +237,6 @@ export default function ChecklistBlock({
       const optimisticItem: ChecklistItem = {
         id: `optimistic-${Date.now()}`,
         itemName: newItemName.trim(),
-        peopleNeeded: peopleCount,
         addedBy: currentDeviceId,
         completed: false,
         assignedMembers: [],
@@ -273,26 +268,32 @@ export default function ChecklistBlock({
     if (assignedMembers.length === 0) {
       return (
         <View style={styles.avatarPlaceholder}>
-          <Ionicons name="person-add-outline" size={16} color="#6b7280" />
+          <Ionicons name="person-add-outline" size={14} color="#6b7280" />
         </View>
       );
     }
 
     return (
       <View style={styles.avatarContainer}>
-        {assignedMembers.slice(0, 3).map((deviceId, index) => {
+        {assignedMembers.slice(0, 4).map((deviceId, index) => {
           const member = validMembers.find(m => m.device_id === deviceId);
           return (
-            <View key={deviceId} style={[styles.avatar, { marginLeft: index > 0 ? -8 : 0 }]}>
+            <View 
+              key={deviceId} 
+              style={[
+                styles.avatar, 
+                { marginLeft: index > 0 ? -6 : 0 }
+              ]}
+            >
               <Text style={styles.avatarText}>
                 {member?.username?.[0]?.toUpperCase() || '?'}
               </Text>
             </View>
           );
         })}
-        {assignedMembers.length > 3 && (
-          <View style={[styles.avatar, styles.avatarMore, { marginLeft: -8 }]}>
-            <Text style={styles.avatarText}>+{assignedMembers.length - 3}</Text>
+        {assignedMembers.length > 4 && (
+          <View style={[styles.avatar, styles.avatarMore, { marginLeft: -6 }]}>
+            <Text style={styles.avatarText}>+{assignedMembers.length - 4}</Text>
           </View>
         )}
       </View>
@@ -304,44 +305,29 @@ export default function ChecklistBlock({
     const canDelete = item.addedBy === currentDeviceId;
 
     return (
-      <View key={item.id} style={[styles.checklistItem, item.completed && styles.completedItem]}>
-        {/* Assigned Members Avatars */}
+      <View 
+        key={item.id} 
+        style={styles.checklistItem}
+      >
+        {/* Combined Assigned Members & Completion Status */}
         <TouchableOpacity 
-          style={styles.avatarSection}
-          onPress={() => openAssignmentModal(item)}
+          style={styles.assignedSection}
+          onPress={() => toggleMyAssignment(item.id)}
+          activeOpacity={0.8}
         >
           {renderMemberAvatars(item.assignedMembers)}
-        </TouchableOpacity>
-
-        {/* Completion Checkbox */}
-        <TouchableOpacity 
-          style={styles.checkboxSection}
-          onPress={() => toggleItemCompletion(item.id)}
-        >
-          <View style={[styles.checkbox, item.completed && styles.checkboxCompleted]}>
-            {item.completed && (
-              <Ionicons name="checkmark" size={14} color="#ffffff" />
-            )}
-          </View>
         </TouchableOpacity>
 
         {/* Item Name */}
         <TouchableOpacity 
           style={styles.itemNameSection}
-          onPress={() => openAssignmentModal(item)}
+          onPress={() => toggleMyAssignment(item.id)}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.itemName, item.completed && styles.completedText]}>
+          <Text style={styles.itemName}>
             {item.itemName}
           </Text>
         </TouchableOpacity>
-
-        {/* People Needed */}
-        <View style={styles.peopleNeededSection}>
-          <View style={styles.peopleNeededBadge}>
-            <Ionicons name="people-outline" size={12} color="#6b7280" />
-            <Text style={styles.peopleNeededText}>{item.peopleNeeded}</Text>
-          </View>
-        </View>
 
         {/* Added By */}
         <View style={styles.addedBySection}>
@@ -355,8 +341,9 @@ export default function ChecklistBlock({
           <TouchableOpacity 
             style={styles.deleteSection}
             onPress={() => deleteItem(item.id)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="close" size={16} color="#ef4444" />
+            <Ionicons name="close" size={12} color="#ef4444" />
           </TouchableOpacity>
         )}
       </View>
@@ -406,17 +393,11 @@ export default function ChecklistBlock({
             <>
               {/* Column Headers */}
               <View style={styles.columnHeaders}>
-                <View style={styles.headerAvatarSection}>
-                  <Text style={styles.columnHeaderText}>Assigned</Text>
-                </View>
-                <View style={styles.headerCheckboxSection}>
-                  <Text style={styles.columnHeaderText}>Done</Text>
+                <View style={styles.headerAssignedSection}>
+                  <Text style={styles.columnHeaderText}>Assigned & Done</Text>
                 </View>
                 <View style={styles.headerItemNameSection}>
                   <Text style={styles.columnHeaderText}>Task Name</Text>
-                </View>
-                <View style={styles.headerPeopleNeededSection}>
-                  <Text style={styles.columnHeaderText}>People</Text>
                 </View>
                 <View style={styles.headerAddedBySection}>
                   <Text style={styles.columnHeaderText}>Added By</Text>
@@ -434,14 +415,6 @@ export default function ChecklistBlock({
         </View>
       </View>
 
-      {/* Assignment Modal */}
-      <AssignmentModal 
-        visible={showAssignmentModal}
-        onClose={() => setShowAssignmentModal(false)}
-        item={selectedItem}
-        members={validMembers}
-        onUpdateAssignments={updateAssignments}
-      />
 
       {/* Add Item Modal */}
       <AddItemModal 
@@ -457,118 +430,6 @@ export default function ChecklistBlock({
   );
 }
 
-// Assignment Modal Component
-function AssignmentModal({ 
-  visible, 
-  onClose, 
-  item, 
-  members, 
-  onUpdateAssignments 
-}: {
-  visible: boolean;
-  onClose: () => void;
-  item: ChecklistItem | null;
-  members: GroupMember[];
-  onUpdateAssignments: (itemId: string, assignedMemberIds: string[]) => void;
-}) {
-  const insets = useSafeAreaInsets();
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (visible && item) {
-      setSelectedMembers(new Set(item.assignedMembers));
-    }
-  }, [visible, item]);
-
-  const toggleMemberSelection = (deviceId: string) => {
-    const newSelected = new Set(selectedMembers);
-    if (newSelected.has(deviceId)) {
-      newSelected.delete(deviceId);
-    } else {
-      newSelected.add(deviceId);
-    }
-    setSelectedMembers(newSelected);
-  };
-
-  const handleSave = () => {
-    if (item) {
-      onUpdateAssignments(item.id, Array.from(selectedMembers));
-    }
-  };
-
-  if (!item) return null;
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent={false}
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose} style={styles.modalBackButton}>
-            <Ionicons name="chevron-back" size={24} color="#ffffff" />
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Assign Task</Text>
-          <View style={styles.modalHeaderSpacer} />
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          <View style={styles.modalSection}>
-            <Text style={styles.modalSectionTitle}>Task Details</Text>
-            <View style={styles.taskDetailsCard}>
-              <Text style={styles.taskName}>{item.itemName}</Text>
-              <Text style={styles.taskPeopleNeeded}>
-                {item.peopleNeeded} people needed
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.modalSection}>
-            <Text style={styles.modalSectionTitle}>Assign Members</Text>
-            <View style={styles.memberList}>
-              {members.map(member => (
-                <TouchableOpacity
-                  key={member.device_id}
-                  style={[
-                    styles.memberOption,
-                    selectedMembers.has(member.device_id) && styles.memberOptionSelected
-                  ]}
-                  onPress={() => toggleMemberSelection(member.device_id)}
-                >
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberAvatarText}>
-                      {member.username?.[0]?.toUpperCase() || '?'}
-                    </Text>
-                  </View>
-                  <Text style={[
-                    styles.memberName,
-                    selectedMembers.has(member.device_id) && styles.memberNameSelected
-                  ]}>
-                    {member.username}
-                  </Text>
-                  {selectedMembers.has(member.device_id) && (
-                    <Ionicons name="checkmark" size={20} color="#10b981" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-
-        <View style={styles.modalActions}>
-          <TouchableOpacity style={styles.modalCancelButton} onPress={onClose}>
-            <Text style={styles.modalCancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.modalSaveButton} onPress={handleSave}>
-            <Text style={styles.modalSaveButtonText}>Save Assignment</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 // Add Item Modal Component
 function AddItemModal({
@@ -716,44 +577,34 @@ const styles = StyleSheet.create({
   columnHeaders: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 8,
-    marginBottom: 12,
+    paddingBottom: 4,
+    marginBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
   },
   columnHeaderText: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#9ca3af',
     fontWeight: '600',
     textAlign: 'center',
   },
-  headerAvatarSection: {
-    width: 60,
-    marginRight: 12,
-    alignItems: 'center',
-  },
-  headerCheckboxSection: {
-    width: 40,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerItemNameSection: {
-    flex: 1,
-    marginRight: 12,
-    alignItems: 'flex-start',
-  },
-  headerPeopleNeededSection: {
-    width: 50,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerAddedBySection: {
+  headerAssignedSection: {
     width: 80,
     marginRight: 8,
     alignItems: 'center',
   },
+  headerItemNameSection: {
+    flex: 1,
+    marginRight: 8,
+    alignItems: 'flex-start',
+  },
+  headerAddedBySection: {
+    width: 60,
+    marginRight: 6,
+    alignItems: 'center',
+  },
   headerDeleteSection: {
-    width: 24,
+    width: 20,
   },
   emptyState: {
     alignItems: 'center',
@@ -774,28 +625,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: '#3a3a3a',
   },
   completedItem: {
-    backgroundColor: '#1a1a1a',
-    opacity: 0.7,
+    // No special styling for completed items
   },
-  avatarSection: {
-    width: 60,
-    marginRight: 12,
+  assignedSection: {
+    width: 80,
+    marginRight: 8,
   },
   avatarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#3a3a3a',
     borderWidth: 1,
     borderColor: '#4a4a4a',
@@ -804,44 +654,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#10b981',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: '#2a2a2a',
   },
   avatarMore: {
     backgroundColor: '#6b7280',
   },
   avatarText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#ffffff',
   },
-  checkboxSection: {
-    width: 40,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#6b7280',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxCompleted: {
+  avatarCompleted: {
     backgroundColor: '#10b981',
     borderColor: '#10b981',
   },
+  avatarCheckmark: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#10b981',
+    borderRadius: 6,
+    width: 12,
+    height: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
   itemNameSection: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   itemName: {
     fontSize: 14,
@@ -852,28 +701,9 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textDecorationLine: 'line-through',
   },
-  peopleNeededSection: {
-    width: 50,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  peopleNeededBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3a3a3a',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  peopleNeededText: {
-    fontSize: 11,
-    color: '#9ca3af',
-    fontWeight: '500',
-  },
   addedBySection: {
-    width: 80,
-    marginRight: 8,
+    width: 60,
+    marginRight: 6,
   },
   addedByText: {
     fontSize: 10,
@@ -881,8 +711,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deleteSection: {
-    width: 24,
-    height: 24,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

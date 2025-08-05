@@ -20,6 +20,7 @@ import { ApiService, Event, LegacyEvent } from '@/services/api';
 import CarSeatIndicator from '@/components/CarSeatIndicator';
 import ExpenseTracker from '@/components/ExpenseTracker';
 import ChecklistBlock from '@/components/ChecklistBlock';
+import ExpenseBlock from '@/components/ExpenseBlock';
 
 type EventData = Event | LegacyEvent;
 
@@ -479,131 +480,11 @@ export default function EventDetailScreen() {
         </View>
         
         {/* Expenses Block - Full Width */}
-        <View style={styles.fullWidthContainer}>
-          <View style={styles.expenseBlockFullWidth}>
-              <TouchableOpacity 
-                style={styles.integratedExpenseButton}
-                activeOpacity={0.6}
-                onPress={() => setShowExpenseModal(true)}
-              >
-                <View style={styles.expenseButtonContent}>
-                  <Ionicons name="wallet" size={20} color="#10b981" />
-                  <Text style={styles.integratedExpenseButtonText}>Expenses</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#9ca3af" style={styles.expenseButtonArrow} />
-                </View>
-              </TouchableOpacity>
-              
-              {/* Separator line between expense button and content */}
-              <View style={styles.expensePreviewSeparator} />
-              
-              <View style={styles.expenseFullWidthContent}>
-                {/* Left Column - Total and Count */}
-                <View style={styles.expenseLeftColumn}>
-                  <Text style={styles.totalAmount} numberOfLines={1}>${Math.round(totalExpenses)}</Text>
-                  <Text style={styles.expenseCount}>{activeExpenses.length} expense{activeExpenses.length === 1 ? '' : 's'}</Text>
-                </View>
-                
-                {/* Middle Column - Expense List */}
-                <View style={styles.expenseMiddleColumn}>
-                  {expenses.length > 0 ? (
-                    <>
-                      <View style={styles.expenseList}>
-                        {(expensesExpanded ? expenses : expenses.slice(0, 3)).map(expense => (
-                          <View key={expense.id} style={styles.expenseItem}>
-                            <Text style={styles.expenseItemName} numberOfLines={1}>
-                              {expense.description}
-                            </Text>
-                            <Text style={styles.expenseItemAmount}>
-                              ${expense.totalAmount.toFixed(2)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                      <View style={styles.middleColumnButtons}>
-                        {expenses.length > 3 && (
-                          <TouchableOpacity 
-                            style={styles.expandButton}
-                            onPress={() => setExpensesExpanded(!expensesExpanded)}
-                          >
-                            <Text style={styles.expandButtonText}>
-                              {expensesExpanded ? 'Collapse' : 'Expand'}
-                            </Text>
-                            <Ionicons 
-                              name={expensesExpanded ? "chevron-up" : "chevron-down"} 
-                              size={14} 
-                              color="#10b981" 
-                            />
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity 
-                          style={styles.expandButton}
-                          onPress={() => setShowAddExpenseModal(true)}
-                        >
-                          <Ionicons name="add" size={14} color="#10b981" />
-                          <Text style={styles.expandButtonText}>Add Expense</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  ) : (
-                    <View style={styles.middleColumnButtons}>
-                      <Text style={styles.noExpensesText}>No expenses yet</Text>
-                      <TouchableOpacity 
-                        style={styles.expandButton}
-                        onPress={() => setShowAddExpenseModal(true)}
-                      >
-                        <Ionicons name="add" size={14} color="#10b981" />
-                        <Text style={styles.expandButtonText}>Add Expense</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-                
-                {/* Right Column - User Balance */}
-                <View style={styles.expenseRightColumn}>
-                  {/* User balance */}
-                  {activeExpenses.length > 0 && (() => {
-                    let userOwes = 0;
-                    let userOwed = 0;
-                    
-                    // Only include non-completed expenses in balance calculation
-                    expenses.filter(expense => !isExpenseFullyPaid(expense)).forEach(expense => {
-                      const isUserPayer = expense.paidBy.includes(currentDeviceId);
-                      const isUserOwer = expense.splitBetween.includes(currentDeviceId);
-                      
-                      if (isUserOwer) {
-                        userOwes += expense.individualAmount || 0;
-                      }
-                      if (isUserPayer) {
-                        userOwed += expense.totalAmount;
-                      }
-                    });
-                    
-                    const netBalance = userOwed - userOwes;
-                    
-                    return (
-                      <View style={styles.userBalanceCompact}>
-                        {netBalance > 0 ? (
-                          <>
-                            <Text style={styles.userBalanceLabelCompact}>You are owed</Text>
-                            <Text style={styles.userOwedAmountCompact}>${netBalance.toFixed(2)}</Text>
-                          </>
-                        ) : netBalance < 0 ? (
-                          <>
-                            <Text style={styles.userBalanceLabelCompact}>You owe</Text>
-                            <Text style={styles.userOwesAmountCompact}>${Math.abs(netBalance).toFixed(2)}</Text>
-                          </>
-                        ) : (
-                          <Text style={styles.userEvenTextCompact}>
-                            All settled up
-                          </Text>
-                        )}
-                      </View>
-                    );
-                  })()}
-                </View>
-              </View>
-            </View>
-          </View>
+        <ExpenseBlock 
+          groupId={groupId as string}
+          members={members}
+          currentDeviceId={currentDeviceId}
+        />
         
         {/* Checklist Block - Full Width */}
         <ChecklistBlock 
