@@ -427,6 +427,10 @@ export default function ExpenseBlock({
       };
       
       // Save percentage data locally for the edited expense
+      console.log('Saving percentage data for expense ID:', selectedExpense.id, {
+        payersPercentages: editingPayersPercentages,
+        owersPercentages: editingOwersPercentages
+      });
       await savePercentageData(selectedExpense.id, editingPayersPercentages, editingOwersPercentages);
       
       // Update the expense in the list optimistically
@@ -443,6 +447,23 @@ export default function ExpenseBlock({
       if (selectedExpense.addedBy === currentDeviceId) {
         try {
           // Create the new expense first to ensure it works before deleting the original
+          console.log('=== EDITING EXPENSE DEBUG ===');
+          console.log('Original expense data:', {
+            id: selectedExpense.id,
+            name: selectedExpense.name,
+            total_amount: selectedExpense.total_amount,
+            participants: selectedExpense.participants
+          });
+          
+          console.log('Editing data being sent to API:', {
+            description: editingExpenseDescription.trim(),
+            totalAmount: amount,
+            paidBy: Array.from(editingSelectedPayers),
+            splitBetween: Array.from(editingSelectedOwers),
+            payersPercentages: editingPayersPercentages,
+            owersPercentages: editingOwersPercentages
+          });
+          
           console.log('Creating updated expense...');
           await ApiService.createGroupExpense(groupId, {
             description: editingExpenseDescription.trim(),
@@ -459,8 +480,10 @@ export default function ExpenseBlock({
           
           console.log('Successfully updated expense via recreate+delete');
           
-          // Reload expenses to get the new expense with real ID from server
-          await loadExpenses();
+          // Don't reload expenses - the optimistic update already has correct data
+          // Reloading would lose our percentage data since the new expense has a different ID
+          console.log('Skipping reload to preserve percentage data. Server sync complete.');
+          console.log('=== END EDITING EXPENSE DEBUG ===');
           
         } catch (apiError) {
           console.error('Delete+recreate failed:', apiError);
