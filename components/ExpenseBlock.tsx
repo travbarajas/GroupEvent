@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiService } from '@/services/api';
@@ -22,7 +23,7 @@ interface ExpenseParticipant {
 
 interface ExpenseItem {
   id: string;
-  description: string;
+  name: string;
   total_amount: number;
   addedBy: string;
   participants: ExpenseParticipant[];
@@ -42,14 +43,6 @@ interface ExpenseBlockProps {
   currentDeviceId: string;
 }
 
-// Sample data for testing
-const sampleExpenses = [
-  { description: 'Dinner at restaurant' },
-  { description: 'Uber ride' },
-  { description: 'Groceries for party' },
-  { description: 'Movie tickets' },
-  { description: 'Gas for road trip' },
-];
 
 export default function ExpenseBlock({
   groupId,
@@ -77,14 +70,44 @@ export default function ExpenseBlock({
       const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
       
       // Transform API data to match our interface
-      const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => ({
-        id: expense.id,
-        description: expense.description || 'Untitled Expense',
-        total_amount: parseFloat(expense.total_amount) || 0,
-        addedBy: expense.created_by_device_id,
-        participants: expense.participants || [],
-        createdAt: expense.created_at,
-      }));
+      const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => {
+        // Create participants array from API data
+        const participants: ExpenseParticipant[] = [];
+        
+        // Add payers
+        if (expense.payers && Array.isArray(expense.payers)) {
+          expense.payers.forEach((payerDeviceId: string) => {
+            participants.push({
+              device_id: payerDeviceId,
+              role: 'payer',
+              individual_amount: 0,
+              payment_status: 'pending'
+            });
+          });
+        }
+        
+        // Add owers
+        if (expense.owers && Array.isArray(expense.owers)) {
+          expense.owers.forEach((owerDeviceId: string) => {
+            const percentage = expense.owers_percentages?.[owerDeviceId] || 0;
+            participants.push({
+              device_id: owerDeviceId,
+              role: 'ower',
+              individual_amount: (parseFloat(expense.total_amount) || 0) * percentage / 100,
+              payment_status: expense.payment_status?.[owerDeviceId] || 'pending'
+            });
+          });
+        }
+        
+        return {
+          id: expense.id,
+          name: expense.description || 'Untitled Expense',
+          total_amount: parseFloat(expense.total_amount) || 0,
+          addedBy: expense.created_by_device_id,
+          participants: participants,
+          createdAt: expense.created_at,
+        };
+      });
       
       setExpenseItems(transformedExpenses);
     } catch (error) {
@@ -93,78 +116,7 @@ export default function ExpenseBlock({
     }
   };
 
-  const generateExpenses = async () => {
-    try {
-      // Create optimistic items immediately for UI responsiveness
-      const optimisticExpenses: ExpenseItem[] = sampleExpenses.map((expense, index) => ({
-        id: `optimistic-${Date.now()}-${index}`,
-        description: expense.description,
-        total_amount: 25.00 + (index * 10), // Sample amounts
-        addedBy: currentDeviceId,
-        participants: [],
-        createdAt: new Date().toISOString(),
-      }));
 
-      setExpenseItems(optimisticExpenses);
-
-      // Create expenses via API in the background
-      const createPromises = sampleExpenses.map((expense, index) => 
-        ApiService.createGroupExpense(groupId, {
-          description: expense.description,
-          totalAmount: 25.00 + (index * 10),
-          paidBy: [currentDeviceId],
-          splitBetween: [currentDeviceId]
-        })
-      );
-
-      await Promise.all(createPromises);
-
-      // Reload from API to get real IDs and ensure consistency
-      await loadExpenses();
-      
-    } catch (error) {
-      Alert.alert('Error', 'Failed to generate expenses. Please try again.');
-      // Revert optimistic update on error
-      setExpenseItems([]);
-    }
-  };
-
-  const toggleMyParticipation = async (expenseId: string) => {
-    try {
-      const expense = expenseItems.find(e => e.id === expenseId);
-      if (!expense) return;
-
-      const isCurrentlyParticipating = expense.participants.some(p => p.device_id === currentDeviceId);
-      
-      let newParticipants;
-      if (isCurrentlyParticipating) {
-        // Remove user from participants
-        newParticipants = expense.participants.filter(p => p.device_id !== currentDeviceId);
-      } else {
-        // Add user as an ower
-        newParticipants = [...expense.participants, {
-          device_id: currentDeviceId,
-          role: 'ower' as const,
-          individual_amount: (expense.total_amount || 0) / (expense.participants.length + 1),
-          payment_status: 'pending' as const
-        }];
-      }
-
-      // Optimistic update
-      setExpenseItems(prev => prev.map(e => 
-        e.id === expenseId ? { ...e, participants: newParticipants } : e
-      ));
-
-      // Update via API (you'll need to implement this endpoint)
-      // await ApiService.updateExpenseParticipants(groupId, expenseId, newParticipants);
-    } catch (error) {
-      // Revert optimistic update on error
-      setExpenseItems(prev => prev.map(expense => 
-        expense.id === expenseId ? { ...expense, participants: expense.participants } : expense
-      ));
-      Alert.alert('Error', 'Failed to update participation. Please try again.');
-    }
-  };
 
   const deleteExpense = async (expenseId: string) => {
     const expense = expenseItems.find(e => e.id === expenseId);
@@ -200,13 +152,27 @@ export default function ExpenseBlock({
     }
 
     try {
-      // Create optimistic expense
+      // Create optimistic expense with participants
+      const payerParticipants: ExpenseParticipant[] = Array.from(selectedPayers).map(deviceId => ({
+        device_id: deviceId,
+        role: 'payer' as const,
+        individual_amount: 0, // Payers don't owe anything
+        payment_status: 'pending' as const
+      }));
+      
+      const owerParticipants: ExpenseParticipant[] = Array.from(selectedOwers).map(deviceId => ({
+        device_id: deviceId,
+        role: 'ower' as const,
+        individual_amount: (amount * (owersPercentages[deviceId] || 0)) / 100,
+        payment_status: 'pending' as const
+      }));
+      
       const optimisticExpense: ExpenseItem = {
         id: `optimistic-${Date.now()}`,
-        description: newExpenseDescription.trim(),
+        name: newExpenseDescription.trim(),
         total_amount: amount,
         addedBy: currentDeviceId,
-        participants: [],
+        participants: [...payerParticipants, ...owerParticipants],
         createdAt: new Date().toISOString(),
       };
 
@@ -233,85 +199,86 @@ export default function ExpenseBlock({
     }
   };
 
-  const renderParticipantAvatars = (participants: ExpenseParticipant[]) => {
-    if (participants.length === 0) {
+  const renderPayerAvatars = (participants: ExpenseParticipant[]) => {
+    // Show people who paid upfront
+    const payers = participants.filter(p => p.role === 'payer');
+    
+    if (payers.length === 0) {
       return (
         <View style={styles.avatarPlaceholder}>
-          <Ionicons name="person-add-outline" size={14} color="#6b7280" />
+          <Text style={styles.placeholderText}>-</Text>
         </View>
       );
     }
 
     return (
       <View style={styles.avatarContainer}>
-        {participants.slice(0, 4).map((participant, index) => {
+        {payers.slice(0, 3).map((participant, index) => {
           const member = validMembers.find(m => m.device_id === participant.device_id);
           return (
             <View 
-              key={`${participant.device_id}-${participant.role}`} 
+              key={`payer-${participant.device_id}`} 
               style={[
                 styles.avatar, 
-                { marginLeft: index > 0 ? -6 : 0 }
+                styles.payerAvatar,
+                { marginLeft: index > 0 ? -4 : 0 }
               ]}
             >
               <Text style={styles.avatarText}>
                 {member?.username?.[0]?.toUpperCase() || '?'}
               </Text>
-              {/* Role indicator */}
-              <View style={participant.role === 'payer' ? styles.payerIndicator : styles.owerIndicator}>
-                <Text style={styles.indicatorText}>
-                  {participant.role === 'payer' ? '+' : '-'}
-                </Text>
-              </View>
             </View>
           );
         })}
-        {participants.length > 4 && (
-          <View style={[styles.avatar, styles.avatarMore, { marginLeft: -6 }]}>
-            <Text style={styles.avatarText}>+{participants.length - 4}</Text>
+        {payers.length > 3 && (
+          <View style={[styles.avatar, styles.avatarMore, { marginLeft: -4 }]}>
+            <Text style={styles.avatarText}>+{payers.length - 3}</Text>
           </View>
         )}
       </View>
     );
   };
 
-  const getPaymentStatus = (participants: ExpenseParticipant[]) => {
+  const renderOwerAvatars = (participants: ExpenseParticipant[]) => {
+    // Show people who owe money
     const owers = participants.filter(p => p.role === 'ower');
     
-    if (owers.length === 0) return 'completed';
-    
-    const completedCount = owers.filter(p => p.payment_status === 'completed').length;
-    const sentCount = owers.filter(p => p.payment_status === 'sent').length;
-    
-    if (completedCount === owers.length) return 'completed';
-    if (sentCount > 0 || completedCount > 0) return 'in_progress';
-    return 'pending';
-  };
-
-  const renderPaymentStatusCircle = (participants: ExpenseParticipant[]) => {
-    const status = getPaymentStatus(participants);
-    
-    let statusColor, statusIcon;
-    switch (status) {
-      case 'completed':
-        statusColor = '#10b981';
-        statusIcon = 'checkmark-circle';
-        break;
-      case 'in_progress':
-        statusColor = '#f59e0b';
-        statusIcon = 'time';
-        break;
-      default:
-        statusColor = '#6b7280';
-        statusIcon = 'ellipse-outline';
+    if (owers.length === 0) {
+      return (
+        <View style={styles.avatarPlaceholder}>
+          <Text style={styles.placeholderText}>-</Text>
+        </View>
+      );
     }
 
     return (
-      <View style={styles.statusSection}>
-        <Ionicons name={statusIcon} size={16} color={statusColor} />
+      <View style={styles.avatarContainer}>
+        {owers.slice(0, 3).map((participant, index) => {
+          const member = validMembers.find(m => m.device_id === participant.device_id);
+          return (
+            <View 
+              key={`ower-${participant.device_id}`} 
+              style={[
+                styles.avatar,
+                styles.owerAvatar, 
+                { marginLeft: index > 0 ? -4 : 0 }
+              ]}
+            >
+              <Text style={styles.avatarText}>
+                {member?.username?.[0]?.toUpperCase() || '?'}
+              </Text>
+            </View>
+          );
+        })}
+        {owers.length > 3 && (
+          <View style={[styles.avatar, styles.avatarMore, { marginLeft: -4 }]}>
+            <Text style={styles.avatarText}>+{owers.length - 3}</Text>
+          </View>
+        )}
       </View>
     );
   };
+
 
   const renderExpenseItem = (expense: ExpenseItem) => {
     const addedByMember = validMembers.find(m => m.device_id === expense.addedBy);
@@ -322,17 +289,15 @@ export default function ExpenseBlock({
         key={expense.id} 
         style={styles.expenseItem}
       >
-        {/* Participant Avatars */}
-        <TouchableOpacity 
-          style={styles.participantSection}
-          onPress={() => toggleMyParticipation(expense.id)}
-          activeOpacity={0.8}
-        >
-          {renderParticipantAvatars(expense.participants)}
-        </TouchableOpacity>
+        {/* Payers */}
+        <View style={styles.payersSection}>
+          {renderPayerAvatars(expense.participants)}
+        </View>
 
-        {/* Payment Status Circle */}
-        {renderPaymentStatusCircle(expense.participants)}
+        {/* Owers */}
+        <View style={styles.owersSection}>
+          {renderOwerAvatars(expense.participants)}
+        </View>
 
         {/* Expense Description */}
         <TouchableOpacity 
@@ -341,7 +306,7 @@ export default function ExpenseBlock({
           activeOpacity={0.8}
         >
           <Text style={styles.description}>
-            {expense.description}
+            {expense.name}
           </Text>
         </TouchableOpacity>
 
@@ -366,7 +331,7 @@ export default function ExpenseBlock({
             onPress={() => deleteExpense(expense.id)}
             activeOpacity={0.8}
           >
-            <Ionicons name="close" size={12} color="#ef4444" />
+            <Ionicons name="close" size={14} color="#ef4444" />
           </TouchableOpacity>
         )}
       </View>
@@ -382,23 +347,13 @@ export default function ExpenseBlock({
             <Text style={styles.title}>Group Expenses</Text>
           </View>
           
-          {expenseItems.length === 0 ? (
-            <TouchableOpacity 
-              style={styles.generateButton}
-              onPress={generateExpenses}
-            >
-              <Ionicons name="sparkles" size={16} color="#10b981" />
-              <Text style={styles.generateButtonText}>Generate Expenses</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={() => setShowAddExpenseModal(true)}
-            >
-              <Ionicons name="add" size={16} color="#10b981" />
-              <Text style={styles.addButtonText}>Add Expense</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowAddExpenseModal(true)}
+          >
+            <Ionicons name="add" size={16} color="#10b981" />
+            <Text style={styles.addButtonText}>Add Expense</Text>
+          </TouchableOpacity>
         </View>
 
         {expenseItems.length > 0 && (
@@ -410,20 +365,20 @@ export default function ExpenseBlock({
             <View style={styles.emptyState}>
               <Ionicons name="wallet-outline" size={48} color="#6b7280" />
               <Text style={styles.emptyStateText}>No expenses yet</Text>
-              <Text style={styles.emptyStateSubtext}>Generate expenses to get started</Text>
+              <Text style={styles.emptyStateSubtext}>Add an expense to get started</Text>
             </View>
           ) : (
             <>
               {/* Column Headers */}
               <View style={styles.columnHeaders}>
-                <View style={styles.headerParticipantSection}>
-                  <Text style={styles.columnHeaderText}>Participants</Text>
+                <View style={styles.headerPayersSection}>
+                  <Text style={styles.columnHeaderText}>Payers</Text>
                 </View>
-                <View style={styles.headerStatusSection}>
-                  <Text style={styles.columnHeaderText}>Status</Text>
+                <View style={styles.headerOwersSection}>
+                  <Text style={styles.columnHeaderText}>Owers</Text>
                 </View>
                 <View style={styles.headerDescriptionSection}>
-                  <Text style={styles.columnHeaderText}>Description</Text>
+                  <Text style={styles.columnHeaderText}>Name</Text>
                 </View>
                 <View style={styles.headerAmountSection}>
                   <Text style={styles.columnHeaderText}>Amount</Text>
@@ -498,6 +453,29 @@ function AddExpenseModal({
   setOwersPercentages: (percentages: {[key: string]: number}) => void;
 }) {
   const insets = useSafeAreaInsets();
+
+  const updatePercentage = (deviceId: string, newPercentage: number) => {
+    const newPercentages = { ...owersPercentages };
+    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId);
+    
+    // Set the new percentage for this user
+    newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
+    
+    // Calculate remaining percentage to distribute
+    const remaining = 100 - newPercentages[deviceId];
+    
+    if (otherOwers.length > 0) {
+      // Distribute remaining percentage equally among others
+      const equalShare = Math.floor(remaining / otherOwers.length);
+      const remainder = remaining % otherOwers.length;
+      
+      otherOwers.forEach((id, index) => {
+        newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
+      });
+    }
+    
+    setOwersPercentages(newPercentages);
+  };
 
   const togglePayer = (deviceId: string) => {
     const newPayers = new Set(selectedPayers);
@@ -641,11 +619,28 @@ function AddExpenseModal({
                     )}
                   </TouchableOpacity>
                   
-                  {selectedOwers.has(member.device_id) && newExpenseAmount && (
-                    <View style={styles.calculatedAmount}>
-                      <Text style={styles.calculatedAmountText}>
-                        ${((parseFloat(newExpenseAmount) || 0) * (owersPercentages[member.device_id] || 0) / 100).toFixed(2)}
-                      </Text>
+                  {selectedOwers.has(member.device_id) && (
+                    <View style={styles.sliderContainer}>
+                      <View style={styles.sliderRow}>
+                        <Text style={styles.sliderLabel}>Percentage:</Text>
+                        <Text style={styles.sliderValue}>{owersPercentages[member.device_id] || 0}%</Text>
+                      </View>
+                      <Slider
+                        style={styles.slider}
+                        minimumValue={0}
+                        maximumValue={100}
+                        value={owersPercentages[member.device_id] || 0}
+                        onValueChange={(value) => updatePercentage(member.device_id, Math.round(value))}
+                        minimumTrackTintColor="#10b981"
+                        maximumTrackTintColor="#3a3a3a"
+                        thumbStyle={styles.sliderThumbStyle}
+                        trackStyle={styles.sliderTrackStyle}
+                      />
+                      {newExpenseAmount && (
+                        <Text style={styles.calculatedAmountText}>
+                          Amount: ${((parseFloat(newExpenseAmount) || 0) * (owersPercentages[member.device_id] || 0) / 100).toFixed(2)}
+                        </Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -695,22 +690,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     marginLeft: 8,
-  },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: '#10b981',
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    gap: 4,
-  },
-  generateButtonText: {
-    fontSize: 12,
-    color: '#10b981',
-    fontWeight: '500',
   },
   addButton: {
     flexDirection: 'row',
@@ -766,33 +745,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  headerParticipantSection: {
-    width: 80,
-    marginRight: 8,
+  headerPayersSection: {
+    width: 60,
     alignItems: 'center',
   },
-  headerStatusSection: {
-    width: 32,
+  headerOwersSection: {
+    width: 60,
     alignItems: 'center',
-    marginRight: 8,
   },
   headerDescriptionSection: {
     flex: 1,
-    marginRight: 8,
     alignItems: 'flex-start',
   },
   headerAmountSection: {
-    width: 70,
+    width: 60,
     alignItems: 'center',
-    marginRight: 8,
   },
   headerAddedBySection: {
-    width: 60,
-    marginRight: 6,
+    width: 50,
     alignItems: 'center',
   },
   headerDeleteSection: {
-    width: 20,
+    width: 24,
   },
   expenseItem: {
     flexDirection: 'row',
@@ -804,18 +778,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3a3a3a',
   },
-  participantSection: {
-    width: 80,
-    marginRight: 8,
+  payersSection: {
+    width: 60,
+  },
+  owersSection: {
+    width: 60,
   },
   avatarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarPlaceholder: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#3a3a3a',
     borderWidth: 1,
     borderColor: '#4a4a4a',
@@ -823,16 +799,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  placeholderText: {
+    fontSize: 10,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
   avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#10b981',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#2a2a2a',
     position: 'relative',
+  },
+  payerAvatar: {
+    backgroundColor: '#10b981',
+  },
+  owerAvatar: {
+    backgroundColor: '#ef4444',
   },
   avatarMore: {
     backgroundColor: '#6b7280',
@@ -873,14 +860,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
-  statusSection: {
-    width: 32,
-    alignItems: 'center',
-    marginRight: 8,
-  },
   descriptionSection: {
     flex: 1,
-    marginRight: 8,
   },
   description: {
     fontSize: 14,
@@ -888,9 +869,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   amountSection: {
-    width: 70,
+    width: 60,
     alignItems: 'flex-end',
-    marginRight: 8,
   },
   amount: {
     fontSize: 13,
@@ -898,8 +878,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addedBySection: {
-    width: 60,
-    marginRight: 6,
+    width: 50,
   },
   addedByText: {
     fontSize: 10,
@@ -907,8 +886,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deleteSection: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1008,13 +987,47 @@ const styles = StyleSheet.create({
     minWidth: 40,
     textAlign: 'right',
   },
-  calculatedAmount: {
+  sliderContainer: {
+    marginTop: 8,
     marginLeft: 44,
-    paddingLeft: 12,
-    paddingTop: 4,
+    marginRight: 12,
+    padding: 12,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  sliderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sliderLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  sliderValue: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  slider: {
+    width: '100%',
+    height: 20,
+    marginBottom: 8,
+  },
+  sliderThumbStyle: {
+    backgroundColor: '#10b981',
+    width: 16,
+    height: 16,
+  },
+  sliderTrackStyle: {
+    height: 4,
+    borderRadius: 2,
   },
   calculatedAmountText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9ca3af',
     fontStyle: 'italic',
   },
