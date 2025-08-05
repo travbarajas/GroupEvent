@@ -75,6 +75,8 @@ export default function ExpenseBlock({
   const [editingSelectedOwers, setEditingSelectedOwers] = useState<Set<string>>(new Set());
   const [editingOwersPercentages, setEditingOwersPercentages] = useState<{[key: string]: number}>({});
   const [editingLockedPercentages, setEditingLockedPercentages] = useState<Set<string>>(new Set());
+  const [editingPayersPercentages, setEditingPayersPercentages] = useState<{[key: string]: number}>({});
+  const [editingLockedPayersPercentages, setEditingLockedPayersPercentages] = useState<Set<string>>(new Set());
 
   const validMembers = members.filter(member => member.has_username && member.username);
 
@@ -95,7 +97,8 @@ export default function ExpenseBlock({
         // Add payers with their contribution amounts and percentages
         if (expense.payers && Array.isArray(expense.payers)) {
           expense.payers.forEach((payerDeviceId: string) => {
-            const payerPercentage = expense.payers_percentages?.[payerDeviceId] || 0;
+            // Fallback: if payers_percentages doesn't exist, assume equal split among payers
+            const payerPercentage = expense.payers_percentages?.[payerDeviceId] || (100 / expense.payers.length);
             const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
             
             participants.push({
@@ -110,7 +113,8 @@ export default function ExpenseBlock({
         // Add owers with their share amounts and percentages
         if (expense.owers && Array.isArray(expense.owers)) {
           expense.owers.forEach((owerDeviceId: string) => {
-            const owerPercentage = expense.owers_percentages?.[owerDeviceId] || 0;
+            // Fallback: if owers_percentages doesn't exist, assume equal split among owers
+            const owerPercentage = expense.owers_percentages?.[owerDeviceId] || (100 / expense.owers.length);
             const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
             
             participants.push({
@@ -319,8 +323,8 @@ export default function ExpenseBlock({
         participants: [
           ...Array.from(editingSelectedPayers).map(deviceId => ({
             device_id: deviceId,
-            payer_percentage: 50, // TODO: Add payer percentage editing in edit modal
-            payer_amount: amount / editingSelectedPayers.size,
+            payer_percentage: editingPayersPercentages[deviceId] || 0,
+            payer_amount: (amount * (editingPayersPercentages[deviceId] || 0)) / 100,
             payment_status: 'pending' as const
           })),
           ...Array.from(editingSelectedOwers).map(deviceId => ({
@@ -585,13 +589,20 @@ export default function ExpenseBlock({
           // Initialize ower percentages from stored data
           const initialOwersPercentages: {[key: string]: number} = {};
           const owersData = expense.participants.filter(p => p.ower_amount !== undefined && p.ower_amount > 0);
-          
           owersData.forEach(participant => {
             initialOwersPercentages[participant.device_id] = participant.ower_percentage || 0;
           });
-          
           setEditingOwersPercentages(initialOwersPercentages);
           setEditingLockedPercentages(new Set());
+          
+          // Initialize payer percentages from stored data
+          const initialPayersPercentages: {[key: string]: number} = {};
+          const payersData = expense.participants.filter(p => p.payer_amount !== undefined && p.payer_amount > 0);
+          payersData.forEach(participant => {
+            initialPayersPercentages[participant.device_id] = participant.payer_percentage || 0;
+          });
+          setEditingPayersPercentages(initialPayersPercentages);
+          setEditingLockedPayersPercentages(new Set());
           
           setShowExpenseModal(true);
         }}
@@ -981,40 +992,165 @@ export default function ExpenseBlock({
                 <Text style={styles.inputLabel}>Who Paid?</Text>
                 <View style={styles.memberList}>
                   {validMembers.map(member => (
-                    <TouchableOpacity
-                      key={`edit-payer-${member.device_id}`}
-                      style={[
-                        styles.memberOption,
-                        editingSelectedPayers.has(member.device_id) && styles.memberOptionSelected
-                      ]}
-                      onPress={() => {
-                        const newSelected = new Set(editingSelectedPayers);
-                        if (newSelected.has(member.device_id)) {
-                          newSelected.delete(member.device_id);
-                        } else {
-                          const newOwers = new Set(editingSelectedOwers);
-                          newOwers.delete(member.device_id);
-                          setEditingSelectedOwers(newOwers);
-                          newSelected.add(member.device_id);
-                        }
-                        setEditingSelectedPayers(newSelected);
-                      }}
-                    >
-                      <View style={styles.memberAvatar}>
-                        <Text style={styles.memberAvatarText}>
-                          {member.username?.[0]?.toUpperCase() || '?'}
+                    <View key={`edit-payer-${member.device_id}`}>
+                      <TouchableOpacity
+                        style={[
+                          styles.memberOption,
+                          editingSelectedPayers.has(member.device_id) && styles.memberOptionSelected
+                        ]}
+                        onPress={() => {
+                          const newSelected = new Set(editingSelectedPayers);
+                          if (newSelected.has(member.device_id)) {
+                            newSelected.delete(member.device_id);
+                            const newPercentages = { ...editingPayersPercentages };
+                            delete newPercentages[member.device_id];
+                            
+                            // Remove from locked as well
+                            const newLocked = new Set(editingLockedPayersPercentages);
+                            newLocked.delete(member.device_id);
+                            setEditingLockedPayersPercentages(newLocked);
+                            
+                            // Redistribute percentages equally
+                            const remainingMembers = Array.from(newSelected);
+                            if (remainingMembers.length > 0) {
+                              const equalPercentage = Math.floor(100 / remainingMembers.length);
+                              remainingMembers.forEach(id => {
+                                newPercentages[id] = equalPercentage;
+                              });
+                            }
+                            setEditingPayersPercentages(newPercentages);
+                          } else {
+                            const newOwers = new Set(editingSelectedOwers);
+                            newOwers.delete(member.device_id);
+                            setEditingSelectedOwers(newOwers);
+                            newSelected.add(member.device_id);
+                            
+                            // Redistribute percentages equally among all selected payers
+                            const newPercentages = { ...editingPayersPercentages };
+                            const allPayers = Array.from(newSelected);
+                            const equalPercentage = Math.floor(100 / allPayers.length);
+                            allPayers.forEach(id => {
+                              newPercentages[id] = equalPercentage;
+                            });
+                            setEditingPayersPercentages(newPercentages);
+                          }
+                          setEditingSelectedPayers(newSelected);
+                        }}
+                      >
+                        <View style={styles.memberAvatar}>
+                          <Text style={styles.memberAvatarText}>
+                            {member.username?.[0]?.toUpperCase() || '?'}
+                          </Text>
+                        </View>
+                        <Text style={[
+                          styles.memberName,
+                          editingSelectedPayers.has(member.device_id) && styles.memberNameSelected
+                        ]}>
+                          {member.username}
                         </Text>
-                      </View>
-                      <Text style={[
-                        styles.memberName,
-                        editingSelectedPayers.has(member.device_id) && styles.memberNameSelected
-                      ]}>
-                        {member.username}
-                      </Text>
+                        {editingSelectedPayers.has(member.device_id) && (
+                          <View style={styles.percentageContainer}>
+                            <Text style={styles.dollarAmountText}>
+                              ${editingExpenseAmount && editingPayersPercentages[member.device_id] 
+                                ? ((parseFloat(editingExpenseAmount) * editingPayersPercentages[member.device_id]) / 100).toFixed(2)
+                                : '0.00'}
+                            </Text>
+                            <Text style={styles.percentageText}>
+                              {editingPayersPercentages[member.device_id] || 0}%
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                      
                       {editingSelectedPayers.has(member.device_id) && (
-                        <Ionicons name="checkmark" size={20} color="#10b981" />
+                        <View style={styles.sliderWithLockContainer}>
+                          <View style={styles.sliderOnlyContainer}>
+                            <Slider
+                              style={styles.slider}
+                              minimumValue={0}
+                              maximumValue={(() => {
+                                // Calculate max value based on locked percentages
+                                const allPayers = Array.from(editingSelectedPayers);
+                                const lockedTotal = allPayers
+                                  .filter(id => editingLockedPayersPercentages.has(id))
+                                  .reduce((sum, id) => sum + (editingPayersPercentages[id] || 0), 0);
+                                const maxAvailable = 100 - lockedTotal;
+                                const currentValue = editingPayersPercentages[member.device_id] || 0;
+                                return Math.min(100, maxAvailable + currentValue);
+                              })()}
+                              value={editingPayersPercentages[member.device_id] || 0}
+                              onValueChange={(value) => {
+                                const allPayers = Array.from(editingSelectedPayers);
+                                const unlockedCount = allPayers.filter(id => !editingLockedPayersPercentages.has(id)).length;
+                                if (!editingLockedPayersPercentages.has(member.device_id) && unlockedCount > 1) {
+                                  // Use the same logic as add expense for payers
+                                  const newPercentages = { ...editingPayersPercentages };
+                                  const otherPayers = allPayers.filter(id => id !== member.device_id && !editingLockedPayersPercentages.has(id));
+                                  
+                                  // Set the new percentage for this user
+                                  newPercentages[member.device_id] = Math.max(0, Math.min(100, Math.round(value)));
+                                  
+                                  // Calculate how much percentage is already locked
+                                  const lockedTotal = Array.from(editingLockedPayersPercentages).reduce((sum, id) => {
+                                    return sum + (newPercentages[id] || 0);
+                                  }, 0);
+                                  
+                                  // Calculate remaining percentage to distribute (excluding locked and current user)
+                                  const remaining = 100 - newPercentages[member.device_id] - lockedTotal;
+                                  
+                                  if (otherPayers.length > 0 && remaining >= 0) {
+                                    // Distribute remaining percentage equally among unlocked others
+                                    const equalShare = Math.floor(remaining / otherPayers.length);
+                                    const remainder = remaining % otherPayers.length;
+                                    
+                                    otherPayers.forEach((id, index) => {
+                                      newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
+                                    });
+                                  }
+                                  
+                                  setEditingPayersPercentages(newPercentages);
+                                }
+                              }}
+                              disabled={editingLockedPayersPercentages.has(member.device_id) || Array.from(editingSelectedPayers).filter(id => !editingLockedPayersPercentages.has(id)).length === 1}
+                              minimumTrackTintColor={
+                                editingLockedPayersPercentages.has(member.device_id) || Array.from(editingSelectedPayers).filter(id => !editingLockedPayersPercentages.has(id)).length === 1 
+                                  ? "#6b7280" 
+                                  : "#10b981"
+                              }
+                              maximumTrackTintColor="#3a3a3a"
+                              thumbStyle={[
+                                styles.sliderThumbStyle,
+                                (editingLockedPayersPercentages.has(member.device_id) || Array.from(editingSelectedPayers).filter(id => !editingLockedPayersPercentages.has(id)).length === 1) && styles.sliderThumbLocked
+                              ]}
+                              trackStyle={styles.sliderTrackStyle}
+                            />
+                          </View>
+                          <View style={styles.lockButtonSquare}>
+                            <TouchableOpacity
+                              style={[
+                                styles.lockButton,
+                                editingLockedPayersPercentages.has(member.device_id) && styles.lockButtonActive
+                              ]}
+                              onPress={() => {
+                                const newLocked = new Set(editingLockedPayersPercentages);
+                                if (newLocked.has(member.device_id)) {
+                                  newLocked.delete(member.device_id);
+                                } else {
+                                  newLocked.add(member.device_id);
+                                }
+                                setEditingLockedPayersPercentages(newLocked);
+                              }}
+                            >
+                              <Ionicons 
+                                name={editingLockedPayersPercentages.has(member.device_id) ? "lock-closed" : "lock-open"} 
+                                size={16} 
+                                color={editingLockedPayersPercentages.has(member.device_id) ? "#10b981" : "#9ca3af"} 
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   ))}
                 </View>
               </View>
