@@ -425,16 +425,39 @@ export default function ExpenseBlock({
       // Close the modal
       setShowExpenseModal(false);
       
-      // TODO: Backend doesn't support PUT method for expense updates yet
-      // For now, changes are stored optimistically in local state
-      // await ApiService.updateGroupExpense(groupId, selectedExpense.id, {
-      //   description: editingExpenseDescription.trim(),
-      //   totalAmount: amount,
-      //   paidBy: Array.from(editingSelectedPayers),
-      //   splitBetween: Array.from(editingSelectedOwers),
-      //   payersPercentages: editingPayersPercentages,
-      //   owersPercentages: editingOwersPercentages
-      // });
+      // Workaround: Delete + Recreate since backend doesn't support PUT for expense updates
+      // Only attempt server sync if user created this expense (has delete permission)
+      if (selectedExpense.addedBy === currentDeviceId) {
+        try {
+          // Create the new expense first to ensure it works before deleting the original
+          console.log('Creating updated expense...');
+          await ApiService.createGroupExpense(groupId, {
+            description: editingExpenseDescription.trim(),
+            totalAmount: amount,
+            paidBy: Array.from(editingSelectedPayers),
+            splitBetween: Array.from(editingSelectedOwers),
+            payersPercentages: editingPayersPercentages,
+            owersPercentages: editingOwersPercentages
+          });
+          
+          // Only delete the original expense if the create succeeded
+          console.log('Deleting original expense...');
+          await ApiService.deleteGroupExpense(groupId, selectedExpense.id);
+          
+          console.log('Successfully updated expense via recreate+delete');
+          
+          // Reload expenses to get the new expense with real ID from server
+          await loadExpenses();
+          
+        } catch (apiError) {
+          console.error('Delete+recreate failed:', apiError);
+          alert('Failed to sync changes to server. Changes are saved locally only.');
+          // If API fails, at least we have the optimistic update
+        }
+      } else {
+        console.warn('Cannot sync changes to server - user did not create this expense');
+        alert('Changes saved locally only. You can only sync changes for expenses you created.');
+      }
       
     } catch (error) {
       alert('Failed to update expense. Please try again.');
