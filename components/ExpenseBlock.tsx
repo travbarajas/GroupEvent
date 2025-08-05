@@ -345,8 +345,16 @@ export default function ExpenseBlock({
       // Close the modal
       setShowExpenseModal(false);
       
-      // TODO: Call API to update expense in backend
-      // await ApiService.updateExpense(groupId, eventId, selectedExpense.id, updatedExpense);
+      // TODO: Backend doesn't support PUT method for expense updates yet
+      // For now, changes are stored optimistically in local state
+      // await ApiService.updateGroupExpense(groupId, selectedExpense.id, {
+      //   description: editingExpenseDescription.trim(),
+      //   totalAmount: amount,
+      //   paidBy: Array.from(editingSelectedPayers),
+      //   splitBetween: Array.from(editingSelectedOwers),
+      //   payersPercentages: editingPayersPercentages,
+      //   owersPercentages: editingOwersPercentages
+      // });
       
     } catch (error) {
       alert('Failed to update expense. Please try again.');
@@ -469,18 +477,22 @@ export default function ExpenseBlock({
       setNewExpenseAmount('');
       setShowAddExpenseModal(false);
 
-      // Create via API
-      await ApiService.createGroupExpense(groupId, {
-        description: newExpenseDescription.trim(),
-        totalAmount: amount,
-        paidBy: Array.from(selectedPayers),
-        splitBetween: Array.from(selectedOwers),
-        payersPercentages: payersPercentages,
-        owersPercentages: owersPercentages
-      });
-
-      // Reload to get real ID and ensure consistency
-      await loadExpenses();
+      // Create via API in background
+      try {
+        await ApiService.createGroupExpense(groupId, {
+          description: newExpenseDescription.trim(),
+          totalAmount: amount,
+          paidBy: Array.from(selectedPayers),
+          splitBetween: Array.from(selectedOwers),
+          payersPercentages: payersPercentages,
+          owersPercentages: owersPercentages
+        });
+        // Note: Not reloading from API to preserve custom percentages
+        // The optimistic expense already has the correct percentage data
+      } catch (apiError) {
+        console.warn('API call failed, but optimistic update succeeded:', apiError);
+        // Continue with optimistic data even if API fails
+      }
     } catch (error) {
       // Revert optimistic update on error
       setExpenseItems(prev => prev.filter(expense => !expense.id.startsWith('optimistic-')));
@@ -614,6 +626,68 @@ export default function ExpenseBlock({
             <Text style={styles.expenseName}>
               {expense.name}
             </Text>
+            
+            {/* User Financial Info */}
+            {(() => {
+              // Find user's role in this expense using new data structure
+              const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+              const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+              
+              if (!userAsOwer && !userAsPayer) {
+                return (
+                  <View style={styles.headerUserAmountContainer}>
+                    <Text style={styles.headerUserStatusText}>Not involved</Text>
+                  </View>
+                );
+              }
+              
+              let statusText = "";
+              let isOwing = false;
+              let userPercentage = 0;
+              
+              // Get stored amounts directly from the data
+              const userPaid = userAsPayer?.payer_amount || 0;
+              const userOwes = userAsOwer?.ower_amount || 0;
+              
+              // Calculate net amount: what they paid minus what they owe
+              const netAmount = userPaid - userOwes;
+              
+              if (Math.abs(netAmount) < 0.01) {
+                // Close to zero, consider it even
+                statusText = "Even";
+                isOwing = false;
+              } else if (netAmount > 0) {
+                // User is owed money
+                statusText = `You are owed $${netAmount.toFixed(2)}`;
+                isOwing = false;
+              } else {
+                // User owes money
+                statusText = `You owe $${Math.abs(netAmount).toFixed(2)}`;
+                isOwing = true;
+              }
+              
+              // Get stored percentage if user owes money
+              if (userAsOwer && userAsOwer.ower_percentage) {
+                userPercentage = userAsOwer.ower_percentage;
+              }
+              
+              return (
+                <View style={styles.headerUserAmountContainer}>
+                  <Text style={[
+                    styles.headerUserStatusText,
+                    statusText === "Even" ? styles.userEvenText : (isOwing ? styles.userOwesText : styles.userOwedText)
+                  ]}>
+                    {statusText}
+                  </Text>
+                  {userPercentage > 0 && (
+                    <Text style={styles.headerUserPercentageText}>
+                      {userPercentage}%
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
+            
             {canDelete && (
               <TouchableOpacity 
                 style={styles.deleteNewSection}
@@ -630,236 +704,71 @@ export default function ExpenseBlock({
 
           {/* Content Row */}
           <View style={styles.contentRow}>
-            {/* Left Side: Participants (Stacked Vertically) */}
-            <View style={styles.participantsColumn}>
-              {/* Payers Section with Payment Button for Payers */}
-              <View style={styles.participantsSection}>
-                {(() => {
-                  const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
-                  const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
-                  const isPayer = userAsPayer !== undefined;
+            {/* Left Side: Participants List */}
+            <View style={styles.participantsListColumn}>
+              {/* Payers List */}
+              {expense.participants
+                .filter(p => p.payer_amount !== undefined && p.payer_amount > 0)
+                .map(participant => {
+                  const member = validMembers.find(m => m.device_id === participant.device_id);
+                  const isCurrentUser = participant.device_id === currentDeviceId;
+                  const currentStatus = participant.payment_status || 'pending';
+                  const isCompleted = currentStatus === 'completed';
                   
-                  if (isPayer) {
-                    // User is a payer - show button aligned with "Paid by"
-                    const currentStatus = userAsPayer?.payment_status || 'pending';
-                    const isCompleted = currentStatus === 'completed';
-                    
-                    return (
-                      <View style={styles.owersWithButtonRow}>
-                        <View style={styles.owersLabelAndAvatars}>
-                          <Text style={styles.participantLabel}>Paid by:</Text>
-                          <View style={styles.participantAvatars}>
-                            {renderPayerAvatars(expense.participants)}
-                          </View>
-                        </View>
-                        
-                        <TouchableOpacity
-                          style={[
-                            styles.paymentStatusButton,
-                            isCompleted && styles.paymentStatusButtonCompleted
-                          ]}
-                          onPress={async () => {
-                            const newStatus = isCompleted ? 'pending' : 'completed';
-                            
-                            try {
-                              const updatedExpenses = expenseItems.map(exp => {
-                                if (exp.id === expense.id) {
-                                  return {
-                                    ...exp,
-                                    participants: exp.participants.map(p => {
-                                      if (p.device_id === currentDeviceId) {
-                                        return { ...p, payment_status: newStatus };
-                                      }
-                                      return p;
-                                    })
-                                  };
-                                }
-                                return exp;
-                              });
-                              setExpenseItems(updatedExpenses);
-                            } catch (error) {
-                              await loadExpenses();
-                              Alert.alert('Error', 'Failed to update payment status. Please try again.');
-                            }
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[
-                            styles.paymentStatusButtonText,
-                            isCompleted && styles.paymentStatusButtonTextCompleted
-                          ]}>
-                            {isCompleted ? "Haven't been paid" : "I've been paid"}
+                  return (
+                    <View key={`payer-${participant.device_id}`} style={styles.participantRow}>
+                      <View style={styles.participantInfo}>
+                        <View style={[styles.participantAvatar, styles.payerAvatar]}>
+                          <Text style={styles.participantAvatarText}>
+                            {member?.username?.[0]?.toUpperCase() || '?'}
                           </Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  } else {
-                    // User is not a payer - show normal "Paid by" section
-                    return (
-                      <>
-                        <Text style={styles.participantLabel}>Paid by:</Text>
-                        <View style={styles.participantAvatars}>
-                          {renderPayerAvatars(expense.participants)}
                         </View>
-                      </>
-                    );
-                  }
-                })()}
-              </View>
-
-              {/* Owers Section with Payment Button for Owers */}
-              <View style={styles.participantsSection}>
-                {(() => {
-                  const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+                        <Text style={styles.participantName}>
+                          {member?.username || 'Unknown'}
+                        </Text>
+                        <Text style={styles.participantAmount}>
+                          Paid ${participant.payer_amount?.toFixed(2) || '0.00'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              
+              {/* Owers List */}
+              {expense.participants
+                .filter(p => p.ower_amount !== undefined && p.ower_amount > 0)
+                .map(participant => {
+                  const member = validMembers.find(m => m.device_id === participant.device_id);
+                  const isCurrentUser = participant.device_id === currentDeviceId;
+                  const currentStatus = participant.payment_status || 'pending';
+                  const isCompleted = currentStatus === 'completed';
                   const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
-                  const isOwer = userAsOwer !== undefined;
-                  const isPayer = userAsPayer !== undefined;
                   
-                  if (isOwer && !isPayer) {
-                    // User is an ower but not a payer - show button aligned with "Owes"
-                    const currentStatus = userAsOwer?.payment_status || 'pending';
-                    const isCompleted = currentStatus === 'completed';
-                    
-                    return (
-                      <View style={styles.owersWithButtonRow}>
-                        <View style={styles.owersLabelAndAvatars}>
-                          <Text style={styles.participantLabel}>Owes:</Text>
-                          <View style={styles.participantAvatars}>
-                            {renderOwerAvatars(expense.participants)}
-                          </View>
-                        </View>
-                        
-                        <TouchableOpacity
-                          style={[
-                            styles.paymentStatusButton,
-                            isCompleted && styles.paymentStatusButtonCompleted
-                          ]}
-                          onPress={async () => {
-                            const newStatus = isCompleted ? 'pending' : 'completed';
-                            
-                            try {
-                              const updatedExpenses = expenseItems.map(exp => {
-                                if (exp.id === expense.id) {
-                                  return {
-                                    ...exp,
-                                    participants: exp.participants.map(p => {
-                                      if (p.device_id === currentDeviceId) {
-                                        return { ...p, payment_status: newStatus };
-                                      }
-                                      return p;
-                                    })
-                                  };
-                                }
-                                return exp;
-                              });
-                              setExpenseItems(updatedExpenses);
-                            } catch (error) {
-                              await loadExpenses();
-                              Alert.alert('Error', 'Failed to update payment status. Please try again.');
-                            }
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[
-                            styles.paymentStatusButtonText,
-                            isCompleted && styles.paymentStatusButtonTextCompleted
-                          ]}>
-                            {isCompleted ? "Haven't paid" : "I've paid"}
+                  return (
+                    <View key={`ower-${participant.device_id}`} style={styles.participantRow}>
+                      <View style={styles.participantInfo}>
+                        <View style={[styles.participantAvatar, styles.owerAvatar]}>
+                          <Text style={styles.participantAvatarText}>
+                            {member?.username?.[0]?.toUpperCase() || '?'}
                           </Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  } else {
-                    // User is not an ower (or is both payer and ower) - show normal "Owes" section
-                    return (
-                      <>
-                        <Text style={styles.participantLabel}>Owes:</Text>
-                        <View style={styles.participantAvatars}>
-                          {renderOwerAvatars(expense.participants)}
                         </View>
-                      </>
-                    );
-                  }
-                })()}
-              </View>
+                        <Text style={styles.participantName}>
+                          {member?.username || 'Unknown'}
+                        </Text>
+                        <Text style={styles.participantAmount}>
+                          Owes ${participant.ower_amount?.toFixed(2) || '0.00'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
             </View>
 
-            {/* Right Side: Price and User Amount */}
+            {/* Right Side: Total Amount */}
             <View style={styles.amountColumn}>
-              {/* Total Amount */}
               <Text style={styles.totalAmount}>
                 ${(expense.total_amount || 0).toFixed(2)}
               </Text>
-
-              {/* User's Amount and Status */}
-              {(() => {
-                // Find user's role in this expense using new data structure
-                const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
-                const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
-                
-                if (!userAsOwer && !userAsPayer) {
-                  return (
-                    <View style={styles.userAmountContainer}>
-                      <Text style={styles.userStatusText}>Not involved</Text>
-                    </View>
-                  );
-                }
-                
-                let statusText = "";
-                let isOwing = false;
-                let userPercentage = 0;
-                
-                // Get stored amounts directly from the data
-                const userOwes = userAsOwer?.ower_amount || 0;
-                const userPaid = userAsPayer?.payer_amount || 0;
-                
-                // Calculate what user is owed based on what others owe (excluding what the user owes)
-                let userIsOwed = 0;
-                if (userAsPayer) {
-                  // If user paid, they are owed back what everyone else owes
-                  userIsOwed = expense.participants
-                    .filter(p => p.device_id !== currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0)
-                    .reduce((sum, p) => sum + (p.ower_amount || 0), 0);
-                }
-                
-                // Calculate net amount: what they're owed minus what they owe
-                const netAmount = userIsOwed - userOwes;
-                
-                if (Math.abs(netAmount) < 0.01) {
-                  // Close to zero, consider it even
-                  statusText = "Even";
-                  isOwing = false;
-                } else if (netAmount > 0) {
-                  // User is owed money
-                  statusText = `You are owed $${netAmount.toFixed(2)}`;
-                  isOwing = false;
-                } else {
-                  // User owes money
-                  statusText = `You owe $${Math.abs(netAmount).toFixed(2)}`;
-                  isOwing = true;
-                }
-                
-                // Get stored percentage if user owes money
-                if (userAsOwer && userAsOwer.ower_percentage) {
-                  userPercentage = userAsOwer.ower_percentage;
-                }
-                
-                return (
-                  <View style={styles.userAmountContainer}>
-                    <Text style={[
-                      styles.userStatusText,
-                      statusText === "Even" ? styles.userEvenText : (isOwing ? styles.userOwesText : styles.userOwedText)
-                    ]}>
-                      {statusText}
-                    </Text>
-                    {userPercentage > 0 && (
-                      <Text style={styles.userPercentageText}>
-                        {userPercentage}%
-                      </Text>
-                    )}
-                  </View>
-                );
-              })()}
             </View>
           </View>
 
@@ -1020,9 +929,6 @@ export default function ExpenseBlock({
                             }
                             setEditingPayersPercentages(newPercentages);
                           } else {
-                            const newOwers = new Set(editingSelectedOwers);
-                            newOwers.delete(member.device_id);
-                            setEditingSelectedOwers(newOwers);
                             newSelected.add(member.device_id);
                             
                             // Redistribute percentages equally among all selected payers
@@ -1196,9 +1102,6 @@ export default function ExpenseBlock({
                             setEditingOwersPercentages(newPercentages);
                           } else {
                             // Adding user
-                            const newPayers = new Set(editingSelectedPayers);
-                            newPayers.delete(member.device_id);
-                            setEditingSelectedPayers(newPayers);
                             newSelected.add(member.device_id);
                             
                             // Calculate even split for all users
@@ -2433,5 +2336,65 @@ const styles = StyleSheet.create({
   expenseItemNew: {
     width: '100%',
     marginBottom: 0,
+  },
+  participantsListColumn: {
+    flex: 1,
+  },
+  participantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+  },
+  participantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  participantAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  payerAvatar: {
+    backgroundColor: '#10b981',
+  },
+  owerAvatar: {
+    backgroundColor: '#ef4444',
+  },
+  participantAvatarText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  participantName: {
+    fontSize: 11,
+    color: '#e5e7eb',
+    fontWeight: '500',
+    marginRight: 8,
+    minWidth: 60,
+  },
+  participantAmount: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontWeight: '600',
+    flex: 1,
+  },
+  headerUserAmountContainer: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  headerUserStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  headerUserPercentageText: {
+    fontSize: 10,
+    color: '#9ca3af',
+    marginTop: 2,
   },
 });

@@ -282,6 +282,8 @@ export class ApiService {
     totalAmount: number;
     paidBy: string[];  // device_ids who paid upfront
     splitBetween: string[];  // device_ids who owe money
+    payersPercentages?: {[key: string]: number};  // percentages for payers
+    owersPercentages?: {[key: string]: number};  // percentages for owers
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}/expenses`, {
@@ -291,7 +293,32 @@ export class ApiService {
         description: expenseData.description,
         total_amount: expenseData.totalAmount,
         paid_by: expenseData.paidBy,
-        split_between: expenseData.splitBetween
+        split_between: expenseData.splitBetween,
+        payers_percentages: expenseData.payersPercentages,
+        owers_percentages: expenseData.owersPercentages
+      })
+    });
+  }
+
+  static async updateGroupExpense(groupId: string, expenseId: string, expenseData: {
+    description: string;
+    totalAmount: number;
+    paidBy: string[];  // device_ids who paid upfront
+    splitBetween: string[];  // device_ids who owe money
+    payersPercentages?: {[key: string]: number};  // percentages for payers
+    owersPercentages?: {[key: string]: number};  // percentages for owers
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/expenses/${expenseId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_id,
+        description: expenseData.description,
+        total_amount: expenseData.totalAmount,
+        paid_by: expenseData.paidBy,
+        split_between: expenseData.splitBetween,
+        payers_percentages: expenseData.payersPercentages,
+        owers_percentages: expenseData.owersPercentages
       })
     });
   }
