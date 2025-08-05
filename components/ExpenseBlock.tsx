@@ -79,8 +79,8 @@ export default function ExpenseBlock({
       // Transform API data to match our interface
       const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => ({
         id: expense.id,
-        description: expense.description,
-        total_amount: expense.total_amount,
+        description: expense.description || 'Untitled Expense',
+        total_amount: parseFloat(expense.total_amount) || 0,
         addedBy: expense.created_by_device_id,
         participants: expense.participants || [],
         createdAt: expense.created_at,
@@ -145,7 +145,7 @@ export default function ExpenseBlock({
         newParticipants = [...expense.participants, {
           device_id: currentDeviceId,
           role: 'ower' as const,
-          individual_amount: expense.total_amount / (expense.participants.length + 1),
+          individual_amount: (expense.total_amount || 0) / (expense.participants.length + 1),
           payment_status: 'pending' as const
         }];
       }
@@ -348,7 +348,7 @@ export default function ExpenseBlock({
         {/* Total Amount */}
         <View style={styles.amountSection}>
           <Text style={styles.amount}>
-            ${expense.total_amount.toFixed(2)}
+            ${(expense.total_amount || 0).toFixed(2)}
           </Text>
         </View>
 
