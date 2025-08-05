@@ -33,7 +33,8 @@
       "Bash(partykit:*)",
       "Bash(node:*)",
       "Bash(git reset:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(npm start:*)"
     ],
     "deny": []
   }
