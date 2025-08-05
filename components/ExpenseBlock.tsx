@@ -142,6 +142,90 @@ export default function ExpenseBlock({
     }
   };
 
+  const updatePercentage = (deviceId: string, newPercentage: number) => {
+    const newPercentages = { ...owersPercentages };
+    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId && !lockedPercentages.has(id));
+    
+    // Set the new percentage for this user
+    newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
+    
+    // Calculate how much percentage is already locked
+    const lockedTotal = Array.from(lockedPercentages).reduce((sum, id) => {
+      return sum + (newPercentages[id] || 0);
+    }, 0);
+    
+    // Calculate remaining percentage to distribute (excluding locked and current user)
+    const remaining = 100 - newPercentages[deviceId] - lockedTotal;
+    
+    if (otherOwers.length > 0 && remaining >= 0) {
+      // Distribute remaining percentage equally among unlocked others
+      const equalShare = Math.floor(remaining / otherOwers.length);
+      const remainder = remaining % otherOwers.length;
+      
+      otherOwers.forEach((id, index) => {
+        newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
+      });
+    }
+    
+    setOwersPercentages(newPercentages);
+  };
+
+  const togglePercentageLock = (deviceId: string) => {
+    const newLocked = new Set(lockedPercentages);
+    if (newLocked.has(deviceId)) {
+      newLocked.delete(deviceId);
+    } else {
+      newLocked.add(deviceId);
+    }
+    setLockedPercentages(newLocked);
+  };
+
+  const togglePayer = (deviceId: string) => {
+    const newPayers = new Set(selectedPayers);
+    if (newPayers.has(deviceId)) {
+      newPayers.delete(deviceId);
+    } else {
+      newPayers.add(deviceId);
+    }
+    setSelectedPayers(newPayers);
+  };
+
+  const toggleOwer = (deviceId: string) => {
+    const newOwers = new Set(selectedOwers);
+    if (newOwers.has(deviceId)) {
+      newOwers.delete(deviceId);
+      const newPercentages = { ...owersPercentages };
+      delete newPercentages[deviceId];
+      
+      // Remove from locked as well
+      const newLocked = new Set(lockedPercentages);
+      newLocked.delete(deviceId);
+      setLockedPercentages(newLocked);
+      
+      // Redistribute percentages equally
+      const remainingMembers = Array.from(newOwers);
+      if (remainingMembers.length > 0) {
+        const equalPercentage = Math.floor(100 / remainingMembers.length);
+        remainingMembers.forEach(id => {
+          newPercentages[id] = equalPercentage;
+        });
+      }
+      setOwersPercentages(newPercentages);
+    } else {
+      newOwers.add(deviceId);
+      
+      // Redistribute percentages equally among all selected owers
+      const newPercentages = { ...owersPercentages };
+      const allOwers = Array.from(newOwers);
+      const equalPercentage = Math.floor(100 / allOwers.length);
+      allOwers.forEach(id => {
+        newPercentages[id] = equalPercentage;
+      });
+      setOwersPercentages(newPercentages);
+    }
+    setSelectedOwers(newOwers);
+  };
+
   const addCustomExpense = async () => {
     if (!newExpenseDescription.trim()) {
       Alert.alert('Error', 'Please enter an expense description');
@@ -546,90 +630,6 @@ function AddExpenseModal({
   onTogglePayer: (deviceId: string) => void;
 }) {
   const insets = useSafeAreaInsets();
-
-  const updatePercentage = (deviceId: string, newPercentage: number) => {
-    const newPercentages = { ...owersPercentages };
-    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId && !lockedPercentages.has(id));
-    
-    // Set the new percentage for this user
-    newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
-    
-    // Calculate how much percentage is already locked
-    const lockedTotal = Array.from(lockedPercentages).reduce((sum, id) => {
-      return sum + (newPercentages[id] || 0);
-    }, 0);
-    
-    // Calculate remaining percentage to distribute (excluding locked and current user)
-    const remaining = 100 - newPercentages[deviceId] - lockedTotal;
-    
-    if (otherOwers.length > 0 && remaining >= 0) {
-      // Distribute remaining percentage equally among unlocked others
-      const equalShare = Math.floor(remaining / otherOwers.length);
-      const remainder = remaining % otherOwers.length;
-      
-      otherOwers.forEach((id, index) => {
-        newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
-      });
-    }
-    
-    setOwersPercentages(newPercentages);
-  };
-
-  const togglePercentageLock = (deviceId: string) => {
-    const newLocked = new Set(lockedPercentages);
-    if (newLocked.has(deviceId)) {
-      newLocked.delete(deviceId);
-    } else {
-      newLocked.add(deviceId);
-    }
-    setLockedPercentages(newLocked);
-  };
-
-  const togglePayer = (deviceId: string) => {
-    const newPayers = new Set(selectedPayers);
-    if (newPayers.has(deviceId)) {
-      newPayers.delete(deviceId);
-    } else {
-      newPayers.add(deviceId);
-    }
-    setSelectedPayers(newPayers);
-  };
-
-  const toggleOwer = (deviceId: string) => {
-    const newOwers = new Set(selectedOwers);
-    if (newOwers.has(deviceId)) {
-      newOwers.delete(deviceId);
-      const newPercentages = { ...owersPercentages };
-      delete newPercentages[deviceId];
-      
-      // Remove from locked as well
-      const newLocked = new Set(lockedPercentages);
-      newLocked.delete(deviceId);
-      setLockedPercentages(newLocked);
-      
-      // Redistribute percentages equally
-      const remainingMembers = Array.from(newOwers);
-      if (remainingMembers.length > 0) {
-        const equalPercentage = Math.floor(100 / remainingMembers.length);
-        remainingMembers.forEach(id => {
-          newPercentages[id] = equalPercentage;
-        });
-      }
-      setOwersPercentages(newPercentages);
-    } else {
-      newOwers.add(deviceId);
-      
-      // Redistribute percentages equally among all selected owers
-      const newPercentages = { ...owersPercentages };
-      const allOwers = Array.from(newOwers);
-      const equalPercentage = Math.floor(100 / allOwers.length);
-      allOwers.forEach(id => {
-        newPercentages[id] = equalPercentage;
-      });
-      setOwersPercentages(newPercentages);
-    }
-    setSelectedOwers(newOwers);
-  };
 
   return (
     <Modal
