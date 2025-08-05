@@ -16,8 +16,13 @@ import { ApiService } from '@/services/api';
 
 interface ExpenseParticipant {
   device_id: string;
-  role: 'payer' | 'ower';
-  individual_amount: number;
+  // Payer information (if user paid upfront)
+  payer_percentage?: number;
+  payer_amount?: number;
+  // Ower information (if user owes money)  
+  ower_percentage?: number;
+  ower_amount?: number;
+  // Payment status
   payment_status: 'pending' | 'sent' | 'completed';
 }
 
@@ -58,8 +63,18 @@ export default function ExpenseBlock({
   const [selectedOwers, setSelectedOwers] = useState<Set<string>>(new Set());
   const [owersPercentages, setOwersPercentages] = useState<{[key: string]: number}>({});
   const [lockedPercentages, setLockedPercentages] = useState<Set<string>>(new Set());
+  const [payersPercentages, setPayersPercentages] = useState<{[key: string]: number}>({});
+  const [lockedPayersPercentages, setLockedPayersPercentages] = useState<Set<string>>(new Set());
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseItem | null>(null);
+  
+  // Editing state variables
+  const [editingExpenseDescription, setEditingExpenseDescription] = useState('');
+  const [editingExpenseAmount, setEditingExpenseAmount] = useState('');
+  const [editingSelectedPayers, setEditingSelectedPayers] = useState<Set<string>>(new Set());
+  const [editingSelectedOwers, setEditingSelectedOwers] = useState<Set<string>>(new Set());
+  const [editingOwersPercentages, setEditingOwersPercentages] = useState<{[key: string]: number}>({});
+  const [editingLockedPercentages, setEditingLockedPercentages] = useState<Set<string>>(new Set());
 
   const validMembers = members.filter(member => member.has_username && member.username);
 
@@ -77,26 +92,31 @@ export default function ExpenseBlock({
         // Create participants array from API data
         const participants: ExpenseParticipant[] = [];
         
-        // Add payers
+        // Add payers with their contribution amounts and percentages
         if (expense.payers && Array.isArray(expense.payers)) {
           expense.payers.forEach((payerDeviceId: string) => {
+            const payerPercentage = expense.payers_percentages?.[payerDeviceId] || 0;
+            const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
+            
             participants.push({
               device_id: payerDeviceId,
-              role: 'payer',
-              individual_amount: 0,
-              payment_status: 'pending'
+              payer_percentage: payerPercentage,
+              payer_amount: payerAmount,
+              payment_status: expense.payment_status?.[payerDeviceId] || 'pending'
             });
           });
         }
         
-        // Add owers
+        // Add owers with their share amounts and percentages
         if (expense.owers && Array.isArray(expense.owers)) {
           expense.owers.forEach((owerDeviceId: string) => {
-            const percentage = expense.owers_percentages?.[owerDeviceId] || 0;
+            const owerPercentage = expense.owers_percentages?.[owerDeviceId] || 0;
+            const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
+            
             participants.push({
               device_id: owerDeviceId,
-              role: 'ower',
-              individual_amount: (parseFloat(expense.total_amount) || 0) * percentage / 100,
+              ower_percentage: owerPercentage,
+              ower_amount: owerAmount,
               payment_status: expense.payment_status?.[owerDeviceId] || 'pending'
             });
           });
@@ -144,7 +164,15 @@ export default function ExpenseBlock({
 
   const updatePercentage = (deviceId: string, newPercentage: number) => {
     const newPercentages = { ...owersPercentages };
-    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId && !lockedPercentages.has(id));
+    const allOwers = Array.from(selectedOwers);
+    const otherOwers = allOwers.filter(id => id !== deviceId && !lockedPercentages.has(id));
+    
+    // Check if this is the only unlocked slider (all others are locked)
+    const unlockedCount = allOwers.filter(id => !lockedPercentages.has(id)).length;
+    if (unlockedCount === 1) {
+      // Don't allow changes if this is the only unlocked slider
+      return;
+    }
     
     // Set the new percentage for this user
     newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
@@ -180,12 +208,181 @@ export default function ExpenseBlock({
     setLockedPercentages(newLocked);
   };
 
+  const updatePayerPercentage = (deviceId: string, newPercentage: number) => {
+    const newPercentages = { ...payersPercentages };
+    const allPayers = Array.from(selectedPayers);
+    const otherPayers = allPayers.filter(id => id !== deviceId && !lockedPayersPercentages.has(id));
+    
+    // Check if this is the only unlocked slider (all others are locked)
+    const unlockedCount = allPayers.filter(id => !lockedPayersPercentages.has(id)).length;
+    if (unlockedCount === 1) {
+      // Don't allow changes if this is the only unlocked slider
+      return;
+    }
+    
+    // Set the new percentage for this user
+    newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
+    
+    // Calculate how much percentage is already locked
+    const lockedTotal = Array.from(lockedPayersPercentages).reduce((sum, id) => {
+      return sum + (newPercentages[id] || 0);
+    }, 0);
+    
+    // Calculate remaining percentage to distribute (excluding locked and current user)
+    const remaining = 100 - newPercentages[deviceId] - lockedTotal;
+    
+    if (otherPayers.length > 0 && remaining >= 0) {
+      // Distribute remaining percentage equally among unlocked others
+      const equalShare = Math.floor(remaining / otherPayers.length);
+      const remainder = remaining % otherPayers.length;
+      
+      otherPayers.forEach((id, index) => {
+        newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
+      });
+    }
+    
+    setPayersPercentages(newPercentages);
+  };
+
+  const togglePayerPercentageLock = (deviceId: string) => {
+    const newLocked = new Set(lockedPayersPercentages);
+    if (newLocked.has(deviceId)) {
+      newLocked.delete(deviceId);
+    } else {
+      newLocked.add(deviceId);
+    }
+    setLockedPayersPercentages(newLocked);
+  };
+
+  const updateEditingPercentage = (deviceId: string, newPercentage: number) => {
+    const allOwers = Array.from(editingSelectedOwers);
+    const unlockedOwers = allOwers.filter(id => !editingLockedPercentages.has(id));
+    const currentPercentage = editingOwersPercentages[deviceId] || 0;
+    const difference = newPercentage - currentPercentage;
+    
+    if (unlockedOwers.length <= 1) return;
+    
+    const otherUnlockedOwers = unlockedOwers.filter(id => id !== deviceId);
+    const totalOtherPercentage = otherUnlockedOwers.reduce((sum, id) => sum + (editingOwersPercentages[id] || 0), 0);
+    
+    if (totalOtherPercentage - difference < 0) return;
+    
+    const newPercentages = { ...editingOwersPercentages };
+    newPercentages[deviceId] = newPercentage;
+    
+    const distributionPerOwer = Math.floor(difference / otherUnlockedOwers.length);
+    const remainder = difference % otherUnlockedOwers.length;
+    
+    otherUnlockedOwers.forEach((id, index) => {
+      const currentValue = newPercentages[id] || 0;
+      const adjustment = distributionPerOwer + (index < remainder ? 1 : 0);
+      newPercentages[id] = Math.max(0, currentValue - adjustment);
+    });
+    
+    const total = Object.values(newPercentages).reduce((sum, val) => sum + val, 0);
+    if (Math.abs(total - 100) > 1) return;
+    
+    setEditingOwersPercentages(newPercentages);
+  };
+
+  const handleSaveExpenseEdit = async () => {
+    if (!selectedExpense) return;
+    
+    const amount = parseFloat(editingExpenseAmount);
+    
+    if (!editingExpenseDescription.trim()) {
+      alert('Please enter an expense description');
+      return;
+    }
+    
+    if (!amount || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    
+    if (editingSelectedPayers.size === 0) {
+      alert('Please select who paid upfront');
+      return;
+    }
+    
+    if (editingSelectedOwers.size === 0) {
+      alert('Please select who should pay back');
+      return;
+    }
+
+    try {
+      // Create updated expense with new data
+      const updatedExpense: ExpenseItem = {
+        ...selectedExpense,
+        name: editingExpenseDescription.trim(),
+        total_amount: amount,
+        participants: [
+          ...Array.from(editingSelectedPayers).map(deviceId => ({
+            device_id: deviceId,
+            payer_percentage: 50, // TODO: Add payer percentage editing in edit modal
+            payer_amount: amount / editingSelectedPayers.size,
+            payment_status: 'pending' as const
+          })),
+          ...Array.from(editingSelectedOwers).map(deviceId => ({
+            device_id: deviceId,
+            ower_percentage: editingOwersPercentages[deviceId] || 0,
+            ower_amount: (amount * (editingOwersPercentages[deviceId] || 0)) / 100,
+            payment_status: 'pending' as const
+          }))
+        ]
+      };
+      
+      // Update the expense in the list optimistically
+      const updatedExpenses = expenseItems.map(expense => 
+        expense.id === selectedExpense.id ? updatedExpense : expense
+      );
+      setExpenseItems(updatedExpenses);
+      
+      // Close the modal
+      setShowExpenseModal(false);
+      
+      // TODO: Call API to update expense in backend
+      // await ApiService.updateExpense(groupId, eventId, selectedExpense.id, updatedExpense);
+      
+    } catch (error) {
+      alert('Failed to update expense. Please try again.');
+      // Reload expenses on error to revert optimistic update
+      loadExpenses();
+    }
+  };
+
   const togglePayer = (deviceId: string) => {
     const newPayers = new Set(selectedPayers);
     if (newPayers.has(deviceId)) {
       newPayers.delete(deviceId);
+      const newPercentages = { ...payersPercentages };
+      delete newPercentages[deviceId];
+      
+      // Remove from locked as well
+      const newLocked = new Set(lockedPayersPercentages);
+      newLocked.delete(deviceId);
+      setLockedPayersPercentages(newLocked);
+      
+      // Redistribute percentages equally
+      const remainingMembers = Array.from(newPayers);
+      if (remainingMembers.length > 0) {
+        const equalPercentage = Math.floor(100 / remainingMembers.length);
+        remainingMembers.forEach(id => {
+          newPercentages[id] = equalPercentage;
+        });
+      }
+      setPayersPercentages(newPercentages);
     } else {
       newPayers.add(deviceId);
+      
+      // Redistribute percentages equally among all selected payers
+      const newPercentages = { ...payersPercentages };
+      const allPayers = Array.from(newPayers);
+      const equalPercentage = Math.floor(100 / allPayers.length);
+      allPayers.forEach(id => {
+        newPercentages[id] = equalPercentage;
+      });
+      setPayersPercentages(newPercentages);
     }
     setSelectedPayers(newPayers);
   };
@@ -242,15 +439,15 @@ export default function ExpenseBlock({
       // Create optimistic expense with participants
       const payerParticipants: ExpenseParticipant[] = Array.from(selectedPayers).map(deviceId => ({
         device_id: deviceId,
-        role: 'payer' as const,
-        individual_amount: 0, // Payers don't owe anything
+        payer_percentage: payersPercentages[deviceId] || 0,
+        payer_amount: (amount * (payersPercentages[deviceId] || 0)) / 100,
         payment_status: 'pending' as const
       }));
       
       const owerParticipants: ExpenseParticipant[] = Array.from(selectedOwers).map(deviceId => ({
         device_id: deviceId,
-        role: 'ower' as const,
-        individual_amount: (amount * (owersPercentages[deviceId] || 0)) / 100,
+        ower_percentage: owersPercentages[deviceId] || 0,
+        ower_amount: (amount * (owersPercentages[deviceId] || 0)) / 100,
         payment_status: 'pending' as const
       }));
       
@@ -273,7 +470,9 @@ export default function ExpenseBlock({
         description: newExpenseDescription.trim(),
         totalAmount: amount,
         paidBy: Array.from(selectedPayers),
-        splitBetween: Array.from(selectedOwers)
+        splitBetween: Array.from(selectedOwers),
+        payersPercentages: payersPercentages,
+        owersPercentages: owersPercentages
       });
 
       // Reload to get real ID and ensure consistency
@@ -288,7 +487,7 @@ export default function ExpenseBlock({
 
   const renderPayerAvatars = (participants: ExpenseParticipant[]) => {
     // Show people who paid upfront
-    const payers = participants.filter(p => p.role === 'payer');
+    const payers = participants.filter(p => p.payer_amount !== undefined && p.payer_amount > 0);
     
     if (payers.length === 0) {
       return (
@@ -328,7 +527,7 @@ export default function ExpenseBlock({
 
   const renderOwerAvatars = (participants: ExpenseParticipant[]) => {
     // Show people who owe money
-    const owers = participants.filter(p => p.role === 'ower');
+    const owers = participants.filter(p => p.ower_amount !== undefined && p.ower_amount > 0);
     
     if (owers.length === 0) {
       return (
@@ -374,57 +573,286 @@ export default function ExpenseBlock({
     return (
       <TouchableOpacity 
         key={expense.id} 
-        style={styles.expenseItem}
+        style={styles.expenseItemNew}
         onPress={() => {
           setSelectedExpense(expense);
+          // Initialize editing state with current expense data
+          setEditingExpenseDescription(expense.name);
+          setEditingExpenseAmount(expense.total_amount.toString());
+          setEditingSelectedPayers(new Set(expense.participants.filter(p => p.payer_amount !== undefined && p.payer_amount > 0).map(p => p.device_id)));
+          setEditingSelectedOwers(new Set(expense.participants.filter(p => p.ower_amount !== undefined && p.ower_amount > 0).map(p => p.device_id)));
+          
+          // Initialize ower percentages from stored data
+          const initialOwersPercentages: {[key: string]: number} = {};
+          const owersData = expense.participants.filter(p => p.ower_amount !== undefined && p.ower_amount > 0);
+          
+          owersData.forEach(participant => {
+            initialOwersPercentages[participant.device_id] = participant.ower_percentage || 0;
+          });
+          
+          setEditingOwersPercentages(initialOwersPercentages);
+          setEditingLockedPercentages(new Set());
+          
           setShowExpenseModal(true);
         }}
         activeOpacity={0.8}
       >
-        {/* Payers */}
-        <View style={styles.payersSection}>
-          {renderPayerAvatars(expense.participants)}
-        </View>
+        <View style={styles.expenseItemContainer}>
+          {/* Title Row */}
+          <View style={styles.titleRow}>
+            <Text style={styles.expenseName}>
+              {expense.name}
+            </Text>
+            {canDelete && (
+              <TouchableOpacity 
+                style={styles.deleteNewSection}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  deleteExpense(expense.id);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close" size={16} color="#ef4444" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* Owers */}
-        <View style={styles.owersSection}>
-          {renderOwerAvatars(expense.participants)}
-        </View>
+          {/* Content Row */}
+          <View style={styles.contentRow}>
+            {/* Left Side: Participants (Stacked Vertically) */}
+            <View style={styles.participantsColumn}>
+              {/* Payers Section with Payment Button for Payers */}
+              <View style={styles.participantsSection}>
+                {(() => {
+                  const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+                  const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+                  const isPayer = userAsPayer !== undefined;
+                  
+                  if (isPayer) {
+                    // User is a payer - show button aligned with "Paid by"
+                    const currentStatus = userAsPayer?.payment_status || 'pending';
+                    const isCompleted = currentStatus === 'completed';
+                    
+                    return (
+                      <View style={styles.owersWithButtonRow}>
+                        <View style={styles.owersLabelAndAvatars}>
+                          <Text style={styles.participantLabel}>Paid by:</Text>
+                          <View style={styles.participantAvatars}>
+                            {renderPayerAvatars(expense.participants)}
+                          </View>
+                        </View>
+                        
+                        <TouchableOpacity
+                          style={[
+                            styles.paymentStatusButton,
+                            isCompleted && styles.paymentStatusButtonCompleted
+                          ]}
+                          onPress={async () => {
+                            const newStatus = isCompleted ? 'pending' : 'completed';
+                            
+                            try {
+                              const updatedExpenses = expenseItems.map(exp => {
+                                if (exp.id === expense.id) {
+                                  return {
+                                    ...exp,
+                                    participants: exp.participants.map(p => {
+                                      if (p.device_id === currentDeviceId) {
+                                        return { ...p, payment_status: newStatus };
+                                      }
+                                      return p;
+                                    })
+                                  };
+                                }
+                                return exp;
+                              });
+                              setExpenseItems(updatedExpenses);
+                            } catch (error) {
+                              await loadExpenses();
+                              Alert.alert('Error', 'Failed to update payment status. Please try again.');
+                            }
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[
+                            styles.paymentStatusButtonText,
+                            isCompleted && styles.paymentStatusButtonTextCompleted
+                          ]}>
+                            {isCompleted ? "Haven't been paid" : "I've been paid"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  } else {
+                    // User is not a payer - show normal "Paid by" section
+                    return (
+                      <>
+                        <Text style={styles.participantLabel}>Paid by:</Text>
+                        <View style={styles.participantAvatars}>
+                          {renderPayerAvatars(expense.participants)}
+                        </View>
+                      </>
+                    );
+                  }
+                })()}
+              </View>
 
-        {/* Expense Description */}
-        <View style={styles.descriptionSection}>
-          <Text style={styles.description}>
-            {expense.name}
-          </Text>
-        </View>
+              {/* Owers Section with Payment Button for Owers */}
+              <View style={styles.participantsSection}>
+                {(() => {
+                  const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+                  const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+                  const isOwer = userAsOwer !== undefined;
+                  const isPayer = userAsPayer !== undefined;
+                  
+                  if (isOwer && !isPayer) {
+                    // User is an ower but not a payer - show button aligned with "Owes"
+                    const currentStatus = userAsOwer?.payment_status || 'pending';
+                    const isCompleted = currentStatus === 'completed';
+                    
+                    return (
+                      <View style={styles.owersWithButtonRow}>
+                        <View style={styles.owersLabelAndAvatars}>
+                          <Text style={styles.participantLabel}>Owes:</Text>
+                          <View style={styles.participantAvatars}>
+                            {renderOwerAvatars(expense.participants)}
+                          </View>
+                        </View>
+                        
+                        <TouchableOpacity
+                          style={[
+                            styles.paymentStatusButton,
+                            isCompleted && styles.paymentStatusButtonCompleted
+                          ]}
+                          onPress={async () => {
+                            const newStatus = isCompleted ? 'pending' : 'completed';
+                            
+                            try {
+                              const updatedExpenses = expenseItems.map(exp => {
+                                if (exp.id === expense.id) {
+                                  return {
+                                    ...exp,
+                                    participants: exp.participants.map(p => {
+                                      if (p.device_id === currentDeviceId) {
+                                        return { ...p, payment_status: newStatus };
+                                      }
+                                      return p;
+                                    })
+                                  };
+                                }
+                                return exp;
+                              });
+                              setExpenseItems(updatedExpenses);
+                            } catch (error) {
+                              await loadExpenses();
+                              Alert.alert('Error', 'Failed to update payment status. Please try again.');
+                            }
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[
+                            styles.paymentStatusButtonText,
+                            isCompleted && styles.paymentStatusButtonTextCompleted
+                          ]}>
+                            {isCompleted ? "Haven't paid" : "I've paid"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  } else {
+                    // User is not an ower (or is both payer and ower) - show normal "Owes" section
+                    return (
+                      <>
+                        <Text style={styles.participantLabel}>Owes:</Text>
+                        <View style={styles.participantAvatars}>
+                          {renderOwerAvatars(expense.participants)}
+                        </View>
+                      </>
+                    );
+                  }
+                })()}
+              </View>
+            </View>
 
-        {/* Total Amount */}
-        <View style={styles.amountSection}>
-          <Text style={styles.amount}>
-            ${(expense.total_amount || 0).toFixed(2)}
-          </Text>
-        </View>
+            {/* Right Side: Price and User Amount */}
+            <View style={styles.amountColumn}>
+              {/* Total Amount */}
+              <Text style={styles.totalAmount}>
+                ${(expense.total_amount || 0).toFixed(2)}
+              </Text>
 
-        {/* Added By */}
-        <View style={styles.addedBySection}>
-          <Text style={styles.addedByText}>
-            {addedByMember?.username || 'Unknown'}
-          </Text>
-        </View>
+              {/* User's Amount and Status */}
+              {(() => {
+                // Find user's role in this expense using new data structure
+                const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+                const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+                
+                if (!userAsOwer && !userAsPayer) {
+                  return (
+                    <View style={styles.userAmountContainer}>
+                      <Text style={styles.userStatusText}>Not involved</Text>
+                    </View>
+                  );
+                }
+                
+                let statusText = "";
+                let isOwing = false;
+                let userPercentage = 0;
+                
+                // Get stored amounts directly from the data
+                const userOwes = userAsOwer?.ower_amount || 0;
+                const userPaid = userAsPayer?.payer_amount || 0;
+                
+                // Calculate what user is owed based on what others owe (excluding what the user owes)
+                let userIsOwed = 0;
+                if (userAsPayer) {
+                  // If user paid, they are owed back what everyone else owes
+                  userIsOwed = expense.participants
+                    .filter(p => p.device_id !== currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0)
+                    .reduce((sum, p) => sum + (p.ower_amount || 0), 0);
+                }
+                
+                // Calculate net amount: what they're owed minus what they owe
+                const netAmount = userIsOwed - userOwes;
+                
+                if (Math.abs(netAmount) < 0.01) {
+                  // Close to zero, consider it even
+                  statusText = "Even";
+                  isOwing = false;
+                } else if (netAmount > 0) {
+                  // User is owed money
+                  statusText = `You are owed $${netAmount.toFixed(2)}`;
+                  isOwing = false;
+                } else {
+                  // User owes money
+                  statusText = `You owe $${Math.abs(netAmount).toFixed(2)}`;
+                  isOwing = true;
+                }
+                
+                // Get stored percentage if user owes money
+                if (userAsOwer && userAsOwer.ower_percentage) {
+                  userPercentage = userAsOwer.ower_percentage;
+                }
+                
+                return (
+                  <View style={styles.userAmountContainer}>
+                    <Text style={[
+                      styles.userStatusText,
+                      statusText === "Even" ? styles.userEvenText : (isOwing ? styles.userOwesText : styles.userOwedText)
+                    ]}>
+                      {statusText}
+                    </Text>
+                    {userPercentage > 0 && (
+                      <Text style={styles.userPercentageText}>
+                        {userPercentage}%
+                      </Text>
+                    )}
+                  </View>
+                );
+              })()}
+            </View>
+          </View>
 
-        {/* Delete Button */}
-        {canDelete && (
-          <TouchableOpacity 
-            style={styles.deleteSection}
-            onPress={(e) => {
-              e.stopPropagation();
-              deleteExpense(expense.id);
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={14} color="#ef4444" />
-          </TouchableOpacity>
-        )}
+        </View>
       </TouchableOpacity>
     );
   };
@@ -440,7 +868,10 @@ export default function ExpenseBlock({
           
           <TouchableOpacity 
             style={styles.expandButton}
-            onPress={() => {/* TODO: Navigate to full expense screen */}}
+            onPress={() => {
+              setSelectedExpense(null);
+              setShowExpenseModal(true);
+            }}
           >
             <Ionicons name="expand" size={16} color="#10b981" />
             <Text style={styles.expandButtonText}>View All</Text>
@@ -459,42 +890,18 @@ export default function ExpenseBlock({
               <Text style={styles.emptyStateSubtext}>Add an expense to get started</Text>
             </View>
           ) : (
-            <>
-              {/* Column Headers */}
-              <View style={styles.columnHeaders}>
-                <View style={styles.headerPayersSection}>
-                  <Text style={styles.columnHeaderText}>Payers</Text>
-                </View>
-                <View style={styles.headerOwersSection}>
-                  <Text style={styles.columnHeaderText}>Owers</Text>
-                </View>
-                <View style={styles.headerDescriptionSection}>
-                  <Text style={styles.columnHeaderText}>Name</Text>
-                </View>
-                <View style={styles.headerAmountSection}>
-                  <Text style={styles.columnHeaderText}>Amount</Text>
-                </View>
-                <View style={styles.headerAddedBySection}>
-                  <Text style={styles.columnHeaderText}>Added By</Text>
-                </View>
-                <View style={styles.headerDeleteSection}>
-                  {/* Empty for delete button column */}
-                </View>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {expenseItems.map(renderExpenseItem)}
-                
-                {/* Add Expense Button at bottom */}
-                <TouchableOpacity 
-                  style={styles.addExpenseButton}
-                  onPress={() => setShowAddExpenseModal(true)}
-                >
-                  <Ionicons name="add-circle-outline" size={20} color="#10b981" />
-                  <Text style={styles.addExpenseButtonText}>Add New Expense</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {expenseItems.map(renderExpenseItem)}
+              
+              {/* Add Expense Button at bottom */}
+              <TouchableOpacity 
+                style={styles.addExpenseButton}
+                onPress={() => setShowAddExpenseModal(true)}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#10b981" />
+                <Text style={styles.addExpenseButtonText}>Add New Expense</Text>
+              </TouchableOpacity>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -517,8 +924,14 @@ export default function ExpenseBlock({
         setOwersPercentages={setOwersPercentages}
         lockedPercentages={lockedPercentages}
         setLockedPercentages={setLockedPercentages}
+        payersPercentages={payersPercentages}
+        setPayersPercentages={setPayersPercentages}
+        lockedPayersPercentages={lockedPayersPercentages}
+        setLockedPayersPercentages={setLockedPayersPercentages}
         onUpdatePercentage={updatePercentage}
         onTogglePercentageLock={togglePercentageLock}
+        onUpdatePayerPercentage={updatePayerPercentage}
+        onTogglePayerPercentageLock={togglePayerPercentageLock}
         onToggleOwer={toggleOwer}
         onTogglePayer={togglePayer}
       />
@@ -536,48 +949,264 @@ export default function ExpenseBlock({
               <TouchableOpacity onPress={() => setShowExpenseModal(false)} style={styles.modalBackButton}>
                 <Ionicons name="chevron-back" size={24} color="#ffffff" />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Expense Details</Text>
+              <Text style={styles.modalTitle}>Edit Expense</Text>
               <View style={styles.modalHeaderSpacer} />
             </View>
 
             <ScrollView style={styles.modalContent}>
               <View style={styles.modalSection}>
-                <Text style={styles.inputLabel}>Name</Text>
-                <Text style={styles.expenseDetailText}>{selectedExpense.name}</Text>
+                <Text style={styles.inputLabel}>Expense Description</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="What was this expense for?"
+                  placeholderTextColor="#9ca3af"
+                  value={editingExpenseDescription}
+                  onChangeText={setEditingExpenseDescription}
+                />
               </View>
 
               <View style={styles.modalSection}>
-                <Text style={styles.inputLabel}>Total Amount</Text>
-                <Text style={styles.expenseDetailAmount}>${selectedExpense.total_amount.toFixed(2)}</Text>
+                <Text style={styles.inputLabel}>Total Amount ($)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="0.00"
+                  placeholderTextColor="#9ca3af"
+                  value={editingExpenseAmount}
+                  onChangeText={setEditingExpenseAmount}
+                  keyboardType="decimal-pad"
+                />
               </View>
 
               <View style={styles.modalSection}>
-                <Text style={styles.inputLabel}>Participants</Text>
-                {selectedExpense.participants.map((participant) => {
-                  const member = validMembers.find(m => m.device_id === participant.device_id);
-                  return (
-                    <View key={participant.device_id} style={styles.participantDetailRow}>
-                      <View style={styles.participantInfo}>
-                        <View style={[
-                          styles.avatar,
-                          participant.role === 'payer' ? styles.payerAvatar : styles.owerAvatar
-                        ]}>
-                          <Text style={styles.avatarText}>
-                            {member?.username?.[0]?.toUpperCase() || '?'}
-                          </Text>
-                        </View>
-                        <Text style={styles.participantName}>{member?.username || 'Unknown'}</Text>
-                      </View>
-                      <View style={styles.participantRole}>
-                        <Text style={styles.participantRoleText}>
-                          {participant.role === 'payer' ? 'Paid' : `Owes $${participant.individual_amount.toFixed(2)}`}
+                <Text style={styles.inputLabel}>Who Paid?</Text>
+                <View style={styles.memberList}>
+                  {validMembers.map(member => (
+                    <TouchableOpacity
+                      key={`edit-payer-${member.device_id}`}
+                      style={[
+                        styles.memberOption,
+                        editingSelectedPayers.has(member.device_id) && styles.memberOptionSelected
+                      ]}
+                      onPress={() => {
+                        const newSelected = new Set(editingSelectedPayers);
+                        if (newSelected.has(member.device_id)) {
+                          newSelected.delete(member.device_id);
+                        } else {
+                          const newOwers = new Set(editingSelectedOwers);
+                          newOwers.delete(member.device_id);
+                          setEditingSelectedOwers(newOwers);
+                          newSelected.add(member.device_id);
+                        }
+                        setEditingSelectedPayers(newSelected);
+                      }}
+                    >
+                      <View style={styles.memberAvatar}>
+                        <Text style={styles.memberAvatarText}>
+                          {member.username?.[0]?.toUpperCase() || '?'}
                         </Text>
                       </View>
+                      <Text style={[
+                        styles.memberName,
+                        editingSelectedPayers.has(member.device_id) && styles.memberNameSelected
+                      ]}>
+                        {member.username}
+                      </Text>
+                      {editingSelectedPayers.has(member.device_id) && (
+                        <Ionicons name="checkmark" size={20} color="#10b981" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.inputLabel}>Split Between</Text>
+                <View style={styles.memberList}>
+                  {validMembers.map(member => (
+                    <View key={`edit-ower-${member.device_id}`}>
+                      <TouchableOpacity
+                        style={[
+                          styles.memberOption,
+                          editingSelectedOwers.has(member.device_id) && styles.memberOptionSelected
+                        ]}
+                        onPress={() => {
+                          const newSelected = new Set(editingSelectedOwers);
+                          if (newSelected.has(member.device_id)) {
+                            // Removing user - redistribute their percentage
+                            newSelected.delete(member.device_id);
+                            const newPercentages = { ...editingOwersPercentages };
+                            const removedPercentage = newPercentages[member.device_id] || 0;
+                            delete newPercentages[member.device_id];
+                            
+                            // Remove from locked as well
+                            const newLocked = new Set(editingLockedPercentages);
+                            newLocked.delete(member.device_id);
+                            setEditingLockedPercentages(newLocked);
+                            
+                            // Redistribute the removed percentage among remaining unlocked users
+                            const remainingUsers = Array.from(newSelected);
+                            const unlockedUsers = remainingUsers.filter(id => !newLocked.has(id));
+                            
+                            if (unlockedUsers.length > 0 && removedPercentage > 0) {
+                              const redistributePerUser = Math.floor(removedPercentage / unlockedUsers.length);
+                              const remainder = removedPercentage % unlockedUsers.length;
+                              
+                              unlockedUsers.forEach((id, index) => {
+                                const additionalPercentage = redistributePerUser + (index < remainder ? 1 : 0);
+                                newPercentages[id] = (newPercentages[id] || 0) + additionalPercentage;
+                              });
+                            }
+                            
+                            setEditingOwersPercentages(newPercentages);
+                          } else {
+                            // Adding user
+                            const newPayers = new Set(editingSelectedPayers);
+                            newPayers.delete(member.device_id);
+                            setEditingSelectedPayers(newPayers);
+                            newSelected.add(member.device_id);
+                            
+                            // Calculate even split for all users
+                            const totalUsers = newSelected.size;
+                            const evenSplit = Math.floor(100 / totalUsers);
+                            const remainder = 100 % totalUsers;
+                            
+                            const newPercentages = { ...editingOwersPercentages };
+                            Array.from(newSelected).forEach((id, index) => {
+                              newPercentages[id] = evenSplit + (index < remainder ? 1 : 0);
+                            });
+                            setEditingOwersPercentages(newPercentages);
+                          }
+                          setEditingSelectedOwers(newSelected);
+                        }}
+                      >
+                        <View style={styles.memberAvatar}>
+                          <Text style={styles.memberAvatarText}>
+                            {member.username?.[0]?.toUpperCase() || '?'}
+                          </Text>
+                        </View>
+                        <Text style={[
+                          styles.memberName,
+                          editingSelectedOwers.has(member.device_id) && styles.memberNameSelected
+                        ]}>
+                          {member.username}
+                        </Text>
+                        {editingSelectedOwers.has(member.device_id) && (
+                          <View style={styles.percentageContainer}>
+                            <Text style={styles.dollarAmountText}>
+                              ${editingExpenseAmount && editingOwersPercentages[member.device_id] 
+                                ? ((parseFloat(editingExpenseAmount) * editingOwersPercentages[member.device_id]) / 100).toFixed(2)
+                                : '0.00'}
+                            </Text>
+                            <Text style={styles.percentageText}>
+                              {editingOwersPercentages[member.device_id] || 0}%
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                      
+                      {editingSelectedOwers.has(member.device_id) && (
+                        <View style={styles.sliderWithLockContainer}>
+                          <View style={styles.sliderOnlyContainer}>
+                            <Slider
+                              style={styles.slider}
+                              minimumValue={0}
+                              maximumValue={(() => {
+                                // Calculate max value based on locked percentages
+                                const allOwers = Array.from(editingSelectedOwers);
+                                const lockedTotal = allOwers
+                                  .filter(id => editingLockedPercentages.has(id))
+                                  .reduce((sum, id) => sum + (editingOwersPercentages[id] || 0), 0);
+                                const maxAvailable = 100 - lockedTotal;
+                                const currentValue = editingOwersPercentages[member.device_id] || 0;
+                                // Allow current value plus whatever is available
+                                return Math.min(100, maxAvailable + currentValue);
+                              })()}
+                              value={editingOwersPercentages[member.device_id] || 0}
+                              onValueChange={(value) => {
+                                const allOwers = Array.from(editingSelectedOwers);
+                                const unlockedCount = allOwers.filter(id => !editingLockedPercentages.has(id)).length;
+                                if (!editingLockedPercentages.has(member.device_id) && unlockedCount > 1) {
+                                  // Use the same logic as add expense
+                                  const newPercentages = { ...editingOwersPercentages };
+                                  const otherOwers = allOwers.filter(id => id !== member.device_id && !editingLockedPercentages.has(id));
+                                  
+                                  // Set the new percentage for this user
+                                  newPercentages[member.device_id] = Math.max(0, Math.min(100, Math.round(value)));
+                                  
+                                  // Calculate how much percentage is already locked
+                                  const lockedTotal = Array.from(editingLockedPercentages).reduce((sum, id) => {
+                                    return sum + (newPercentages[id] || 0);
+                                  }, 0);
+                                  
+                                  // Calculate remaining percentage to distribute (excluding locked and current user)
+                                  const remaining = 100 - newPercentages[member.device_id] - lockedTotal;
+                                  
+                                  if (otherOwers.length > 0 && remaining >= 0) {
+                                    // Distribute remaining percentage equally among unlocked others
+                                    const equalShare = Math.floor(remaining / otherOwers.length);
+                                    const remainder = remaining % otherOwers.length;
+                                    
+                                    otherOwers.forEach((id, index) => {
+                                      newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
+                                    });
+                                  }
+                                  
+                                  setEditingOwersPercentages(newPercentages);
+                                }
+                              }}
+                              disabled={editingLockedPercentages.has(member.device_id) || Array.from(editingSelectedOwers).filter(id => !editingLockedPercentages.has(id)).length === 1}
+                              minimumTrackTintColor={
+                                editingLockedPercentages.has(member.device_id) || Array.from(editingSelectedOwers).filter(id => !editingLockedPercentages.has(id)).length === 1 
+                                  ? "#6b7280" 
+                                  : "#10b981"
+                              }
+                              maximumTrackTintColor="#3a3a3a"
+                              thumbStyle={[
+                                styles.sliderThumbStyle,
+                                (editingLockedPercentages.has(member.device_id) || Array.from(editingSelectedOwers).filter(id => !editingLockedPercentages.has(id)).length === 1) && styles.sliderThumbLocked
+                              ]}
+                              trackStyle={styles.sliderTrackStyle}
+                            />
+                          </View>
+                          <View style={styles.lockButtonSquare}>
+                            <TouchableOpacity
+                              style={[
+                                styles.lockButton,
+                                editingLockedPercentages.has(member.device_id) && styles.lockButtonActive
+                              ]}
+                              onPress={() => {
+                                const newLocked = new Set(editingLockedPercentages);
+                                if (newLocked.has(member.device_id)) {
+                                  newLocked.delete(member.device_id);
+                                } else {
+                                  newLocked.add(member.device_id);
+                                }
+                                setEditingLockedPercentages(newLocked);
+                              }}
+                            >
+                              <Ionicons 
+                                name={editingLockedPercentages.has(member.device_id) ? "lock-closed" : "lock-open"} 
+                                size={16} 
+                                color={editingLockedPercentages.has(member.device_id) ? "#10b981" : "#9ca3af"} 
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
                     </View>
-                  );
-                })}
+                  ))}
+                </View>
               </View>
             </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowExpenseModal(false)}>
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveExpenseEdit}>
+                <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Modal>
       )}
@@ -603,8 +1232,14 @@ function AddExpenseModal({
   setOwersPercentages,
   lockedPercentages,
   setLockedPercentages,
+  payersPercentages,
+  setPayersPercentages,
+  lockedPayersPercentages,
+  setLockedPayersPercentages,
   onUpdatePercentage,
   onTogglePercentageLock,
+  onUpdatePayerPercentage,
+  onTogglePayerPercentageLock,
   onToggleOwer,
   onTogglePayer,
 }: {
@@ -624,8 +1259,14 @@ function AddExpenseModal({
   setOwersPercentages: (percentages: {[key: string]: number}) => void;
   lockedPercentages: Set<string>;
   setLockedPercentages: (locked: Set<string>) => void;
+  payersPercentages: {[key: string]: number};
+  setPayersPercentages: (percentages: {[key: string]: number}) => void;
+  lockedPayersPercentages: Set<string>;
+  setLockedPayersPercentages: (locked: Set<string>) => void;
   onUpdatePercentage: (deviceId: string, newPercentage: number) => void;
   onTogglePercentageLock: (deviceId: string) => void;
+  onUpdatePayerPercentage: (deviceId: string, newPercentage: number) => void;
+  onTogglePayerPercentageLock: (deviceId: string) => void;
   onToggleOwer: (deviceId: string) => void;
   onTogglePayer: (deviceId: string) => void;
 }) {
@@ -675,29 +1316,100 @@ function AddExpenseModal({
             <Text style={styles.inputLabel}>Who Paid?</Text>
             <View style={styles.memberList}>
               {members.map(member => (
-                <TouchableOpacity
-                  key={`payer-${member.device_id}`}
-                  style={[
-                    styles.memberOption,
-                    selectedPayers.has(member.device_id) && styles.memberOptionSelected
-                  ]}
-                  onPress={() => onTogglePayer(member.device_id)}
-                >
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberAvatarText}>
-                      {member.username?.[0]?.toUpperCase() || '?'}
+                <View key={`payer-${member.device_id}`}>
+                  <TouchableOpacity
+                    style={[
+                      styles.memberOption,
+                      selectedPayers.has(member.device_id) && styles.memberOptionSelected
+                    ]}
+                    onPress={() => onTogglePayer(member.device_id)}
+                  >
+                    <View style={styles.memberAvatar}>
+                      <Text style={styles.memberAvatarText}>
+                        {member.username?.[0]?.toUpperCase() || '?'}
+                      </Text>
+                    </View>
+                    <Text style={[
+                      styles.memberName,
+                      selectedPayers.has(member.device_id) && styles.memberNameSelected
+                    ]}>
+                      {member.username}
                     </Text>
-                  </View>
-                  <Text style={[
-                    styles.memberName,
-                    selectedPayers.has(member.device_id) && styles.memberNameSelected
-                  ]}>
-                    {member.username}
-                  </Text>
+                    {selectedPayers.has(member.device_id) && (
+                      <View style={styles.percentageContainer}>
+                        <Text style={styles.dollarAmountText}>
+                          ${((parseFloat(newExpenseAmount || '0') * (payersPercentages[member.device_id] || 0)) / 100).toFixed(2)}
+                        </Text>
+                        <Text style={styles.percentageText}>
+                          {payersPercentages[member.device_id] || 0}%
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  
                   {selectedPayers.has(member.device_id) && (
-                    <Ionicons name="checkmark" size={20} color="#10b981" />
+                    <View style={styles.sliderWithLockContainer}>
+                      <View style={styles.sliderOnlyContainer}>
+                        <Slider
+                          style={styles.slider}
+                          minimumValue={0}
+                          maximumValue={(() => {
+                            // Calculate max value based on locked percentages
+                            const allPayers = Array.from(selectedPayers);
+                            const lockedTotal = allPayers
+                              .filter(id => lockedPayersPercentages.has(id))
+                              .reduce((sum, id) => sum + (payersPercentages[id] || 0), 0);
+                            const maxAvailable = 100 - lockedTotal;
+                            const currentValue = payersPercentages[member.device_id] || 0;
+                            // Allow current value plus whatever is available
+                            return Math.min(100, maxAvailable + currentValue);
+                          })()}
+                          value={payersPercentages[member.device_id] || 0}
+                          onValueChange={(value) => {
+                            const allPayers = Array.from(selectedPayers);
+                            const unlockedCount = allPayers.filter(id => !lockedPayersPercentages.has(id)).length;
+                            if (!lockedPayersPercentages.has(member.device_id) && unlockedCount > 1) {
+                              // Calculate max allowed based on locked percentages
+                              const lockedTotal = allPayers
+                                .filter(id => lockedPayersPercentages.has(id))
+                                .reduce((sum, id) => sum + (payersPercentages[id] || 0), 0);
+                              const maxAvailable = 100 - lockedTotal;
+                              const constrainedValue = Math.min(Math.round(value), maxAvailable);
+                              onUpdatePayerPercentage(member.device_id, constrainedValue);
+                            }
+                          }}
+                          disabled={lockedPayersPercentages.has(member.device_id) || Array.from(selectedPayers).filter(id => !lockedPayersPercentages.has(id)).length === 1}
+                          minimumTrackTintColor={
+                            lockedPayersPercentages.has(member.device_id) || Array.from(selectedPayers).filter(id => !lockedPayersPercentages.has(id)).length === 1 
+                              ? "#6b7280" 
+                              : "#10b981"
+                          }
+                          maximumTrackTintColor="#3a3a3a"
+                          thumbStyle={[
+                            styles.sliderThumbStyle,
+                            (lockedPayersPercentages.has(member.device_id) || Array.from(selectedPayers).filter(id => !lockedPayersPercentages.has(id)).length === 1) && styles.sliderThumbLocked
+                          ]}
+                          trackStyle={styles.sliderTrackStyle}
+                        />
+                      </View>
+                      <View style={styles.lockButtonSquare}>
+                        <TouchableOpacity
+                          style={[
+                            styles.lockButton,
+                            lockedPayersPercentages.has(member.device_id) && styles.lockButtonActive
+                          ]}
+                          onPress={() => onTogglePayerPercentageLock(member.device_id)}
+                        >
+                          <Ionicons 
+                            name={lockedPayersPercentages.has(member.device_id) ? "lock-closed" : "lock-open"} 
+                            size={16} 
+                            color={lockedPayersPercentages.has(member.device_id) ? "#10b981" : "#9ca3af"} 
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   )}
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
           </View>
@@ -726,25 +1438,63 @@ function AddExpenseModal({
                       {member.username}
                     </Text>
                     {selectedOwers.has(member.device_id) && (
-                      <Text style={styles.percentageText}>
-                        {owersPercentages[member.device_id] || 0}%
-                      </Text>
+                      <View style={styles.percentageContainer}>
+                        <Text style={styles.dollarAmountText}>
+                          ${((parseFloat(newExpenseAmount || '0') * (owersPercentages[member.device_id] || 0)) / 100).toFixed(2)}
+                        </Text>
+                        <Text style={styles.percentageText}>
+                          {owersPercentages[member.device_id] || 0}%
+                        </Text>
+                      </View>
                     )}
                   </TouchableOpacity>
                   
                   {selectedOwers.has(member.device_id) && (
-                    <View style={styles.sliderFullWidthContainer}>
-                      <View style={styles.sliderInfoRow}>
-                        <View style={styles.sliderLabels}>
-                          <Text style={styles.sliderLabel}>
-                            {owersPercentages[member.device_id] || 0}% 
-                            {newExpenseAmount && (
-                              <Text style={styles.dollarAmount}>
-                                (${((parseFloat(newExpenseAmount) || 0) * (owersPercentages[member.device_id] || 0) / 100).toFixed(2)})
-                              </Text>
-                            )}
-                          </Text>
-                        </View>
+                    <View style={styles.sliderWithLockContainer}>
+                      <View style={styles.sliderOnlyContainer}>
+                        <Slider
+                          style={styles.slider}
+                          minimumValue={0}
+                          maximumValue={(() => {
+                            // Calculate max value based on locked percentages
+                            const allOwers = Array.from(selectedOwers);
+                            const lockedTotal = allOwers
+                              .filter(id => lockedPercentages.has(id))
+                              .reduce((sum, id) => sum + (owersPercentages[id] || 0), 0);
+                            const maxAvailable = 100 - lockedTotal;
+                            const currentValue = owersPercentages[member.device_id] || 0;
+                            // Allow current value plus whatever is available
+                            return Math.min(100, maxAvailable + currentValue);
+                          })()}
+                          value={owersPercentages[member.device_id] || 0}
+                          onValueChange={(value) => {
+                            const allOwers = Array.from(selectedOwers);
+                            const unlockedCount = allOwers.filter(id => !lockedPercentages.has(id)).length;
+                            if (!lockedPercentages.has(member.device_id) && unlockedCount > 1) {
+                              // Calculate max allowed based on locked percentages
+                              const lockedTotal = allOwers
+                                .filter(id => lockedPercentages.has(id))
+                                .reduce((sum, id) => sum + (owersPercentages[id] || 0), 0);
+                              const maxAvailable = 100 - lockedTotal;
+                              const constrainedValue = Math.min(Math.round(value), maxAvailable);
+                              onUpdatePercentage(member.device_id, constrainedValue);
+                            }
+                          }}
+                          disabled={lockedPercentages.has(member.device_id) || Array.from(selectedOwers).filter(id => !lockedPercentages.has(id)).length === 1}
+                          minimumTrackTintColor={
+                            lockedPercentages.has(member.device_id) || Array.from(selectedOwers).filter(id => !lockedPercentages.has(id)).length === 1 
+                              ? "#6b7280" 
+                              : "#10b981"
+                          }
+                          maximumTrackTintColor="#3a3a3a"
+                          thumbStyle={[
+                            styles.sliderThumbStyle,
+                            (lockedPercentages.has(member.device_id) || Array.from(selectedOwers).filter(id => !lockedPercentages.has(id)).length === 1) && styles.sliderThumbLocked
+                          ]}
+                          trackStyle={styles.sliderTrackStyle}
+                        />
+                      </View>
+                      <View style={styles.lockButtonSquare}>
                         <TouchableOpacity
                           style={[
                             styles.lockButton,
@@ -759,25 +1509,6 @@ function AddExpenseModal({
                           />
                         </TouchableOpacity>
                       </View>
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={0}
-                        maximumValue={100}
-                        value={owersPercentages[member.device_id] || 0}
-                        onValueChange={(value) => {
-                          if (!lockedPercentages.has(member.device_id)) {
-                            onUpdatePercentage(member.device_id, Math.round(value));
-                          }
-                        }}
-                        disabled={lockedPercentages.has(member.device_id)}
-                        minimumTrackTintColor={lockedPercentages.has(member.device_id) ? "#6b7280" : "#10b981"}
-                        maximumTrackTintColor="#3a3a3a"
-                        thumbStyle={[
-                          styles.sliderThumbStyle,
-                          lockedPercentages.has(member.device_id) && styles.sliderThumbLocked
-                        ]}
-                        trackStyle={styles.sliderTrackStyle}
-                      />
                     </View>
                   )}
                 </View>
@@ -1173,16 +1904,16 @@ const styles = StyleSheet.create({
   slider: {
     width: '100%',
     height: 20,
-    marginBottom: 8,
   },
   sliderThumbStyle: {
     backgroundColor: '#10b981',
     width: 16,
     height: 16,
+    borderRadius: 8,
   },
   sliderTrackStyle: {
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
   },
   calculatedAmountText: {
     fontSize: 11,
@@ -1233,6 +1964,77 @@ const styles = StyleSheet.create({
   },
   sliderThumbLocked: {
     backgroundColor: '#6b7280',
+  },
+  sliderInfo: {
+    marginBottom: 16,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sliderLabel: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  sliderPercentage: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  sliderContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sliderAmountText: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  sliderWithLock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  percentageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dollarAmountText: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  sliderWithLockContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 12,
+  },
+  sliderOnlyContainer: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockButtonSquare: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addExpenseButton: {
     flexDirection: 'row',
@@ -1298,5 +2100,202 @@ const styles = StyleSheet.create({
   participantRoleText: {
     fontSize: 12,
     color: '#9ca3af',
+  },
+  payerAvatar: {
+    backgroundColor: '#10b981',
+  },
+  owerAvatar: {
+    backgroundColor: '#ef4444',
+  },
+  createdByRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  createdByText: {
+    fontSize: 14,
+    color: '#ffffff',
+    marginLeft: 12,
+    flex: 1,
+  },
+  createdDateText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  youOweText: {
+    fontSize: 10,
+    color: '#ef4444',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  owesYouText: {
+    fontSize: 10,
+    color: '#10b981',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  splitDetailsContainer: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  splitDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  splitDetailLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  splitDetailValue: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  // New Expense Block Styles
+  expenseItemContainer: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    width: '100%',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  participantsColumn: {
+    flex: 1,
+    marginRight: 16,
+  },
+  owersWithButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  owersLabelAndAvatars: {
+    flex: 1,
+  },
+  paymentButtonColumn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  paymentStatusButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  paymentStatusButtonCompleted: {
+    backgroundColor: '#f59e0b',
+  },
+  paymentStatusButtonText: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  paymentStatusButtonTextCompleted: {
+    color: '#ffffff',
+  },
+  amountColumn: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 100,
+  },
+  bottomInfoRow: {
+    alignItems: 'center',
+  },
+  expenseName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  totalAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10b981',
+    textAlign: 'right',
+    marginBottom: 4,
+  },
+  userAmountContainer: {
+    alignItems: 'flex-end',
+  },
+  userAmountText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  userStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  userOwesText: {
+    color: '#ef4444',
+  },
+  userOwedText: {
+    color: '#10b981',
+  },
+  userEvenText: {
+    color: '#9ca3af',
+  },
+  userPercentageText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 2,
+  },
+  addedByNewSection: {
+    alignItems: 'flex-end',
+  },
+  addedByNewText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  deleteNewSection: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 16,
+  },
+  participantsSection: {
+    marginBottom: 8,
+  },
+  participantLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  participantAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expenseItemNew: {
+    width: '100%',
+    marginBottom: 0,
   },
 });
