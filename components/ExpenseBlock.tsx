@@ -151,6 +151,13 @@ export default function ExpenseBlock({
       const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
       
       console.log('Raw API response:', JSON.stringify(apiExpenses, null, 2));
+      console.log('API response structure check - first expense:', {
+        hasParticipants: apiExpenses[0]?.participants ? 'YES' : 'NO',
+        participantsCount: apiExpenses[0]?.participants?.length || 0,
+        sampleParticipant: apiExpenses[0]?.participants?.[0],
+        hasPayersPercentages: apiExpenses[0]?.payers_percentages ? 'YES' : 'NO',
+        hasOwersPercentages: apiExpenses[0]?.owers_percentages ? 'YES' : 'NO'
+      });
       
       // Transform API data to match our interface
       const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => {
@@ -164,56 +171,95 @@ export default function ExpenseBlock({
         // Create participants array from API data
         const participants: ExpenseParticipant[] = [];
         
-        // Add payers with their contribution amounts and percentages
-        if (expense.payers && Array.isArray(expense.payers)) {
-          expense.payers.forEach((payerDeviceId: string) => {
-            // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
-            const localData = localPercentageData[expense.id];
-            const payerPercentage = expense.payers_percentages?.[payerDeviceId] 
-              || localData?.payersPercentages?.[payerDeviceId] 
-              || (100 / expense.payers.length);
-            const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
+        // Check if API returns participant records with percentage data
+        if (expense.participants && Array.isArray(expense.participants)) {
+          console.log('Processing expense participants from API:', expense.participants);
+          
+          expense.participants.forEach((participant: any) => {
+            const participantData: ExpenseParticipant = {
+              device_id: participant.member_device_id,
+              payment_status: participant.payment_status || 'pending'
+            };
             
-            console.log(`Payer ${payerDeviceId}:`, {
-              percentage: payerPercentage,
-              amount: payerAmount,
-              hasPercentageData: !!expense.payers_percentages?.[payerDeviceId],
-              hasLocalData: !!localData?.payersPercentages?.[payerDeviceId]
+            // Add payer data if this participant is a payer
+            if (participant.role === 'payer' || participant.payer_percentage || participant.payer_amount) {
+              participantData.payer_percentage = participant.payer_percentage || (100 / expense.payers?.length || 1);
+              participantData.payer_amount = parseFloat(participant.payer_amount) || parseFloat(participant.individual_amount) || 0;
+            }
+            
+            // Add ower data if this participant is an ower  
+            if (participant.role === 'ower' || participant.ower_percentage || participant.ower_amount) {
+              participantData.ower_percentage = participant.ower_percentage || (100 / expense.owers?.length || 1);
+              participantData.ower_amount = parseFloat(participant.ower_amount) || parseFloat(participant.individual_amount) || 0;
+            }
+            
+            console.log(`Participant ${participant.member_device_id} (${participant.role}):`, {
+              payer_percentage: participantData.payer_percentage,
+              payer_amount: participantData.payer_amount,
+              ower_percentage: participantData.ower_percentage,
+              ower_amount: participantData.ower_amount,
+              hasPayerData: !!(participantData.payer_percentage || participantData.payer_amount),
+              hasOwerData: !!(participantData.ower_percentage || participantData.ower_amount)
             });
             
-            participants.push({
-              device_id: payerDeviceId,
-              payer_percentage: payerPercentage,
-              payer_amount: payerAmount,
-              payment_status: expense.payment_status?.[payerDeviceId] || 'pending'
-            });
+            participants.push(participantData);
           });
+        } else {
+          // Fallback to old processing method if no participant records
+          console.log('No participant records found, using fallback processing...');
+          
+          // Add payers with their contribution amounts and percentages
+          if (expense.payers && Array.isArray(expense.payers)) {
+            expense.payers.forEach((payerDeviceId: string) => {
+              // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
+              const localData = localPercentageData[expense.id];
+              const payerPercentage = expense.payers_percentages?.[payerDeviceId] 
+                || localData?.payersPercentages?.[payerDeviceId] 
+                || (100 / expense.payers.length);
+              const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
+              
+              console.log(`Payer ${payerDeviceId}:`, {
+                percentage: payerPercentage,
+                amount: payerAmount,
+                hasPercentageData: !!expense.payers_percentages?.[payerDeviceId],
+                hasLocalData: !!localData?.payersPercentages?.[payerDeviceId]
+              });
+              
+              participants.push({
+                device_id: payerDeviceId,
+                payer_percentage: payerPercentage,
+                payer_amount: payerAmount,
+                payment_status: expense.payment_status?.[payerDeviceId] || 'pending'
+              });
+            });
+          }
         }
-        
-        // Add owers with their share amounts and percentages
-        if (expense.owers && Array.isArray(expense.owers)) {
-          expense.owers.forEach((owerDeviceId: string) => {
-            // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
-            const localData = localPercentageData[expense.id];
-            const owerPercentage = expense.owers_percentages?.[owerDeviceId] 
-              || localData?.owersPercentages?.[owerDeviceId] 
-              || (100 / expense.owers.length);
-            const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
-            
-            console.log(`Ower ${owerDeviceId}:`, {
-              percentage: owerPercentage,
-              amount: owerAmount,
-              hasPercentageData: !!expense.owers_percentages?.[owerDeviceId],
-              hasLocalData: !!localData?.owersPercentages?.[owerDeviceId]
+          
+          // Add owers with their share amounts and percentages (fallback method)
+          if (expense.owers && Array.isArray(expense.owers)) {
+            expense.owers.forEach((owerDeviceId: string) => {
+              // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
+              const localData = localPercentageData[expense.id];
+              const owerPercentage = expense.owers_percentages?.[owerDeviceId] 
+                || localData?.owersPercentages?.[owerDeviceId] 
+                || (100 / expense.owers.length);
+              const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
+              
+              console.log(`Ower ${owerDeviceId}:`, {
+                percentage: owerPercentage,
+                amount: owerAmount,
+                hasPercentageData: !!expense.owers_percentages?.[owerDeviceId],
+                hasLocalData: !!localData?.owersPercentages?.[owerDeviceId]
+              });
+              
+              participants.push({
+                device_id: owerDeviceId,
+                ower_percentage: owerPercentage,
+                ower_amount: owerAmount,
+                payment_status: expense.payment_status?.[owerDeviceId] || 'pending'
+              });
             });
-            
-            participants.push({
-              device_id: owerDeviceId,
-              ower_percentage: owerPercentage,
-              ower_amount: owerAmount,
-              payment_status: expense.payment_status?.[owerDeviceId] || 'pending'
-            });
-          });
+          }
         }
         
         return {
