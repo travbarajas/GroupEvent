@@ -123,14 +123,16 @@ export default function EventDetailScreen() {
 
   const fetchAttendance = async () => {
     try {
-      // TODO: Implement actual API call for attendance
+      if (!groupId || !id) return;
+      const attendanceData = await ApiService.getEventAttendance(groupId as string, id as string);
+      setAttendance(attendanceData);
+    } catch (error) {
+      // Failed to fetch attendance, keep empty state
       setAttendance({
         going: [],
         maybe: [],
         not_going: []
       });
-    } catch (error) {
-      // Failed to fetch attendance
     }
   };
 
@@ -242,33 +244,110 @@ export default function EventDetailScreen() {
     outputRange: [120 + insets.top, 220 + insets.top],
   });
 
-  const AttendanceBox = ({ title, users, color }: { title: string; users: string[]; color: string }) => (
-    <View style={styles.attendanceBox}>
-      <View style={[styles.attendanceBoxHeader, { backgroundColor: color }]}>
-        <Text style={styles.attendanceBoxTitle}>
-          {title}
-        </Text>
-        <Text style={styles.attendanceBoxCount}>
-          {users.length}
-        </Text>
-      </View>
-      <View style={styles.attendanceBoxContent}>
-        {users.slice(0, 3).map((user, index) => (
-          <Text key={index} style={styles.attendanceBoxUser}>
-            {user}
+  const handleAttendanceChange = async (status: 'going' | 'maybe' | 'not_going') => {
+    if (!groupId || !id || !currentDeviceId) return;
+    
+    try {
+      // Optimistic update - remove user from all attendance lists first
+      const updatedAttendance = {
+        going: attendance.going.filter(deviceId => deviceId !== currentDeviceId),
+        maybe: attendance.maybe.filter(deviceId => deviceId !== currentDeviceId),
+        not_going: attendance.not_going.filter(deviceId => deviceId !== currentDeviceId)
+      };
+      
+      // Add user to the selected status (toggle behavior - if already in that status, remove them)
+      const isAlreadyInStatus = attendance[status].includes(currentDeviceId);
+      if (!isAlreadyInStatus) {
+        updatedAttendance[status].push(currentDeviceId);
+      }
+      
+      // Update UI immediately
+      setAttendance(updatedAttendance);
+      
+      // Send to API (only if not removing - if removing, send empty/null status)
+      if (!isAlreadyInStatus) {
+        await ApiService.updateEventAttendance(groupId as string, id as string, status);
+      } else {
+        // If removing attendance, we might need a different API call or just not send anything
+        // For now, let's refetch to get the correct state
+        await fetchAttendance();
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      await fetchAttendance();
+      Alert.alert('Error', 'Failed to update attendance. Please try again.');
+    }
+  };
+  
+  const getUserDisplayName = (deviceId: string) => {
+    const member = members.find(m => m.device_id === deviceId);
+    return member?.username || 'Unknown User';
+  };
+  
+  const isUserInAttendance = (status: 'going' | 'maybe' | 'not_going') => {
+    return attendance[status].includes(currentDeviceId);
+  };
+
+  const AttendanceBox = ({ 
+    title, 
+    users, 
+    color, 
+    status 
+  }: { 
+    title: string; 
+    users: string[]; 
+    color: string;
+    status: 'going' | 'maybe' | 'not_going';
+  }) => {
+    const isSelected = isUserInAttendance(status);
+    
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.attendanceBox,
+          isSelected && styles.attendanceBoxSelected
+        ]}
+        onPress={() => handleAttendanceChange(status)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.attendanceBoxHeader, { backgroundColor: color }]}>
+          <Text style={styles.attendanceBoxTitle}>
+            {title}
           </Text>
-        ))}
-        {users.length > 3 && (
-          <Text style={styles.attendanceBoxMore}>
-            +{users.length - 3} more
+          <Text style={styles.attendanceBoxCount}>
+            {users.length}
           </Text>
-        )}
-        {users.length === 0 && (
-          <Text style={styles.attendanceBoxEmpty}>None</Text>
-        )}
-      </View>
-    </View>
-  );
+        </View>
+        <View style={styles.attendanceBoxContent}>
+          {users.slice(0, 3).map((deviceId, index) => (
+            <View key={deviceId} style={styles.attendanceUserRow}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>
+                  {getUserDisplayName(deviceId)[0]?.toUpperCase() || '?'}
+                </Text>
+              </View>
+              <Text style={styles.attendanceBoxUser}>
+                {getUserDisplayName(deviceId)}
+              </Text>
+              {deviceId === currentDeviceId && (
+                <View style={styles.currentUserIndicator}>
+                  <Text style={styles.currentUserText}>You</Text>
+                </View>
+              )}
+            </View>
+          ))}
+          {users.length > 3 && (
+            <Text style={styles.attendanceBoxMore}>
+              +{users.length - 3} more
+            </Text>
+          )}
+          {users.length === 0 && (
+            <Text style={styles.attendanceBoxEmpty}>Tap to join</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
 
   // Calculate totals only for non-completed expenses
@@ -452,18 +531,21 @@ export default function EventDetailScreen() {
               title="Going" 
               users={attendance.going} 
               color="#10b981" 
+              status="going"
             />
             
             <AttendanceBox 
               title="Maybe" 
               users={attendance.maybe} 
               color="#f59e0b" 
+              status="maybe"
             />
             
             <AttendanceBox 
               title="Not Going" 
               users={attendance.not_going} 
               color="#ef4444" 
+              status="not_going"
             />
           </View>
         </View>
@@ -648,6 +730,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
+  attendanceBoxSelected: {
+    borderColor: '#10b981',
+    borderWidth: 2,
+  },
   attendanceBoxHeader: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -667,12 +753,12 @@ const styles = StyleSheet.create({
   },
   attendanceBoxContent: {
     padding: 12,
-    minHeight: 60,
+    minHeight: 80,
   },
   attendanceBoxUser: {
     fontSize: 12,
     color: '#e5e7eb',
-    marginBottom: 4,
+    flex: 1,
   },
   attendanceBoxMore: {
     fontSize: 11,
@@ -684,6 +770,37 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  attendanceUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  userAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userAvatarText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  currentUserIndicator: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 'auto',
+  },
+  currentUserText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   fullWidthContainer: {
     paddingHorizontal: 20,

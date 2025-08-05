@@ -480,6 +480,27 @@ export class ApiService {
     });
   }
 
+  // Attendance endpoints
+  static async getEventAttendance(groupId: string, eventId: string): Promise<{
+    going: string[];
+    maybe: string[];
+    not_going: string[];
+  }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events/${eventId}/attendance?device_id=${device_id}`);
+  }
+
+  static async updateEventAttendance(groupId: string, eventId: string, status: 'going' | 'maybe' | 'not_going'): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events/${eventId}/attendance`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        status
+      })
+    });
+  }
+
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');
