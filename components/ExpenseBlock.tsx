@@ -57,6 +57,9 @@ export default function ExpenseBlock({
   const [selectedPayers, setSelectedPayers] = useState<Set<string>>(new Set());
   const [selectedOwers, setSelectedOwers] = useState<Set<string>>(new Set());
   const [owersPercentages, setOwersPercentages] = useState<{[key: string]: number}>({});
+  const [lockedPercentages, setLockedPercentages] = useState<Set<string>>(new Set());
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseItem | null>(null);
 
   const validMembers = members.filter(member => member.has_username && member.username);
 
@@ -285,9 +288,14 @@ export default function ExpenseBlock({
     const canDelete = expense.addedBy === currentDeviceId;
 
     return (
-      <View 
+      <TouchableOpacity 
         key={expense.id} 
         style={styles.expenseItem}
+        onPress={() => {
+          setSelectedExpense(expense);
+          setShowExpenseModal(true);
+        }}
+        activeOpacity={0.8}
       >
         {/* Payers */}
         <View style={styles.payersSection}>
@@ -300,15 +308,11 @@ export default function ExpenseBlock({
         </View>
 
         {/* Expense Description */}
-        <TouchableOpacity 
-          style={styles.descriptionSection}
-          onPress={() => toggleMyParticipation(expense.id)}
-          activeOpacity={0.8}
-        >
+        <View style={styles.descriptionSection}>
           <Text style={styles.description}>
             {expense.name}
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Total Amount */}
         <View style={styles.amountSection}>
@@ -347,18 +351,8 @@ export default function ExpenseBlock({
             <Text style={styles.title}>Group Expenses</Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setShowAddExpenseModal(true)}
-          >
-            <Ionicons name="add" size={16} color="#10b981" />
-            <Text style={styles.addButtonText}>Add Expense</Text>
-          </TouchableOpacity>
         </View>
 
-        {expenseItems.length > 0 && (
-          <View style={styles.separator} />
-        )}
 
         <View style={styles.expenseContent}>
           {expenseItems.length === 0 ? (
@@ -393,6 +387,15 @@ export default function ExpenseBlock({
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 {expenseItems.map(renderExpenseItem)}
+                
+                {/* Add Expense Button at bottom */}
+                <TouchableOpacity 
+                  style={styles.addExpenseButton}
+                  onPress={() => setShowAddExpenseModal(true)}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color="#10b981" />
+                  <Text style={styles.addExpenseButtonText}>Add New Expense</Text>
+                </TouchableOpacity>
               </ScrollView>
             </>
           )}
@@ -416,6 +419,65 @@ export default function ExpenseBlock({
         owersPercentages={owersPercentages}
         setOwersPercentages={setOwersPercentages}
       />
+
+      {/* Expense Detail Modal */}
+      {selectedExpense && (
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={showExpenseModal}
+          onRequestClose={() => setShowExpenseModal(false)}
+        >
+          <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowExpenseModal(false)} style={styles.modalBackButton}>
+                <Ionicons name="chevron-back" size={24} color="#ffffff" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Expense Details</Text>
+              <View style={styles.modalHeaderSpacer} />
+            </View>
+
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.modalSection}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <Text style={styles.expenseDetailText}>{selectedExpense.name}</Text>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.inputLabel}>Total Amount</Text>
+                <Text style={styles.expenseDetailAmount}>${selectedExpense.total_amount.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.inputLabel}>Participants</Text>
+                {selectedExpense.participants.map((participant) => {
+                  const member = validMembers.find(m => m.device_id === participant.device_id);
+                  return (
+                    <View key={participant.device_id} style={styles.participantDetailRow}>
+                      <View style={styles.participantInfo}>
+                        <View style={[
+                          styles.avatar,
+                          participant.role === 'payer' ? styles.payerAvatar : styles.owerAvatar
+                        ]}>
+                          <Text style={styles.avatarText}>
+                            {member?.username?.[0]?.toUpperCase() || '?'}
+                          </Text>
+                        </View>
+                        <Text style={styles.participantName}>{member?.username || 'Unknown'}</Text>
+                      </View>
+                      <View style={styles.participantRole}>
+                        <Text style={styles.participantRoleText}>
+                          {participant.role === 'payer' ? 'Paid' : `Owes $${participant.individual_amount.toFixed(2)}`}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -456,16 +518,21 @@ function AddExpenseModal({
 
   const updatePercentage = (deviceId: string, newPercentage: number) => {
     const newPercentages = { ...owersPercentages };
-    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId);
+    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId && !lockedPercentages.has(id));
     
     // Set the new percentage for this user
     newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
     
-    // Calculate remaining percentage to distribute
-    const remaining = 100 - newPercentages[deviceId];
+    // Calculate how much percentage is already locked
+    const lockedTotal = Array.from(lockedPercentages).reduce((sum, id) => {
+      return sum + (newPercentages[id] || 0);
+    }, 0);
     
-    if (otherOwers.length > 0) {
-      // Distribute remaining percentage equally among others
+    // Calculate remaining percentage to distribute (excluding locked and current user)
+    const remaining = 100 - newPercentages[deviceId] - lockedTotal;
+    
+    if (otherOwers.length > 0 && remaining >= 0) {
+      // Distribute remaining percentage equally among unlocked others
       const equalShare = Math.floor(remaining / otherOwers.length);
       const remainder = remaining % otherOwers.length;
       
@@ -475,6 +542,16 @@ function AddExpenseModal({
     }
     
     setOwersPercentages(newPercentages);
+  };
+
+  const togglePercentageLock = (deviceId: string) => {
+    const newLocked = new Set(lockedPercentages);
+    if (newLocked.has(deviceId)) {
+      newLocked.delete(deviceId);
+    } else {
+      newLocked.add(deviceId);
+    }
+    setLockedPercentages(newLocked);
   };
 
   const togglePayer = (deviceId: string) => {
@@ -620,27 +697,51 @@ function AddExpenseModal({
                   </TouchableOpacity>
                   
                   {selectedOwers.has(member.device_id) && (
-                    <View style={styles.sliderContainer}>
-                      <View style={styles.sliderRow}>
-                        <Text style={styles.sliderLabel}>Percentage:</Text>
-                        <Text style={styles.sliderValue}>{owersPercentages[member.device_id] || 0}%</Text>
+                    <View style={styles.sliderFullWidthContainer}>
+                      <View style={styles.sliderInfoRow}>
+                        <View style={styles.sliderLabels}>
+                          <Text style={styles.sliderLabel}>
+                            {owersPercentages[member.device_id] || 0}% 
+                            {newExpenseAmount && (
+                              <Text style={styles.dollarAmount}>
+                                (${((parseFloat(newExpenseAmount) || 0) * (owersPercentages[member.device_id] || 0) / 100).toFixed(2)})
+                              </Text>
+                            )}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.lockButton,
+                            lockedPercentages.has(member.device_id) && styles.lockButtonActive
+                          ]}
+                          onPress={() => togglePercentageLock(member.device_id)}
+                        >
+                          <Ionicons 
+                            name={lockedPercentages.has(member.device_id) ? "lock-closed" : "lock-open"} 
+                            size={16} 
+                            color={lockedPercentages.has(member.device_id) ? "#10b981" : "#9ca3af"} 
+                          />
+                        </TouchableOpacity>
                       </View>
                       <Slider
                         style={styles.slider}
                         minimumValue={0}
                         maximumValue={100}
                         value={owersPercentages[member.device_id] || 0}
-                        onValueChange={(value) => updatePercentage(member.device_id, Math.round(value))}
-                        minimumTrackTintColor="#10b981"
+                        onValueChange={(value) => {
+                          if (!lockedPercentages.has(member.device_id)) {
+                            updatePercentage(member.device_id, Math.round(value));
+                          }
+                        }}
+                        disabled={lockedPercentages.has(member.device_id)}
+                        minimumTrackTintColor={lockedPercentages.has(member.device_id) ? "#6b7280" : "#10b981"}
                         maximumTrackTintColor="#3a3a3a"
-                        thumbStyle={styles.sliderThumbStyle}
+                        thumbStyle={[
+                          styles.sliderThumbStyle,
+                          lockedPercentages.has(member.device_id) && styles.sliderThumbLocked
+                        ]}
                         trackStyle={styles.sliderTrackStyle}
                       />
-                      {newExpenseAmount && (
-                        <Text style={styles.calculatedAmountText}>
-                          Amount: ${((parseFloat(newExpenseAmount) || 0) * (owersPercentages[member.device_id] || 0) / 100).toFixed(2)}
-                        </Text>
-                      )}
                     </View>
                   )}
                 </View>
@@ -752,6 +853,7 @@ const styles = StyleSheet.create({
   headerOwersSection: {
     width: 60,
     alignItems: 'center',
+    marginLeft: 8,
   },
   headerDescriptionSection: {
     flex: 1,
@@ -783,6 +885,7 @@ const styles = StyleSheet.create({
   },
   owersSection: {
     width: 60,
+    marginLeft: 8,
   },
   avatarContainer: {
     flexDirection: 'row',
@@ -987,30 +1090,33 @@ const styles = StyleSheet.create({
     minWidth: 40,
     textAlign: 'right',
   },
-  sliderContainer: {
+  sliderFullWidthContainer: {
     marginTop: 8,
-    marginLeft: 44,
-    marginRight: 12,
+    marginHorizontal: 16,
     padding: 12,
     backgroundColor: '#1a1a1a',
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
-  sliderRow: {
+  sliderInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  sliderLabel: {
-    fontSize: 12,
-    color: '#9ca3af',
+  sliderLabels: {
+    flex: 1,
   },
-  sliderValue: {
-    fontSize: 12,
+  sliderLabel: {
+    fontSize: 14,
     color: '#10b981',
     fontWeight: '600',
+  },
+  dollarAmount: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '400',
   },
   slider: {
     width: '100%',
@@ -1061,5 +1167,84 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  lockButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  lockButtonActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: '#10b981',
+  },
+  sliderThumbLocked: {
+    backgroundColor: '#6b7280',
+  },
+  addExpenseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    borderStyle: 'dashed',
+  },
+  addExpenseButtonText: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  expenseDetailText: {
+    fontSize: 16,
+    color: '#ffffff',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  expenseDetailAmount: {
+    fontSize: 20,
+    color: '#10b981',
+    fontWeight: '600',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  participantDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  participantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  participantName: {
+    fontSize: 14,
+    color: '#ffffff',
+    marginLeft: 12,
+  },
+  participantRole: {
+    alignItems: 'flex-end',
+  },
+  participantRoleText: {
+    fontSize: 12,
+    color: '#9ca3af',
   },
 });
