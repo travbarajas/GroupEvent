@@ -403,54 +403,58 @@ export default function GroupExpenseIndicator({
         {/* Separator line between expense button and content */}
         <View style={styles.expensePreviewSeparator} />
         
-        <View style={styles.expenseFullWidthContent}>
-          {/* Left Column - Total and Count */}
-          <View style={styles.expenseLeftColumn}>
-            <Text style={styles.totalAmount} numberOfLines={1}>${Math.round(expenseData.totalAmount)}</Text>
-            <Text style={styles.expenseCount}>{expenseData.eventCount} expense{expenseData.eventCount === 1 ? '' : 's'}</Text>
-          </View>
-          
-          {/* Middle Column - Expense List Preview */}
-          <View style={styles.expenseMiddleColumn}>
-            {expenses.length > 0 ? (
-              <View style={styles.expenseList}>
-                {expenses.slice(0, 3).map(expense => (
-                  <View key={expense.id} style={styles.expenseItem}>
-                    <Text style={styles.expenseItemName} numberOfLines={1}>
-                      {expense.description}
-                    </Text>
-                    <Text style={styles.expenseItemAmount}>
-                      ${expense.totalAmount.toFixed(2)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.noExpensesText}>No expenses yet</Text>
-            )}
-          </View>
-          
-          {/* Right Column - User Balance */}
-          <View style={styles.expenseRightColumn}>
-            {(expenseData.userOwes > 0 || expenseData.userOwed > 0) && (
-              <View style={styles.userBalanceCompact}>
-                {expenseData.userOwed > 0 ? (
-                  <>
-                    <Text style={styles.userBalanceLabelCompact}>You are owed</Text>
-                    <Text style={styles.userOwedAmountCompact}>${expenseData.userOwed.toFixed(2)}</Text>
-                  </>
-                ) : expenseData.userOwes > 0 ? (
-                  <>
-                    <Text style={styles.userBalanceLabelCompact}>You owe</Text>
-                    <Text style={styles.userOwesAmountCompact}>${expenseData.userOwes.toFixed(2)}</Text>
-                  </>
-                ) : (
-                  <Text style={styles.userEvenTextCompact}>
-                    All settled up
-                  </Text>
-                )}
-              </View>
-            )}
+        <View style={styles.expenseContent}>
+          {/* Full Width Layout - Three Columns */}
+          <View style={styles.expenseRow}>
+            {/* Left - Total and Count */}
+            <View style={styles.expenseLeftSection}>
+              <Text style={styles.totalAmount} numberOfLines={1}>${Math.round(expenseData.totalAmount)}</Text>
+              <Text style={styles.expenseCount}>{expenseData.eventCount} expense{expenseData.eventCount === 1 ? '' : 's'}</Text>
+            </View>
+            
+            {/* Middle - Recent Expenses */}
+            <View style={styles.expenseMiddleSection}>
+              {expenses.length > 0 ? (
+                <View style={styles.expenseList}>
+                  <Text style={styles.recentExpensesLabel}>Recent expenses</Text>
+                  {expenses.slice(0, 2).map(expense => (
+                    <View key={expense.id} style={styles.expenseItem}>
+                      <Text style={styles.expenseItemName} numberOfLines={1}>
+                        {expense.description}
+                      </Text>
+                      <Text style={styles.expenseItemAmount}>
+                        ${expense.totalAmount.toFixed(2)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.noExpensesText}>No expenses yet</Text>
+              )}
+            </View>
+            
+            {/* Right - User Balance */}
+            <View style={styles.expenseRightSection}>
+              {(expenseData.userOwes > 0 || expenseData.userOwed > 0) ? (
+                <View style={styles.userBalanceSection}>
+                  {expenseData.userOwed > 0 ? (
+                    <>
+                      <Text style={styles.userBalanceLabel}>You are owed</Text>
+                      <Text style={styles.userOwedAmount}>${expenseData.userOwed.toFixed(2)}</Text>
+                    </>
+                  ) : expenseData.userOwes > 0 ? (
+                    <>
+                      <Text style={styles.userBalanceLabel}>You owe</Text>
+                      <Text style={styles.userOwesAmount}>${expenseData.userOwes.toFixed(2)}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.userEvenText}>All settled up</Text>
+                  )}
+                </View>
+              ) : (
+                <Text style={styles.allSettledText}>All settled up</Text>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -1184,22 +1188,42 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 16,
   },
-  expenseFullWidthContent: {
-    flexDirection: 'row',
-    gap: 16,
-    alignItems: 'flex-start',
+  expenseContent: {
+    flex: 1,
   },
-  expenseLeftColumn: {
+  expenseRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    flex: 1,
+  },
+  expenseLeftSection: {
     flex: 0.25,
     alignItems: 'flex-start',
   },
-  expenseMiddleColumn: {
+  expenseMiddleSection: {
     flex: 0.5,
+    alignItems: 'center',
   },
-  expenseRightColumn: {
+  expenseRightSection: {
     flex: 0.25,
     alignItems: 'flex-end',
-    gap: 8,
+  },
+  userBalanceSection: {
+    alignItems: 'flex-end',
+  },
+  recentExpensesLabel: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  allSettledText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '500',
+    textAlign: 'right',
   },
   expenseList: {
     gap: 6,
@@ -1227,20 +1251,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  userBalanceCompact: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 6,
-    minHeight: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userBalanceLabelCompact: {
+  userBalanceLabel: {
     fontSize: 10,
     color: '#9ca3af',
     fontWeight: '500',
-    textAlign: 'center',
+    textAlign: 'right',
     marginBottom: 2,
   },
   userOwedAmountCompact: {
@@ -1260,5 +1275,23 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontWeight: '500',
     textAlign: 'center',
+  },
+  userOwedAmount: {
+    fontSize: 13,
+    color: '#10b981',
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  userOwesAmount: {
+    fontSize: 13,
+    color: '#f59e0b',
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  userEvenText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '500',
+    textAlign: 'right',
   },
 });

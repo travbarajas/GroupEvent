@@ -403,9 +403,33 @@ export default function ChecklistBlock({
               <Text style={styles.emptyStateSubtext}>Generate a checklist to get started</Text>
             </View>
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {checklistItems.map(renderChecklistItem)}
-            </ScrollView>
+            <>
+              {/* Column Headers */}
+              <View style={styles.columnHeaders}>
+                <View style={styles.headerAvatarSection}>
+                  <Text style={styles.columnHeaderText}>Assigned</Text>
+                </View>
+                <View style={styles.headerCheckboxSection}>
+                  <Text style={styles.columnHeaderText}>Done</Text>
+                </View>
+                <View style={styles.headerItemNameSection}>
+                  <Text style={styles.columnHeaderText}>Task Name</Text>
+                </View>
+                <View style={styles.headerPeopleNeededSection}>
+                  <Text style={styles.columnHeaderText}>People</Text>
+                </View>
+                <View style={styles.headerAddedBySection}>
+                  <Text style={styles.columnHeaderText}>Added By</Text>
+                </View>
+                <View style={styles.headerDeleteSection}>
+                  {/* Empty for delete button column */}
+                </View>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {checklistItems.map(renderChecklistItem)}
+              </ScrollView>
+            </>
           )}
         </View>
       </View>
@@ -688,6 +712,48 @@ const styles = StyleSheet.create({
   },
   checklistContent: {
     minHeight: 120,
+  },
+  columnHeaders: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  columnHeaderText: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  headerAvatarSection: {
+    width: 60,
+    marginRight: 12,
+    alignItems: 'center',
+  },
+  headerCheckboxSection: {
+    width: 40,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerItemNameSection: {
+    flex: 1,
+    marginRight: 12,
+    alignItems: 'flex-start',
+  },
+  headerPeopleNeededSection: {
+    width: 50,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerAddedBySection: {
+    width: 80,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  headerDeleteSection: {
+    width: 24,
   },
   emptyState: {
     alignItems: 'center',

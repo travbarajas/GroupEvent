@@ -154,15 +154,14 @@ module.exports = async function handler(req, res) {
 
         // Add new assignments
         if (assigned_members.length > 0) {
-          const assignments = assigned_members.map(deviceId => ({
-            checklist_item_id: item_id,
-            assigned_to: deviceId
-          }));
-
-          await sql`
-            INSERT INTO checklist_assignments (checklist_item_id, assigned_to)
-            SELECT * FROM ${sql(assignments)}
-          `;
+          // Insert each assignment individually to avoid complex SQL syntax issues
+          for (const deviceId of assigned_members) {
+            await sql`
+              INSERT INTO checklist_assignments (checklist_item_id, assigned_to)
+              VALUES (${item_id}, ${deviceId})
+              ON CONFLICT (checklist_item_id, assigned_to) DO NOTHING
+            `;
+          }
         }
 
         return res.status(200).json({ success: true });

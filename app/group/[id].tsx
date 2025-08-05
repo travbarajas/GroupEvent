@@ -1070,23 +1070,15 @@ export default function GroupDetailScreen() {
           <FourDayPreview />
         </View>
         
-        {/* Side by Side: Group Expenses and Another Block */}
-        <View style={styles.sideBySideContainer}>
-          <View style={styles.halfBlock}>
-            <GroupExpenseIndicator 
-              groupId={id as string}
-              currentUserId={currentDeviceId}
-              events={groupEvents}
-              members={members}
-              groupName={group?.name || ''}
-            />
-          </View>
-          <View style={styles.halfBlock}>
-            {/* Placeholder for future feature */}
-            <View style={styles.placeholderBlock}>
-              <Text style={styles.placeholderText}>Future Feature</Text>
-            </View>
-          </View>
+        {/* Group Expenses Block - Full Width */}
+        <View style={styles.fullWidthContainer}>
+          <GroupExpenseIndicator 
+            groupId={id as string}
+            currentUserId={currentDeviceId}
+            events={groupEvents}
+            members={members}
+            groupName={group?.name || ''}
+          />
         </View>
         
         {/* Events Section */}
@@ -1341,6 +1333,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
     alignItems: 'flex-start',
+  },
+  // Full Width Container
+  fullWidthContainer: {
+    marginBottom: 24,
   },
   // Calendar Button (shared styles)
   calendarButtonContent: {
