@@ -12,6 +12,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiService } from '@/services/api';
 
 interface ExpenseParticipant {
@@ -86,45 +87,57 @@ export default function ExpenseBlock({
 
   const validMembers = members.filter(member => member.has_username && member.username);
 
-  // Load percentage data from localStorage on component mount
+  // Load percentage data from AsyncStorage on component mount
   useEffect(() => {
-    const storageKey = `expense-percentages-${groupId}`;
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
+    const loadStoredPercentageData = async () => {
       try {
-        setLocalPercentageData(JSON.parse(stored));
+        const storageKey = `expense-percentages-${groupId}`;
+        const stored = await AsyncStorage.getItem(storageKey);
+        if (stored) {
+          setLocalPercentageData(JSON.parse(stored));
+        }
       } catch (error) {
-        console.warn('Failed to parse stored percentage data:', error);
-      }
-    }
-  }, [groupId]);
-  
-  // Save percentage data to localStorage whenever it changes
-  const savePercentageData = (expenseId: string, payersPercentages: {[key: string]: number}, owersPercentages: {[key: string]: number}) => {
-    const storageKey = `expense-percentages-${groupId}`;
-    const newData = {
-      ...localPercentageData,
-      [expenseId]: {
-        payersPercentages,
-        owersPercentages
+        console.warn('Failed to load stored percentage data:', error);
       }
     };
-    setLocalPercentageData(newData);
-    localStorage.setItem(storageKey, JSON.stringify(newData));
+    
+    loadStoredPercentageData();
+  }, [groupId]);
+  
+  // Save percentage data to AsyncStorage whenever it changes
+  const savePercentageData = async (expenseId: string, payersPercentages: {[key: string]: number}, owersPercentages: {[key: string]: number}) => {
+    try {
+      const storageKey = `expense-percentages-${groupId}`;
+      const newData = {
+        ...localPercentageData,
+        [expenseId]: {
+          payersPercentages,
+          owersPercentages
+        }
+      };
+      setLocalPercentageData(newData);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(newData));
+    } catch (error) {
+      console.warn('Failed to save percentage data:', error);
+    }
   };
   
   // Map percentage data from optimistic ID to real API ID
-  const mapPercentageData = (optimisticId: string, realId: string) => {
-    const storageKey = `expense-percentages-${groupId}`;
-    const data = localPercentageData[optimisticId];
-    if (data) {
-      const newData = {
-        ...localPercentageData,
-        [realId]: data
-      };
-      delete newData[optimisticId]; // Remove the optimistic entry
-      setLocalPercentageData(newData);
-      localStorage.setItem(storageKey, JSON.stringify(newData));
+  const mapPercentageData = async (optimisticId: string, realId: string) => {
+    try {
+      const storageKey = `expense-percentages-${groupId}`;
+      const data = localPercentageData[optimisticId];
+      if (data) {
+        const newData = {
+          ...localPercentageData,
+          [realId]: data
+        };
+        delete newData[optimisticId]; // Remove the optimistic entry
+        setLocalPercentageData(newData);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(newData));
+      }
+    } catch (error) {
+      console.warn('Failed to map percentage data:', error);
     }
   };
 
@@ -414,7 +427,7 @@ export default function ExpenseBlock({
       };
       
       // Save percentage data locally for the edited expense
-      savePercentageData(selectedExpense.id, editingPayersPercentages, editingOwersPercentages);
+      await savePercentageData(selectedExpense.id, editingPayersPercentages, editingOwersPercentages);
       
       // Update the expense in the list optimistically
       const updatedExpenses = expenseItems.map(expense => 
@@ -576,7 +589,7 @@ export default function ExpenseBlock({
       };
 
       // Save percentage data locally for the optimistic expense
-      savePercentageData(optimisticExpense.id, payersPercentages, owersPercentages);
+      await savePercentageData(optimisticExpense.id, payersPercentages, owersPercentages);
 
       setExpenseItems(prev => [...prev, optimisticExpense]);
       setNewExpenseDescription('');
