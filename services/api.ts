@@ -308,6 +308,53 @@ export class ApiService {
     });
   }
 
+  // Checklist API Methods
+  static async getEventChecklist(groupId: string, eventId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events/${eventId}/checklist?device_id=${device_id}`, {
+      method: 'GET'
+    });
+  }
+
+  static async createChecklistItem(groupId: string, eventId: string, itemData: {
+    item_name: string;
+    people_needed: number;
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events/${eventId}/checklist`, {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        item_name: itemData.item_name,
+        people_needed: itemData.people_needed
+      })
+    });
+  }
+
+  static async updateChecklistItem(groupId: string, eventId: string, itemId: string, action: string, data?: any): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events/${eventId}/checklist`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_id,
+        item_id: itemId,
+        action,
+        ...data
+      })
+    });
+  }
+
+  static async deleteChecklistItem(groupId: string, eventId: string, itemId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events/${eventId}/checklist`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        device_id,
+        item_id: itemId
+      })
+    });
+  }
+
   static async deleteGroupExpense(groupId: string, expenseId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}/expenses/${expenseId}`, {

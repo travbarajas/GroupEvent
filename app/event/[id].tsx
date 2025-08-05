@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiService, Event, LegacyEvent } from '@/services/api';
 import CarSeatIndicator from '@/components/CarSeatIndicator';
 import ExpenseTracker from '@/components/ExpenseTracker';
+import ChecklistBlock from '@/components/ChecklistBlock';
 
 type EventData = Event | LegacyEvent;
 
@@ -57,6 +58,7 @@ export default function EventDetailScreen() {
   const [members, setMembers] = useState<any[]>([]);
   const [groupProfile, setGroupProfile] = useState<any>(null);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [expensesExpanded, setExpensesExpanded] = useState(false);
 
   useEffect(() => {
@@ -70,13 +72,37 @@ export default function EventDetailScreen() {
     }
   }, [id, groupId]);
 
+  // Background polling for expense updates every 10 seconds
+  useEffect(() => {
+    if (!groupId) return;
+    
+    // Poll every 10 seconds for expense updates when component is mounted
+    const backgroundPoll = setInterval(() => {
+      fetchExpenses();
+    }, 10000);
+    
+    return () => clearInterval(backgroundPoll);
+  }, [groupId]);
+
+  // Fast polling when expense modal is open
+  useEffect(() => {
+    if ((!showExpenseModal && !showAddExpenseModal) || !groupId) return;
+    
+    // Poll every 2 seconds when actively viewing expense modal
+    const activePoll = setInterval(() => {
+      fetchExpenses();
+    }, 2000);
+    
+    return () => clearInterval(activePoll);
+  }, [showExpenseModal, showAddExpenseModal, groupId]);
+
   const getCurrentDeviceId = async () => {
     try {
       const { DeviceIdManager } = await import('@/utils/deviceId');
       const deviceId = await DeviceIdManager.getDeviceId();
       setCurrentDeviceId(deviceId);
     } catch (error) {
-      console.error('Failed to get device ID:', error);
+      // Failed to get device ID
     }
   };
 
@@ -88,11 +114,9 @@ export default function EventDetailScreen() {
       
       if (eventData) {
         setEvent(eventData);
-      } else {
-        console.error('Event not found in group');
       }
     } catch (error) {
-      console.error('Failed to fetch event data:', error);
+      // Failed to fetch event data
     }
   };
 
@@ -105,7 +129,7 @@ export default function EventDetailScreen() {
         not_going: []
       });
     } catch (error) {
-      console.error('Failed to fetch attendance:', error);
+      // Failed to fetch attendance
     }
   };
 
@@ -127,7 +151,6 @@ export default function EventDetailScreen() {
       
       setExpenses(transformedExpenses);
     } catch (error) {
-      console.error('Failed to fetch expenses:', error);
       setExpenses([]);
     }
   };
@@ -136,12 +159,28 @@ export default function EventDetailScreen() {
     setExpenses(updatedExpenses);
   };
 
+  // Helper function to check if expense is fully settled
+  const isExpenseFullyPaid = (expense: ExpenseItem) => {
+    // Check if all owers have marked themselves as paid ("I've paid")
+    const allOwersHavePaid = expense.splitBetween.every(deviceId => 
+      expense.paymentStatus[deviceId] === 'completed'
+    );
+    
+    // Check if all payers have marked themselves as been paid ("I've been paid")
+    const allPayersHaveBeenPaid = expense.paidBy.every(deviceId => 
+      expense.paymentStatus[deviceId] === 'completed'
+    );
+    
+    // Expense is complete when EITHER all owers have paid OR all payers have been paid
+    return allOwersHavePaid || allPayersHaveBeenPaid;
+  };
+
   const fetchMembers = async () => {
     try {
       const membersData = await ApiService.getGroupMembers(groupId as string);
       setMembers(membersData);
     } catch (error) {
-      console.error('Failed to fetch members:', error);
+      // Failed to fetch members
     }
   };
 
@@ -150,7 +189,7 @@ export default function EventDetailScreen() {
       const profileData = await ApiService.getGroupProfile(groupId as string);
       setGroupProfile(profileData);
     } catch (error) {
-      console.error('Failed to fetch group profile:', error);
+      // Failed to fetch group profile
     }
   };
 
@@ -172,7 +211,6 @@ export default function EventDetailScreen() {
       setShowDeleteModal(false);
       router.back(); // Go back to group page
     } catch (error) {
-      console.error('Failed to delete event:', error);
       Alert.alert('Error', 'Failed to delete event. Please try again.');
     }
   };
@@ -232,7 +270,9 @@ export default function EventDetailScreen() {
   );
 
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.totalAmount, 0);
+  // Calculate totals only for non-completed expenses
+  const activeExpenses = expenses.filter(expense => !isExpenseFullyPaid(expense));
+  const totalExpenses = activeExpenses.reduce((sum, expense) => sum + expense.totalAmount, 0);
 
   // Normalize event data for display (handles both legacy and new formats)
   const getDisplayEvent = () => {
@@ -460,7 +500,7 @@ export default function EventDetailScreen() {
                 {/* Left Column - Total and Count */}
                 <View style={styles.expenseLeftColumn}>
                   <Text style={styles.totalAmount} numberOfLines={1}>${Math.round(totalExpenses)}</Text>
-                  <Text style={styles.expenseCount}>{expenses.length} expense{expenses.length === 1 ? '' : 's'}</Text>
+                  <Text style={styles.expenseCount}>{activeExpenses.length} expense{activeExpenses.length === 1 ? '' : 's'}</Text>
                 </View>
                 
                 {/* Middle Column - Expense List */}
@@ -496,11 +536,11 @@ export default function EventDetailScreen() {
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity 
-                          style={styles.addExpenseButtonCompact}
-                          onPress={() => setShowExpenseModal(true)}
+                          style={styles.expandButton}
+                          onPress={() => setShowAddExpenseModal(true)}
                         >
-                          <Ionicons name="add" size={16} color="#10b981" />
-                          <Text style={styles.addExpenseButtonTextCompact}>Add Expense</Text>
+                          <Ionicons name="add" size={14} color="#10b981" />
+                          <Text style={styles.expandButtonText}>Add Expense</Text>
                         </TouchableOpacity>
                       </View>
                     </>
@@ -508,11 +548,11 @@ export default function EventDetailScreen() {
                     <View style={styles.middleColumnButtons}>
                       <Text style={styles.noExpensesText}>No expenses yet</Text>
                       <TouchableOpacity 
-                        style={styles.addExpenseButtonCompact}
-                        onPress={() => setShowExpenseModal(true)}
+                        style={styles.expandButton}
+                        onPress={() => setShowAddExpenseModal(true)}
                       >
-                        <Ionicons name="add" size={16} color="#10b981" />
-                        <Text style={styles.addExpenseButtonTextCompact}>Add Expense</Text>
+                        <Ionicons name="add" size={14} color="#10b981" />
+                        <Text style={styles.expandButtonText}>Add Expense</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -521,11 +561,12 @@ export default function EventDetailScreen() {
                 {/* Right Column - User Balance */}
                 <View style={styles.expenseRightColumn}>
                   {/* User balance */}
-                  {totalExpenses > 0 && (() => {
+                  {activeExpenses.length > 0 && (() => {
                     let userOwes = 0;
                     let userOwed = 0;
                     
-                    expenses.forEach(expense => {
+                    // Only include non-completed expenses in balance calculation
+                    expenses.filter(expense => !isExpenseFullyPaid(expense)).forEach(expense => {
                       const isUserPayer = expense.paidBy.includes(currentDeviceId);
                       const isUserOwer = expense.splitBetween.includes(currentDeviceId);
                       
@@ -563,6 +604,15 @@ export default function EventDetailScreen() {
               </View>
             </View>
           </View>
+        
+        {/* Checklist Block - Full Width */}
+        <ChecklistBlock 
+          eventId={id as string}
+          groupId={groupId as string}
+          members={members}
+          currentDeviceId={currentDeviceId}
+          eventName={displayEvent.displayName}
+        />
 
         
         {/* Bottom spacing */}
@@ -610,7 +660,7 @@ export default function EventDetailScreen() {
         </View>
       </Modal>
 
-      {/* Expense Tracker Modal */}
+      {/* Expense Tracker Modal - List View */}
       <ExpenseTracker
         visible={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
@@ -619,6 +669,19 @@ export default function EventDetailScreen() {
         members={members}
         currentDeviceId={currentDeviceId}
         onExpensesChange={handleExpensesChange}
+        initialStep="list"
+      />
+
+      {/* Expense Tracker Modal - Create View */}
+      <ExpenseTracker
+        visible={showAddExpenseModal}
+        onClose={() => setShowAddExpenseModal(false)}
+        groupId={groupId as string}
+        groupName={displayEvent.displayName}
+        members={members}
+        currentDeviceId={currentDeviceId}
+        onExpensesChange={handleExpensesChange}
+        initialStep="create"
       />
 
     </View>
@@ -1248,9 +1311,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   middleColumnButtons: {
+    flexDirection: 'row',
     gap: 8,
     marginTop: 8,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   userBalanceLabelCompact: {
     fontSize: 10,

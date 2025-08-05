@@ -40,6 +40,7 @@ interface ExpenseTrackerProps {
   members: GroupMember[];
   currentDeviceId?: string;
   onExpensesChange?: (expenses: ExpenseItem[]) => void;
+  initialStep?: 'list' | 'create';
 }
 
 const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
@@ -50,9 +51,10 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
   members,
   currentDeviceId,
   onExpensesChange,
+  initialStep = 'list',
 }) => {
   const insets = useSafeAreaInsets();
-  const [currentStep, setCurrentStep] = useState<'list' | 'create' | 'payment'>('list');
+  const [currentStep, setCurrentStep] = useState<'list' | 'create' | 'payment'>(initialStep);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   
   // Create expense form state
@@ -72,8 +74,21 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     if (visible) {
       loadExpenses();
       resetCreateForm();
+      setCurrentStep(initialStep);
     }
-  }, [visible]);
+  }, [visible, initialStep]);
+
+  // Background polling for expense updates every 10 seconds when modal is open
+  useEffect(() => {
+    if (!visible || !groupId) return;
+    
+    // Poll every 10 seconds for expense updates when modal is open
+    const backgroundPoll = setInterval(() => {
+      loadExpenses();
+    }, 10000);
+    
+    return () => clearInterval(backgroundPoll);
+  }, [visible, groupId]);
 
   const loadExpenses = async () => {
     try {
@@ -93,7 +108,6 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
       
       setExpenses(transformedExpenses);
     } catch (error) {
-      console.error('Failed to load expenses:', error);
       // Fall back to empty expenses on error
       setExpenses([]);
     }
@@ -130,7 +144,34 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
     }
 
     try {
-      // Create expense via API
+      // OPTIMISTIC UPDATE: Create temporary expense for immediate UI feedback
+      const tempExpense: ExpenseItem = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        description: expenseDescription,
+        totalAmount: amount,
+        paidBy: Array.from(selectedPayers),
+        splitBetween: Array.from(selectedOwers),
+        individualAmount: amount / selectedOwers.size,
+        paymentStatus: {
+          // Set both payers and owers as pending initially
+          ...Array.from(selectedPayers).reduce((acc, payerId) => ({ ...acc, [payerId]: 'pending' }), {}),
+          ...Array.from(selectedOwers).reduce((acc, owerId) => ({ ...acc, [owerId]: 'pending' }), {})
+        },
+        createdAt: new Date().toISOString()
+      };
+      
+      // Add optimistic expense to the list immediately
+      const optimisticExpenses = [tempExpense, ...expenses];
+      setExpenses(optimisticExpenses);
+      
+      // Notify parent of expense changes with optimistic data
+      onExpensesChange?.(optimisticExpenses);
+      
+      // Switch to list view immediately for better UX
+      setCurrentStep('list');
+      resetCreateForm();
+      
+      // Background API call
       await ApiService.createGroupExpense(groupId, {
         description: expenseDescription,
         totalAmount: amount,
@@ -138,17 +179,17 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
         splitBetween: Array.from(selectedOwers)
       });
       
-      // Reload expenses from API to get the latest data
+      // Reload expenses from API to get the latest data with real IDs
       await loadExpenses();
       
-      // Notify parent of expense changes
-      onExpensesChange?.(expenses);
-      
-      setCurrentStep('list');
-      resetCreateForm();
     } catch (error) {
-      console.error('Failed to create expense:', error);
       Alert.alert('Error', 'Failed to create expense. Please try again.');
+      
+      // Revert optimistic update on error
+      await loadExpenses();
+      
+      // Go back to create form on error
+      setCurrentStep('create');
     }
   };
 
@@ -208,17 +249,37 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
         return;
       }
       
-      // Pass the current user's device_id (which matches member_device_id in the database)
+      // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+      const optimisticExpenses = expenses.map(expense => {
+        if (expense.id === expenseId) {
+          return {
+            ...expense,
+            paymentStatus: {
+              ...expense.paymentStatus,
+              [currentMember.device_id]: newStatus
+            }
+          };
+        }
+        return expense;
+      });
+      
+      // Update UI immediately
+      setExpenses(optimisticExpenses);
+      
+      // Notify parent of expense changes with optimistic data
+      onExpensesChange?.(optimisticExpenses);
+      
+      // Background API call
       await ApiService.updateExpensePaymentStatus(groupId, expenseId, currentMember.device_id, newStatus);
       
-      // Reload expenses to get updated data
+      // Reload expenses to get accurate server data and sync any other changes
       await loadExpenses();
       
-      // Notify parent of expense changes
-      onExpensesChange?.(expenses);
     } catch (error) {
-      console.error('Failed to update payment status:', error);
       Alert.alert('Error', 'Failed to update payment status. Please try again.');
+      
+      // Revert optimistic update on error by reloading from server
+      await loadExpenses();
     }
   };
 
@@ -411,7 +472,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                   
                   {/* Separator between payers and owers */}
                   {expense.paidBy.length > 0 && expense.splitBetween.length > 0 && (
-                    <View style={styles.contentSeparator} />
+                    <View style={styles.payerOwerSeparator} />
                   )}
                   
                   {/* Owers Section */}
@@ -507,13 +568,13 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                 key={member.member_id}
                 style={[
                   styles.memberOption,
-                  selectedPayers.has(member.member_id) && styles.memberOptionSelected
+                  selectedPayers.has(member.device_id) && styles.memberOptionSelected
                 ]}
-                onPress={() => togglePayerSelection(member.member_id)}
+                onPress={() => togglePayerSelection(member.device_id)}
               >
                 <Text style={[
                   styles.memberOptionText,
-                  selectedPayers.has(member.member_id) && styles.memberOptionTextSelected
+                  selectedPayers.has(member.device_id) && styles.memberOptionTextSelected
                 ]}>
                   {member.username}
                 </Text>
@@ -533,13 +594,13 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
                 key={member.member_id}
                 style={[
                   styles.memberOption,
-                  selectedOwers.has(member.member_id) && styles.memberOptionSelected
+                  selectedOwers.has(member.device_id) && styles.memberOptionSelected
                 ]}
-                onPress={() => toggleOwerSelection(member.member_id)}
+                onPress={() => toggleOwerSelection(member.device_id)}
               >
                 <Text style={[
                   styles.memberOptionText,
-                  selectedOwers.has(member.member_id) && styles.memberOptionTextSelected
+                  selectedOwers.has(member.device_id) && styles.memberOptionTextSelected
                 ]}>
                   {member.username}
                 </Text>
@@ -752,6 +813,8 @@ const styles = StyleSheet.create({
   },
   paymentStatusContainer: {
     gap: 8,
+    paddingTop: 4,
+    paddingBottom: 0,
   },
   paymentStatusRow: {
     flexDirection: 'row',
@@ -830,7 +893,13 @@ const styles = StyleSheet.create({
   contentSeparator: {
     height: 1,
     backgroundColor: '#3a3a3a',
-    marginVertical: 12,
+    marginVertical: 8,
+    marginHorizontal: 0,
+  },
+  payerOwerSeparator: {
+    height: 1,
+    backgroundColor: '#3a3a3a',
+    marginVertical: 8,
     marginHorizontal: 0,
   },
   inputLabel: {

@@ -387,32 +387,73 @@ export default function GroupExpenseIndicator({
   return (
     <>
       {/* Group Expenses Block - Same size as calendar block */}
-      <TouchableOpacity 
-        style={styles.expenseBlock}
-        activeOpacity={0.8}
-        onPress={() => setShowModal(true)}
-      >
-        <View style={styles.expenseHeader}>
-          <Ionicons name="wallet" size={20} color="#10b981" />
-          <Text style={styles.expenseTitle}>Group Expenses</Text>
-          <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
-        </View>
+      <View style={styles.expenseBlockFullWidth}>
+        <TouchableOpacity 
+          style={styles.integratedExpenseButton}
+          activeOpacity={0.6}
+          onPress={() => setShowModal(true)}
+        >
+          <View style={styles.expenseButtonContent}>
+            <Ionicons name="wallet" size={20} color="#10b981" />
+            <Text style={styles.integratedExpenseButtonText}>Group Expenses</Text>
+            <Ionicons name="chevron-forward" size={14} color="#9ca3af" style={styles.expenseButtonArrow} />
+          </View>
+        </TouchableOpacity>
         
-        {expenseData.totalAmount > 0 ? (
-          <View style={styles.expensePreview}>
-            <Text style={styles.totalAmount}>${expenseData.totalAmount.toFixed(2)}</Text>
-            <Text style={styles.eventCount}>{expenseData.eventCount} expenses</Text>
-            {expenseData.userOwes > 0 && (
-              <Text style={styles.userOwes}>You owe: ${expenseData.userOwes.toFixed(2)}</Text>
-            )}
-            {expenseData.userOwed > 0 && (
-              <Text style={styles.userOwed}>You are owed: ${expenseData.userOwed.toFixed(2)}</Text>
+        {/* Separator line between expense button and content */}
+        <View style={styles.expensePreviewSeparator} />
+        
+        <View style={styles.expenseFullWidthContent}>
+          {/* Left Column - Total and Count */}
+          <View style={styles.expenseLeftColumn}>
+            <Text style={styles.totalAmount} numberOfLines={1}>${Math.round(expenseData.totalAmount)}</Text>
+            <Text style={styles.expenseCount}>{expenseData.eventCount} expense{expenseData.eventCount === 1 ? '' : 's'}</Text>
+          </View>
+          
+          {/* Middle Column - Expense List Preview */}
+          <View style={styles.expenseMiddleColumn}>
+            {expenses.length > 0 ? (
+              <View style={styles.expenseList}>
+                {expenses.slice(0, 3).map(expense => (
+                  <View key={expense.id} style={styles.expenseItem}>
+                    <Text style={styles.expenseItemName} numberOfLines={1}>
+                      {expense.description}
+                    </Text>
+                    <Text style={styles.expenseItemAmount}>
+                      ${expense.totalAmount.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noExpensesText}>No expenses yet</Text>
             )}
           </View>
-        ) : (
-          <Text style={styles.noExpenseText}>No expenses yet</Text>
-        )}
-      </TouchableOpacity>
+          
+          {/* Right Column - User Balance */}
+          <View style={styles.expenseRightColumn}>
+            {(expenseData.userOwes > 0 || expenseData.userOwed > 0) && (
+              <View style={styles.userBalanceCompact}>
+                {expenseData.userOwed > 0 ? (
+                  <>
+                    <Text style={styles.userBalanceLabelCompact}>You are owed</Text>
+                    <Text style={styles.userOwedAmountCompact}>${expenseData.userOwed.toFixed(2)}</Text>
+                  </>
+                ) : expenseData.userOwes > 0 ? (
+                  <>
+                    <Text style={styles.userBalanceLabelCompact}>You owe</Text>
+                    <Text style={styles.userOwesAmountCompact}>${expenseData.userOwes.toFixed(2)}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.userEvenTextCompact}>
+                    All settled up
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
 
       {/* Group Expenses Modal */}
       <Modal
@@ -1111,5 +1152,113 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 4,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  // Full width block styles
+  expenseBlockFullWidth: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    padding: 16,
+  },
+  integratedExpenseButton: {
+    marginBottom: 16,
+  },
+  expenseButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  integratedExpenseButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  expenseButtonArrow: {
+    marginLeft: 6,
+  },
+  expensePreviewSeparator: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 16,
+  },
+  expenseFullWidthContent: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+  },
+  expenseLeftColumn: {
+    flex: 0.25,
+    alignItems: 'flex-start',
+  },
+  expenseMiddleColumn: {
+    flex: 0.5,
+  },
+  expenseRightColumn: {
+    flex: 0.25,
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  expenseList: {
+    gap: 6,
+  },
+  expenseItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  expenseItemName: {
+    fontSize: 12,
+    color: '#e5e7eb',
+    flex: 1,
+    marginRight: 8,
+  },
+  expenseItemAmount: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  noExpensesText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  userBalanceCompact: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userBalanceLabelCompact: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  userOwedAmountCompact: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  userOwesAmountCompact: {
+    fontSize: 12,
+    color: '#f59e0b',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  userEvenTextCompact: {
+    fontSize: 11,
+    color: '#6b7280',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
