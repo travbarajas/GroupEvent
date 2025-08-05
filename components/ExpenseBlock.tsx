@@ -89,8 +89,17 @@ export default function ExpenseBlock({
     try {
       const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
       
+      console.log('Raw API response:', JSON.stringify(apiExpenses, null, 2));
+      
       // Transform API data to match our interface
       const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => {
+        console.log('Processing expense:', {
+          id: expense.id,
+          description: expense.description,
+          payers_percentages: expense.payers_percentages,
+          owers_percentages: expense.owers_percentages
+        });
+        
         // Create participants array from API data
         const participants: ExpenseParticipant[] = [];
         
@@ -100,6 +109,12 @@ export default function ExpenseBlock({
             // Fallback: if payers_percentages doesn't exist, assume equal split among payers
             const payerPercentage = expense.payers_percentages?.[payerDeviceId] || (100 / expense.payers.length);
             const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
+            
+            console.log(`Payer ${payerDeviceId}:`, {
+              percentage: payerPercentage,
+              amount: payerAmount,
+              hasPercentageData: !!expense.payers_percentages?.[payerDeviceId]
+            });
             
             participants.push({
               device_id: payerDeviceId,
@@ -116,6 +131,12 @@ export default function ExpenseBlock({
             // Fallback: if owers_percentages doesn't exist, assume equal split among owers
             const owerPercentage = expense.owers_percentages?.[owerDeviceId] || (100 / expense.owers.length);
             const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
+            
+            console.log(`Ower ${owerDeviceId}:`, {
+              percentage: owerPercentage,
+              amount: owerAmount,
+              hasPercentageData: !!expense.owers_percentages?.[owerDeviceId]
+            });
             
             participants.push({
               device_id: owerDeviceId,
@@ -479,6 +500,15 @@ export default function ExpenseBlock({
 
       // Create via API in background
       try {
+        console.log('Sending expense data:', {
+          description: newExpenseDescription.trim(),
+          totalAmount: amount,
+          paidBy: Array.from(selectedPayers),
+          splitBetween: Array.from(selectedOwers),
+          payersPercentages: payersPercentages,
+          owersPercentages: owersPercentages
+        });
+        
         await ApiService.createGroupExpense(groupId, {
           description: newExpenseDescription.trim(),
           totalAmount: amount,

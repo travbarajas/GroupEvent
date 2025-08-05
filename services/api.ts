@@ -286,17 +286,21 @@ export class ApiService {
     owersPercentages?: {[key: string]: number};  // percentages for owers
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
+    const requestBody = {
+      device_id,
+      description: expenseData.description,
+      total_amount: expenseData.totalAmount,
+      paid_by: expenseData.paidBy,
+      split_between: expenseData.splitBetween,
+      payers_percentages: expenseData.payersPercentages,
+      owers_percentages: expenseData.owersPercentages
+    };
+    
+    console.log('API request body:', JSON.stringify(requestBody, null, 2));
+    
     return this.request(`/groups/${groupId}/expenses`, {
       method: 'POST',
-      body: JSON.stringify({
-        device_id,
-        description: expenseData.description,
-        total_amount: expenseData.totalAmount,
-        paid_by: expenseData.paidBy,
-        split_between: expenseData.splitBetween,
-        payers_percentages: expenseData.payersPercentages,
-        owers_percentages: expenseData.owersPercentages
-      })
+      body: JSON.stringify(requestBody)
     });
   }
 
