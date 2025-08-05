@@ -354,8 +354,18 @@ export default function ExpenseBlock({
             <Text style={styles.title}>Group Expenses</Text>
           </View>
           
+          <TouchableOpacity 
+            style={styles.expandButton}
+            onPress={() => {/* TODO: Navigate to full expense screen */}}
+          >
+            <Ionicons name="expand" size={16} color="#10b981" />
+            <Text style={styles.expandButtonText}>View All</Text>
+          </TouchableOpacity>
         </View>
 
+        {expenseItems.length > 0 && (
+          <View style={styles.separator} />
+        )}
 
         <View style={styles.expenseContent}>
           {expenseItems.length === 0 ? (
@@ -421,6 +431,8 @@ export default function ExpenseBlock({
         setSelectedOwers={setSelectedOwers}
         owersPercentages={owersPercentages}
         setOwersPercentages={setOwersPercentages}
+        lockedPercentages={lockedPercentages}
+        setLockedPercentages={setLockedPercentages}
       />
 
       {/* Expense Detail Modal */}
@@ -501,6 +513,8 @@ function AddExpenseModal({
   setSelectedOwers,
   owersPercentages,
   setOwersPercentages,
+  lockedPercentages,
+  setLockedPercentages,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -516,6 +530,8 @@ function AddExpenseModal({
   setSelectedOwers: (owers: Set<string>) => void;
   owersPercentages: {[key: string]: number};
   setOwersPercentages: (percentages: {[key: string]: number}) => void;
+  lockedPercentages: Set<string>;
+  setLockedPercentages: (locked: Set<string>) => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -567,12 +583,55 @@ function AddExpenseModal({
     setSelectedPayers(newPayers);
   };
 
+  const updatePercentage = (deviceId: string, newPercentage: number) => {
+    const newPercentages = { ...owersPercentages };
+    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId && !lockedPercentages.has(id));
+    
+    // Set the new percentage for this user
+    newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
+    
+    // Calculate how much percentage is already locked
+    const lockedTotal = Array.from(lockedPercentages).reduce((sum, id) => {
+      return sum + (newPercentages[id] || 0);
+    }, 0);
+    
+    // Calculate remaining percentage to distribute (excluding locked and current user)
+    const remaining = 100 - newPercentages[deviceId] - lockedTotal;
+    
+    if (otherOwers.length > 0 && remaining >= 0) {
+      // Distribute remaining percentage equally among unlocked others
+      const equalShare = Math.floor(remaining / otherOwers.length);
+      const remainder = remaining % otherOwers.length;
+      
+      otherOwers.forEach((id, index) => {
+        newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
+      });
+    }
+    
+    setOwersPercentages(newPercentages);
+  };
+
+  const togglePercentageLock = (deviceId: string) => {
+    const newLocked = new Set(lockedPercentages);
+    if (newLocked.has(deviceId)) {
+      newLocked.delete(deviceId);
+    } else {
+      newLocked.add(deviceId);
+    }
+    setLockedPercentages(newLocked);
+  };
+
   const toggleOwer = (deviceId: string) => {
     const newOwers = new Set(selectedOwers);
     if (newOwers.has(deviceId)) {
       newOwers.delete(deviceId);
       const newPercentages = { ...owersPercentages };
       delete newPercentages[deviceId];
+      
+      // Remove from locked as well
+      const newLocked = new Set(lockedPercentages);
+      newLocked.delete(deviceId);
+      setLockedPercentages(newLocked);
       
       // Redistribute percentages equally
       const remainingMembers = Array.from(newOwers);
@@ -807,6 +866,22 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addButtonText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '500',
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  expandButtonText: {
     fontSize: 12,
     color: '#10b981',
     fontWeight: '500',
