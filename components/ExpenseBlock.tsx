@@ -233,7 +233,6 @@ export default function ExpenseBlock({
               });
             });
           }
-        }
           
           // Add owers with their share amounts and percentages (fallback method)
           if (expense.owers && Array.isArray(expense.owers)) {
@@ -510,14 +509,37 @@ export default function ExpenseBlock({
             owersPercentages: editingOwersPercentages
           });
           
+          // Create participants array for the API using new format
+          const participants = [];
+          
+          // Add payers
+          for (const deviceId of editingSelectedPayers) {
+            participants.push({
+              device_id: deviceId,
+              role: 'payer' as const,
+              percentage: editingPayersPercentages[deviceId] || 0,
+              amount: (amount * (editingPayersPercentages[deviceId] || 0)) / 100
+            });
+          }
+          
+          // Add owers
+          for (const deviceId of editingSelectedOwers) {
+            participants.push({
+              device_id: deviceId,
+              role: 'ower' as const,
+              percentage: editingOwersPercentages[deviceId] || 0,
+              amount: (amount * (editingOwersPercentages[deviceId] || 0)) / 100
+            });
+          }
+          
+          console.log('=== EDIT EXPENSE API REQUEST ===');
+          console.log('Participants:', JSON.stringify(participants, null, 2));
+          
           console.log('Creating updated expense...');
           await ApiService.createGroupExpense(groupId, {
             description: editingExpenseDescription.trim(),
             totalAmount: amount,
-            paidBy: Array.from(editingSelectedPayers),
-            splitBetween: Array.from(editingSelectedOwers),
-            payersPercentages: editingPayersPercentages,
-            owersPercentages: editingOwersPercentages
+            participants: participants
           });
           
           // Only delete the original expense if the create succeeded
@@ -665,24 +687,37 @@ export default function ExpenseBlock({
       setNewExpenseAmount('');
       setShowAddExpenseModal(false);
 
-      // Create via API in background
+      // Create via API in background using new participant-based format
       try {
-        console.log('Sending expense data:', {
-          description: newExpenseDescription.trim(),
-          totalAmount: amount,
-          paidBy: Array.from(selectedPayers),
-          splitBetween: Array.from(selectedOwers),
-          payersPercentages: payersPercentages,
-          owersPercentages: owersPercentages
-        });
+        const participants = [];
+        
+        // Add payers
+        for (const deviceId of selectedPayers) {
+          participants.push({
+            device_id: deviceId,
+            role: 'payer' as const,
+            percentage: payersPercentages[deviceId] || 0,
+            amount: (amount * (payersPercentages[deviceId] || 0)) / 100
+          });
+        }
+        
+        // Add owers
+        for (const deviceId of selectedOwers) {
+          participants.push({
+            device_id: deviceId,
+            role: 'ower' as const,
+            percentage: owersPercentages[deviceId] || 0,
+            amount: (amount * (owersPercentages[deviceId] || 0)) / 100
+          });
+        }
+        
+        console.log('=== ADD EXPENSE API REQUEST ===');
+        console.log('Participants:', JSON.stringify(participants, null, 2));
         
         await ApiService.createGroupExpense(groupId, {
           description: newExpenseDescription.trim(),
           totalAmount: amount,
-          paidBy: Array.from(selectedPayers),
-          splitBetween: Array.from(selectedOwers),
-          payersPercentages: payersPercentages,
-          owersPercentages: owersPercentages
+          participants: participants
         });
         // Note: Not reloading from API to preserve custom percentages
         // The optimistic expense already has the correct percentage data

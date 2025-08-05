@@ -280,51 +280,110 @@ export class ApiService {
   static async createGroupExpense(groupId: string, expenseData: {
     description: string;
     totalAmount: number;
-    paidBy: string[];  // device_ids who paid upfront
-    splitBetween: string[];  // device_ids who owe money
-    payersPercentages?: {[key: string]: number};  // percentages for payers
-    owersPercentages?: {[key: string]: number};  // percentages for owers
+    participants: Array<{
+      device_id: string;
+      role: 'payer' | 'ower';
+      percentage: number;
+      amount: number;
+    }>;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
+    
+    // Transform participants into the format backend expects
+    const participants = expenseData.participants.map(p => ({
+      member_device_id: p.device_id,
+      role: p.role,
+      individual_amount: p.amount,
+      ...(p.role === 'payer' ? {
+        payer_percentage: p.percentage,
+        payer_amount: p.amount
+      } : {
+        ower_percentage: p.percentage,
+        ower_amount: p.amount
+      })
+    }));
+    
     const requestBody = {
       device_id,
       description: expenseData.description,
       total_amount: expenseData.totalAmount,
-      paid_by: expenseData.paidBy,
-      split_between: expenseData.splitBetween,
-      payers_percentages: expenseData.payersPercentages,
-      owers_percentages: expenseData.owersPercentages
+      participants: participants
     };
     
-    console.log('API request body:', JSON.stringify(requestBody, null, 2));
+    console.log('=== EXPENSE CREATE API REQUEST ===');
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
     
-    return this.request(`/groups/${groupId}/expenses`, {
+    const response = await this.request(`/groups/${groupId}/expenses`, {
       method: 'POST',
       body: JSON.stringify(requestBody)
     });
+    
+    console.log('Create expense response:', response);
+    return response;
   }
 
   static async updateGroupExpense(groupId: string, expenseId: string, expenseData: {
     description: string;
     totalAmount: number;
-    paidBy: string[];  // device_ids who paid upfront
-    splitBetween: string[];  // device_ids who owe money
-    payersPercentages?: {[key: string]: number};  // percentages for payers
-    owersPercentages?: {[key: string]: number};  // percentages for owers
+    participants: Array<{
+      device_id: string;
+      role: 'payer' | 'ower';
+      percentage: number;
+      amount: number;
+    }>;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/expenses/${expenseId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        device_id,
-        description: expenseData.description,
-        total_amount: expenseData.totalAmount,
-        paid_by: expenseData.paidBy,
-        split_between: expenseData.splitBetween,
-        payers_percentages: expenseData.payersPercentages,
-        owers_percentages: expenseData.owersPercentages
+    
+    // Transform participants into the format backend expects
+    const participants = expenseData.participants.map(p => ({
+      member_device_id: p.device_id,
+      role: p.role,
+      individual_amount: p.amount,
+      ...(p.role === 'payer' ? {
+        payer_percentage: p.percentage,
+        payer_amount: p.amount
+      } : {
+        ower_percentage: p.percentage,
+        ower_amount: p.amount
       })
-    });
+    }));
+    
+    const requestBody = {
+      device_id,
+      description: expenseData.description,
+      total_amount: expenseData.totalAmount,
+      participants: participants
+    };
+    
+    console.log('=== EXPENSE UPDATE API REQUEST ===');
+    console.log('Expense ID:', expenseId);
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    
+    try {
+      // Try PUT method first
+      const response = await this.request(`/groups/${groupId}/expenses/${expenseId}`, {
+        method: 'PUT',
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('PUT update successful:', response);
+      return response;
+      
+    } catch (error: any) {
+      if (error.message === 'Method not allowed') {
+        console.log('PUT not supported, trying delete+recreate...');
+        
+        // Fallback: Delete + Create
+        await this.deleteGroupExpense(groupId, expenseId);
+        const newExpense = await this.createGroupExpense(groupId, expenseData);
+        
+        console.log('Delete+recreate successful:', newExpense);
+        return newExpense;
+        
+      } else {
+        throw error;
+      }
+    }
   }
 
   static async updateExpensePaymentStatus(groupId: string, expenseId: string, participantId: string, status: 'pending' | 'sent' | 'completed'): Promise<any> {
