@@ -433,6 +433,10 @@ export default function ExpenseBlock({
         setOwersPercentages={setOwersPercentages}
         lockedPercentages={lockedPercentages}
         setLockedPercentages={setLockedPercentages}
+        updatePercentage={updatePercentage}
+        togglePercentageLock={togglePercentageLock}
+        toggleOwer={toggleOwer}
+        togglePayer={togglePayer}
       />
 
       {/* Expense Detail Modal */}
@@ -515,6 +519,10 @@ function AddExpenseModal({
   setOwersPercentages,
   lockedPercentages,
   setLockedPercentages,
+  updatePercentage,
+  togglePercentageLock,
+  toggleOwer,
+  togglePayer,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -532,6 +540,10 @@ function AddExpenseModal({
   setOwersPercentages: (percentages: {[key: string]: number}) => void;
   lockedPercentages: Set<string>;
   setLockedPercentages: (locked: Set<string>) => void;
+  updatePercentage: (deviceId: string, newPercentage: number) => void;
+  togglePercentageLock: (deviceId: string) => void;
+  toggleOwer: (deviceId: string) => void;
+  togglePayer: (deviceId: string) => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -581,44 +593,6 @@ function AddExpenseModal({
       newPayers.add(deviceId);
     }
     setSelectedPayers(newPayers);
-  };
-
-  const updatePercentage = (deviceId: string, newPercentage: number) => {
-    const newPercentages = { ...owersPercentages };
-    const otherOwers = Array.from(selectedOwers).filter(id => id !== deviceId && !lockedPercentages.has(id));
-    
-    // Set the new percentage for this user
-    newPercentages[deviceId] = Math.max(0, Math.min(100, newPercentage));
-    
-    // Calculate how much percentage is already locked
-    const lockedTotal = Array.from(lockedPercentages).reduce((sum, id) => {
-      return sum + (newPercentages[id] || 0);
-    }, 0);
-    
-    // Calculate remaining percentage to distribute (excluding locked and current user)
-    const remaining = 100 - newPercentages[deviceId] - lockedTotal;
-    
-    if (otherOwers.length > 0 && remaining >= 0) {
-      // Distribute remaining percentage equally among unlocked others
-      const equalShare = Math.floor(remaining / otherOwers.length);
-      const remainder = remaining % otherOwers.length;
-      
-      otherOwers.forEach((id, index) => {
-        newPercentages[id] = equalShare + (index < remainder ? 1 : 0);
-      });
-    }
-    
-    setOwersPercentages(newPercentages);
-  };
-
-  const togglePercentageLock = (deviceId: string) => {
-    const newLocked = new Set(lockedPercentages);
-    if (newLocked.has(deviceId)) {
-      newLocked.delete(deviceId);
-    } else {
-      newLocked.add(deviceId);
-    }
-    setLockedPercentages(newLocked);
   };
 
   const toggleOwer = (deviceId: string) => {
