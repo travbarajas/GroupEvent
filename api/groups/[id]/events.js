@@ -151,6 +151,22 @@ module.exports = async function handler(req, res) {
         created_by_device_id: event.created_by_device_id,
         created_by_username: event.created_by_username,
         created_at: event.created_at,
+        // Direct database fields (for updated data)
+        name: event.name,
+        description: event.description,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        venue_name: event.venue_name,
+        price: event.price,
+        currency: event.currency,
+        is_free: event.is_free,
+        category: event.category,
+        tags: event.tags,
+        max_attendees: event.max_attendees,
+        min_attendees: event.min_attendees,
+        attendance_required: event.attendance_required,
+        // Keep original_event_data for backward compatibility
         original_event_data: {
           name: event.name,
           description: event.description,
