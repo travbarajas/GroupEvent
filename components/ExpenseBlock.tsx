@@ -151,13 +151,6 @@ export default function ExpenseBlock({
       const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
       
       console.log('Raw API response:', JSON.stringify(apiExpenses, null, 2));
-      console.log('API response structure check - first expense:', {
-        hasParticipants: apiExpenses[0]?.participants ? 'YES' : 'NO',
-        participantsCount: apiExpenses[0]?.participants?.length || 0,
-        sampleParticipant: apiExpenses[0]?.participants?.[0],
-        hasPayersPercentages: apiExpenses[0]?.payers_percentages ? 'YES' : 'NO',
-        hasOwersPercentages: apiExpenses[0]?.owers_percentages ? 'YES' : 'NO'
-      });
       
       // Transform API data to match our interface
       const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => {

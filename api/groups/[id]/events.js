@@ -250,6 +250,13 @@ module.exports = async function handler(req, res) {
       if (!device_id || !event_id || !updates) {
         return res.status(400).json({ error: 'device_id, event_id, and updates are required' });
       }
+      
+      console.log('📡 API PUT REQUEST:', {
+        groupId: id,
+        eventId: event_id,
+        updates,
+        deviceId: device_id
+      });
 
       // Check if user is a member of this group
       const [membership] = await sql`
@@ -280,12 +287,27 @@ module.exports = async function handler(req, res) {
       
       if (updates.date !== undefined && updates.time !== undefined) {
         // Update both date and time
+        console.log('📅 UPDATING DATE/TIME:', {
+          eventId: event_id,
+          oldDate: event.date,
+          oldTime: event.time,
+          newDate: updates.date,
+          newTime: updates.time
+        });
+        
         [updatedEvent] = await sql`
           UPDATE group_events 
           SET date = ${updates.date}, time = ${updates.time}, updated_at = NOW()
           WHERE id = ${event_id} AND group_id = ${id}
           RETURNING *
         `;
+        
+        console.log('✅ DATABASE UPDATE RESULT:', {
+          updatedId: updatedEvent.id,
+          updatedDate: updatedEvent.date,
+          updatedTime: updatedEvent.time,
+          updatedAt: updatedEvent.updated_at
+        });
       } else if (updates.location !== undefined) {
         // Update location
         [updatedEvent] = await sql`

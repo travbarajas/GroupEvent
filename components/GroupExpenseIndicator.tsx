@@ -108,7 +108,6 @@ export default function GroupExpenseIndicator({
       }
       
       const { summary } = await response.json();
-      console.log('Received expense summary:', summary);
       setExpenseData({
         totalAmount: summary.totalAmount,
         eventCount: summary.expenseCount,
@@ -116,7 +115,6 @@ export default function GroupExpenseIndicator({
         userOwed: summary.userOwed,
       });
     } catch (error) {
-      console.error('Failed to load expense summary:', error);
       // Keep default values on error
     } finally {
       setLoading(false);
@@ -144,7 +142,6 @@ export default function GroupExpenseIndicator({
       
       setExpenses(transformedExpenses);
     } catch (error) {
-      console.error('Failed to load detailed expenses:', error);
       setExpenses([]);
     }
   };
@@ -209,34 +206,18 @@ export default function GroupExpenseIndicator({
       setCurrentStep('list');
       resetCreateForm();
     } catch (error) {
-      console.error('Failed to create expense:', error);
       Alert.alert('Error', 'Failed to create expense. Please try again.');
     }
   };
 
   const handleTogglePaymentStatus = async (expenseId: string, memberId: string, currentStatus: string) => {
-    console.log('🔄 Payment Status Toggle Debug:', {
-      expenseId,
-      memberId,
-      currentStatus,
-      currentUserId,
-      validMembersCount: validMembers.length
-    });
 
     try {
       // Toggle between 'pending' and 'completed'
       const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-      console.log('🔄 Status change:', currentStatus, '->', newStatus);
       
       // Find the current user's device_id to pass as participant_id
       const currentMember = validMembers.find(m => m.device_id === currentUserId);
-      console.log('👤 Current member found:', {
-        currentMember: currentMember ? {
-          member_id: currentMember.member_id,
-          device_id: currentMember.device_id,
-          username: currentMember.username
-        } : null
-      });
 
       if (!currentMember) {
         console.error('❌ Current user not found in group members');

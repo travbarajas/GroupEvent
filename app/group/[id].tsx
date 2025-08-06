@@ -85,17 +85,6 @@ export default function GroupDetailScreen() {
     enabled: true,
   });
 
-  // Debug chat messages and connection - less frequent logging
-  useEffect(() => {
-    console.log('📱 Group Screen - Chat Debug:', {
-      groupId: id,
-      messagesCount: chatMessages.length,
-      isConnected,
-      isLoading,
-      error: error || 'none',
-      latestMessage: chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].message?.substring(0, 30) + '...' : 'none'
-    });
-  }, [chatMessages.length, isConnected, isLoading, error]); // Only log when these change
   const appStateRef = useRef(AppState.currentState);
   const backgroundTimeRef = useRef<number | null>(null);
   
@@ -104,7 +93,6 @@ export default function GroupDetailScreen() {
     if (chatMessages.length > 0 && !lastSeenMessageId) {
       const mostRecentMessage = chatMessages[chatMessages.length - 1];
       setLastSeenMessageId(mostRecentMessage.id);
-      console.log('🔄 Initial lastSeen set to:', mostRecentMessage.id);
     }
   }, [chatMessages, lastSeenMessageId]);
 
@@ -118,7 +106,6 @@ export default function GroupDetailScreen() {
   const unreadCount = useMemo(() => {
     if (!lastSeenMessageId || chatMessages.length === 0) {
       // If no lastSeen is set, show 0 unread (not all messages as unread)
-      console.log('🔔 Unread Count (no lastSeen): 0');
       return 0;
     }
     
@@ -126,13 +113,11 @@ export default function GroupDetailScreen() {
     if (lastSeenIndex === -1) {
       // If lastSeen message not found, all current messages are unread
       const count = chatMessages.length;
-      console.log('🔔 Unread Count (lastSeen not found):', count, 'lastSeenId:', lastSeenMessageId);
       return count;
     }
     
     // Count messages after the last seen message
     const count = chatMessages.length - (lastSeenIndex + 1);
-    console.log('🔔 Unread Count:', count, 'total:', chatMessages.length, 'lastSeenIndex:', lastSeenIndex, 'lastSeenId:', lastSeenMessageId);
     return Math.max(0, count); // Ensure non-negative
   }, [chatMessages, lastSeenMessageId]);
   
@@ -141,7 +126,6 @@ export default function GroupDetailScreen() {
     // Mark all messages as seen before opening chat
     if (chatMessages.length > 0) {
       const latestMessageId = chatMessages[chatMessages.length - 1].id;
-      console.log('💬 Opening chat, marking as seen:', latestMessageId);
       setLastSeenMessageId(latestMessageId);
     }
     
@@ -177,7 +161,6 @@ export default function GroupDetailScreen() {
         setPendingEventData(eventData);
         setShowEventModal(true);
       } catch (error) {
-        console.error('Failed to parse pending event:', error);
       }
     }
   }, [pendingEvent]);
@@ -188,7 +171,6 @@ export default function GroupDetailScreen() {
   // Handle app state changes - force refresh after long background
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
-      console.log('Group screen - App state changed from', appStateRef.current, 'to', nextAppState);
       
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         // App is going to background - record the time
@@ -198,10 +180,8 @@ export default function GroupDetailScreen() {
         const backgroundDuration = Date.now() - backgroundTimeRef.current;
         const LONG_BACKGROUND_THRESHOLD = 30000; // 30 seconds
         
-        console.log(`App was in background for ${backgroundDuration}ms`);
         
         if (backgroundDuration > LONG_BACKGROUND_THRESHOLD) {
-          console.log('App was in background for a long time - forcing complete refresh');
           
           // Force complete refresh of all data (like opening the screen fresh)
           handleRefresh();
@@ -226,7 +206,6 @@ export default function GroupDetailScreen() {
       const deviceId = await DeviceIdManager.getDeviceId();
       setCurrentDeviceId(deviceId);
     } catch (error) {
-      console.error('Failed to get device ID:', error);
     }
   };
 
@@ -237,7 +216,6 @@ export default function GroupDetailScreen() {
         setInviteCode(groupData.invite_code);
       }
     } catch (error) {
-      console.error('Failed to fetch invite code:', error);
     }
   };
 
@@ -246,7 +224,6 @@ export default function GroupDetailScreen() {
       const permissionsData = await ApiService.getPermissions(id as string);
       setPermissions(permissionsData);
     } catch (error) {
-      console.error('Failed to fetch permissions:', error);
     }
   };
 
@@ -265,7 +242,6 @@ export default function GroupDetailScreen() {
         setShowProfileModal(true);
       }
     } catch (error) {
-      console.error('Failed to fetch group profile:', error);
     }
   };
 
@@ -274,17 +250,14 @@ export default function GroupDetailScreen() {
       const membersData = await ApiService.getGroupMembers(id as string);
       setMembers(membersData);
     } catch (error) {
-      console.error('Failed to fetch members:', error);
     }
   };
 
   const fetchGroupEvents = async () => {
     try {
       const eventsData = await ApiService.getGroupEvents(id as string);
-      console.log('📅 Fetched events data:', eventsData.events?.slice(0, 2)); // Log first 2 events
       setGroupEvents(eventsData.events || []);
     } catch (error) {
-      console.error('Failed to fetch group events:', error);
     }
   };
 
@@ -299,7 +272,6 @@ export default function GroupDetailScreen() {
       await fetchMembers(); // Refresh members
       await fetchGroupEvents(); // Refresh group events
     } catch (error) {
-      console.error('Failed to refresh group data:', error);
     } finally {
       setIsRefreshing(false);
     }
@@ -324,7 +296,6 @@ export default function GroupDetailScreen() {
       // Refresh members to show updated username in members list
       await fetchMembers();
     } catch (error) {
-      console.error('Failed to update profile:', error);
     }
   };
 
@@ -355,13 +326,11 @@ export default function GroupDetailScreen() {
       // Refresh all data to show updated username everywhere
       await handleRefresh();
     } catch (error) {
-      console.error('Failed to update profile:', error);
     }
   };
 
   const handleEventSave = async (customName: string, originalEvent: any) => {
     try {
-      console.log('Saving event to group:', { customName, originalEvent, groupId: id });
       
       // Save event to group via API
       await ApiService.saveEventToGroup(id as string, customName, originalEvent);
@@ -376,9 +345,7 @@ export default function GroupDetailScreen() {
       // Refresh the group to show the new event
       await handleRefresh();
       
-      console.log('Event saved successfully to group');
     } catch (error) {
-      console.error('Failed to save event to group:', error);
     }
   };
   
@@ -397,7 +364,6 @@ export default function GroupDetailScreen() {
       await loadGroups(); // Refresh groups list
       router.push('/(tabs)'); // Navigate to groups home screen
     } catch (error: any) {
-      console.error('Failed to leave group:', error);
       // Could add error handling here if needed
     }
   };

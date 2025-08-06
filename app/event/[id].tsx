@@ -135,13 +135,25 @@ export default function EventDetailScreen() {
     try {
       // Fetch all group events and find the specific one
       const { events } = await ApiService.getGroupEvents(groupId as string);
+      console.log('📊 FETCHED EVENTS:', events?.length, 'events');
+      
       const eventData = events.find(e => e.id === id);
+      console.log('🎯 FOUND EVENT DATA:', {
+        eventId: eventData?.id,
+        hasDirectDate: !!(eventData as any)?.date,
+        hasDirectTime: !!(eventData as any)?.time,
+        directDate: (eventData as any)?.date,
+        directTime: (eventData as any)?.time,
+        hasOriginalEventData: !!(eventData as any)?.original_event_data,
+        originalDate: (eventData as any)?.original_event_data?.date,
+        originalTime: (eventData as any)?.original_event_data?.time
+      });
       
       if (eventData) {
         setEvent(eventData);
       }
     } catch (error) {
-      // Failed to fetch event data
+      console.error('❌ FETCH ERROR:', error);
     }
   };
 
@@ -446,6 +458,20 @@ export default function EventDetailScreen() {
   };
 
   const displayEvent = getDisplayEvent();
+  
+  // Debug what data is being displayed
+  console.log('📅 DISPLAY EVENT DATA:', {
+    eventId: event?.id,
+    displayDate: displayEvent.date,
+    displayTime: displayEvent.time,
+    eventHasDirectDate: !!(event as any)?.date,
+    eventHasDirectTime: !!(event as any)?.time,
+    eventDirectDate: (event as any)?.date,
+    eventDirectTime: (event as any)?.time,
+    eventHasOriginalData: !!(event as any)?.original_event_data,
+    originalDataDate: (event as any)?.original_event_data?.date,
+    originalDataTime: (event as any)?.original_event_data?.time
+  });
 
   // Function to convert 24-hour time to 12-hour AM/PM format
   const formatTimeToAMPM = (time: string): string => {
@@ -485,18 +511,38 @@ export default function EventDetailScreen() {
         minute: '2-digit' 
       }); // HH:MM format
       
+      console.log('🔄 UPDATING EVENT:', {
+        eventId: id,
+        groupId,
+        formattedDate,
+        formattedTime,
+        originalDate: displayEvent.date,
+        originalTime: displayEvent.time
+      });
+      
       // Call the API to update the event
-      await ApiService.updateGroupEvent(groupId as string, id as string, {
+      const apiResult = await ApiService.updateGroupEvent(groupId as string, id as string, {
         date: formattedDate,
         time: formattedTime
       });
       
+      console.log('✅ API UPDATE RESULT:', apiResult);
+      
       // Refresh the event data to show the update
+      console.log('🔄 FETCHING UPDATED DATA...');
       await fetchEventData();
+      
+      console.log('📊 EVENT AFTER FETCH:', {
+        eventId: event?.id,
+        date: (event as any)?.date,
+        time: (event as any)?.time,
+        originalEventData: (event as any)?.original_event_data
+      });
       
       setShowDateTimeModal(false);
       Alert.alert('Success', 'Date and time updated successfully!');
     } catch (error) {
+      console.error('❌ UPDATE ERROR:', error);
       Alert.alert('Error', 'Failed to update date and time. Please try again.');
     }
   };
