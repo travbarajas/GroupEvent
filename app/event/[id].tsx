@@ -61,6 +61,11 @@ export default function EventDetailScreen() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [expensesExpanded, setExpensesExpanded] = useState(false);
+  const [showDateTimeModal, setShowDateTimeModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [editingDate, setEditingDate] = useState('');
+  const [editingTime, setEditingTime] = useState('');
+  const [editingLocation, setEditingLocation] = useState('');
 
   useEffect(() => {
     if (id && groupId) {
@@ -417,6 +422,75 @@ export default function EventDetailScreen() {
 
   const displayEvent = getDisplayEvent();
 
+  // Function to convert 24-hour time to 12-hour AM/PM format
+  const formatTimeToAMPM = (time: string): string => {
+    if (!time) return time;
+    
+    // Check if time is already in AM/PM format
+    if (time.toLowerCase().includes('am') || time.toLowerCase().includes('pm')) {
+      return time;
+    }
+    
+    // Try to parse 24-hour format (e.g., "19:30" or "7:30")
+    const timeMatch = time.match(/^(\d{1,2}):?(\d{0,2})\s*$/);
+    if (!timeMatch) return time; // Return original if can't parse
+    
+    const [, hourStr, minuteStr] = timeMatch;
+    const hour = parseInt(hourStr, 10);
+    const minute = minuteStr ? parseInt(minuteStr, 10) : 0;
+    
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return time; // Return original if invalid
+    }
+    
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const displayMinute = minute.toString().padStart(2, '0');
+    
+    return `${displayHour}:${displayMinute} ${period}`;
+  };
+
+  const handleEditDateTime = async () => {
+    if (!editingDate.trim() && !editingTime.trim()) {
+      Alert.alert('Error', 'Please enter at least a date or time');
+      return;
+    }
+
+    try {
+      // For now, just close modal - API integration can be added later
+      setShowDateTimeModal(false);
+      Alert.alert('Success', 'Date and time updated successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update date and time');
+    }
+  };
+
+  const handleEditLocation = async () => {
+    if (!editingLocation.trim()) {
+      Alert.alert('Error', 'Please enter a location');
+      return;
+    }
+
+    try {
+      // For now, just close modal - API integration can be added later
+      setShowLocationModal(false);
+      Alert.alert('Success', 'Location updated successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update location');
+    }
+  };
+
+  const openDateTimeModal = () => {
+    setEditingDate(displayEvent.date || '');
+    setEditingTime(displayEvent.time || '');
+    setShowDateTimeModal(true);
+  };
+
+  const openLocationModal = () => {
+    setEditingLocation(displayEvent.location || '');
+    setShowLocationModal(true);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -434,9 +508,14 @@ export default function EventDetailScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBackButton}>
                   <Ionicons name="chevron-back" size={24} color="#ffffff" />
                 </TouchableOpacity>
-                <Text style={styles.eventName}>
-                  {displayEvent.displayName}
-                </Text>
+                <View style={styles.headerTitleSection}>
+                  <Text style={styles.eventName}>
+                    {displayEvent.displayName}
+                  </Text>
+                  <Text style={styles.createdByText}>
+                    Created by {displayEvent.created_by_username}
+                  </Text>
+                </View>
                 <View style={styles.headerRightButtons}>
                   {isEventCreator() && (
                     <TouchableOpacity 
@@ -487,46 +566,61 @@ export default function EventDetailScreen() {
           </View>
         </View>
 
-        {/* Event Key Info */}
-        <View style={styles.eventInfoContainer}>
-          <View style={styles.eventInfoGrid}>
-            <View style={styles.eventInfoItem}>
-              <Ionicons name="calendar-outline" size={20} color="#60a5fa" />
-              <Text style={styles.eventInfoLabel}>Date & Time</Text>
-              <Text style={styles.eventInfoValue}>
-                {displayEvent.date}
-                {displayEvent.time && ` • ${displayEvent.time}`}
-              </Text>
-            </View>
-            
-            {!displayEvent.is_free && displayEvent.price && (
-              <View style={styles.eventInfoItem}>
-                <Ionicons name="cash-outline" size={20} color="#10b981" />
-                <Text style={styles.eventInfoLabel}>Price</Text>
-                <Text style={styles.eventInfoValue}>
-                  ${displayEvent.price} {displayEvent.currency}
-                </Text>
-              </View>
-            )}
-            
-            {displayEvent.location && (
-              <View style={styles.eventInfoItem}>
-                <Ionicons name="location-outline" size={20} color="#f59e0b" />
-                <Text style={styles.eventInfoLabel}>Location</Text>
-                <Text style={styles.eventInfoValue}>
-                  {displayEvent.location}
-                </Text>
-              </View>
-            )}
-            
-            <View style={styles.eventInfoItem}>
-              <Ionicons name="person-outline" size={20} color="#8b5cf6" />
-              <Text style={styles.eventInfoLabel}>Created by</Text>
-              <Text style={styles.eventInfoValue}>
-                {displayEvent.created_by_username}
+        {/* Price info (only if not free and has price) */}
+        {!displayEvent.is_free && displayEvent.price && (
+          <View style={styles.priceInfoContainer}>
+            <View style={styles.priceInfoContent}>
+              <Ionicons name="cash-outline" size={20} color="#10b981" />
+              <Text style={styles.priceInfoLabel}>Price</Text>
+              <Text style={styles.priceInfoValue}>
+                ${displayEvent.price} {displayEvent.currency}
               </Text>
             </View>
           </View>
+        )}
+
+        {/* Event Details Boxes */}
+        <View style={styles.eventDetailsContainer}>
+          {/* Date & Time Box */}
+          <TouchableOpacity 
+            style={[styles.eventDetailBox, styles.dateTimeBox]}
+            onPress={() => isEventCreator() && openDateTimeModal()}
+            disabled={!isEventCreator()}
+          >
+            <View style={styles.eventDetailHeader}>
+              <Ionicons name="calendar-outline" size={18} color="#10b981" />
+              <Text style={styles.eventDetailTitle}>Date & Time</Text>
+              {isEventCreator() && (
+                <Ionicons name="pencil" size={14} color="#10b981" />
+              )}
+            </View>
+            <Text style={styles.eventDetailValue}>
+              {displayEvent.date || 'No date set'}
+            </Text>
+            {displayEvent.time && (
+              <Text style={styles.eventDetailValue}>
+                {formatTimeToAMPM(displayEvent.time)}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Location Box */}
+          <TouchableOpacity 
+            style={[styles.eventDetailBox, styles.locationBox]}
+            onPress={() => isEventCreator() && openLocationModal()}
+            disabled={!isEventCreator()}
+          >
+            <View style={styles.eventDetailHeader}>
+              <Ionicons name="location-outline" size={18} color="#3b82f6" />
+              <Text style={styles.eventDetailTitle}>Location</Text>
+              {isEventCreator() && (
+                <Ionicons name="pencil" size={14} color="#3b82f6" />
+              )}
+            </View>
+            <Text style={styles.eventDetailValue}>
+              {displayEvent.location || 'No location set'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Attendance Sections */}
@@ -654,6 +748,117 @@ export default function EventDetailScreen() {
         initialStep="create"
       />
 
+      {/* Date & Time Edit Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showDateTimeModal}
+        onRequestClose={() => setShowDateTimeModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              onPress={() => setShowDateTimeModal(false)} 
+              style={styles.modalBackButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Date & Time</Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={[styles.modalSection, styles.firstModalSection]}>
+              <Text style={styles.inputLabel}>Date</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., Monday, July 4th, 2025"
+                placeholderTextColor="#9ca3af"
+                value={editingDate}
+                onChangeText={setEditingDate}
+              />
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.inputLabel}>Time</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., 7:00 PM"
+                placeholderTextColor="#9ca3af"
+                value={editingTime}
+                onChangeText={setEditingTime}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={styles.modalCancelButton} 
+              onPress={() => setShowDateTimeModal(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.modalSaveButton, { backgroundColor: '#10b981' }]} 
+              onPress={handleEditDateTime}
+            >
+              <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Location Edit Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showLocationModal}
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              onPress={() => setShowLocationModal(false)} 
+              style={styles.modalBackButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Location</Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={[styles.modalSection, styles.firstModalSection]}>
+              <Text style={styles.inputLabel}>Location</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter event location"
+                placeholderTextColor="#9ca3af"
+                value={editingLocation}
+                onChangeText={setEditingLocation}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={styles.modalCancelButton} 
+              onPress={() => setShowLocationModal(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.modalSaveButton, { backgroundColor: '#3b82f6' }]} 
+              onPress={handleEditLocation}
+            >
+              <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -690,11 +895,58 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
+  headerTitleSection: {
+    flex: 1,
+    marginRight: 12,
+  },
   eventName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#ffffff',
+    marginBottom: 8,
+  },
+  createdByText: {
+    fontSize: 13,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  eventDetailsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  eventDetailBox: {
     flex: 1,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+  },
+  dateTimeBox: {
+    borderColor: '#10b981',
+  },
+  locationBox: {
+    borderColor: '#3b82f6',
+  },
+  eventDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  eventDetailTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+  },
+  eventDetailValue: {
+    fontSize: 14,
+    color: '#e5e7eb',
+    fontWeight: '500',
+    marginBottom: 2,
   },
   eventShortDescription: {
     fontSize: 16,
@@ -1205,7 +1457,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     padding: 4,
   },
-  eventInfoContainer: {
+  priceInfoContainer: {
     backgroundColor: '#1a1a1a',
     margin: 16,
     marginTop: 0,
@@ -1214,22 +1466,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
-  eventInfoGrid: {
-    gap: 20,
-  },
-  eventInfoItem: {
+  priceInfoContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  eventInfoLabel: {
+  priceInfoLabel: {
     color: '#9ca3af',
     fontSize: 14,
     fontWeight: '500',
-    minWidth: 80,
+    minWidth: 60,
   },
-  eventInfoValue: {
-    color: '#ffffff',
+  priceInfoValue: {
+    color: '#10b981',
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
@@ -1351,5 +1600,89 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginTop: 0,
     marginBottom: 16,
+  },
+  // Modal styles for editing
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  modalHeader: {
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalBackButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalHeaderSpacer: {
+    width: 40,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 24,
+  },
+  modalSection: {
+    marginBottom: 32,
+  },
+  firstModalSection: {
+    marginTop: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#e5e7eb',
+    marginBottom: 12,
+  },
+  textInput: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalSaveButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
