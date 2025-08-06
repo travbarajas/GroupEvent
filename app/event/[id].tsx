@@ -137,6 +137,18 @@ export default function EventDetailScreen() {
       const { events } = await ApiService.getGroupEvents(groupId as string);
       console.log('📊 FETCHED EVENTS:', events?.length, 'events');
       
+      // Debug: Log the raw structure of our specific event
+      const rawEventData = events.find(e => e.id === id);
+      console.log('🔎 RAW EVENT FROM API:', {
+        eventId: rawEventData?.id,
+        rawKeys: Object.keys(rawEventData || {}),
+        date: rawEventData?.date,
+        time: rawEventData?.time,
+        name: rawEventData?.name,
+        location: rawEventData?.location,
+        original_event_data: rawEventData?.original_event_data
+      });
+      
       const eventData = events.find(e => e.id === id);
       console.log('🎯 FOUND EVENT DATA:', {
         eventId: eventData?.id,
@@ -404,11 +416,36 @@ export default function EventDetailScreen() {
       };
     }
 
-    // Check if it's an event with database fields (prioritize actual DB fields over original_event_data)
+    // Prioritize original_event_data as the source of truth for all event details
     const eventAny = event as any;
     
-    if (eventAny.date || eventAny.time || eventAny.name || eventAny.location) {
-      // This event has direct database fields, use those (they're the updated ones)
+    console.log('📅 DISPLAY EVENT FIELD CHECK:', {
+      hasOriginalEventData: !!eventAny.original_event_data,
+      originalDate: eventAny.original_event_data?.date,
+      originalTime: eventAny.original_event_data?.time,
+      originalName: eventAny.original_event_data?.name,
+      originalLocation: eventAny.original_event_data?.location,
+      eventId: eventAny.id
+    });
+    
+    if ('original_event_data' in event && event.original_event_data) {
+      // Use original_event_data as the primary source of truth for all event details
+      const legacyEvent = event as LegacyEvent;
+      return {
+        name: legacyEvent.original_event_data.name || 'Untitled Event',
+        displayName: legacyEvent.custom_name || legacyEvent.original_event_data.name || 'Untitled Event',
+        description: legacyEvent.original_event_data.description || 'No description available',
+        date: legacyEvent.original_event_data.date || '',
+        time: legacyEvent.original_event_data.time || '',
+        location: legacyEvent.original_event_data.location || '',
+        created_by_username: legacyEvent.created_by_username || 'Unknown',
+        price: legacyEvent.original_event_data.price || null,
+        currency: legacyEvent.original_event_data.currency || null,
+        is_free: legacyEvent.original_event_data.is_free !== undefined ? legacyEvent.original_event_data.is_free : true,
+        category: legacyEvent.original_event_data.category || null
+      };
+    } else if (eventAny.date || eventAny.time || eventAny.name || eventAny.location) {
+      // Fallback to direct database fields for events that don't have original_event_data
       return {
         name: eventAny.name || eventAny.custom_name || 'Untitled Event',
         displayName: eventAny.custom_name || eventAny.name || 'Untitled Event',
@@ -422,24 +459,8 @@ export default function EventDetailScreen() {
         is_free: eventAny.is_free,
         category: eventAny.category
       };
-    } else if ('original_event_data' in event && event.original_event_data) {
-      // Fallback to original_event_data for legacy events without direct DB fields
-      const legacyEvent = event as LegacyEvent;
-      return {
-        name: legacyEvent.original_event_data.name || 'Untitled Event',
-        displayName: legacyEvent.custom_name || legacyEvent.original_event_data.name || 'Untitled Event',
-        description: legacyEvent.original_event_data.description || 'No description available',
-        date: legacyEvent.original_event_data.date || '',
-        time: legacyEvent.original_event_data.time || '',
-        location: legacyEvent.original_event_data.location || '',
-        created_by_username: legacyEvent.created_by_username || 'Unknown',
-        price: null,
-        currency: null,
-        is_free: true,
-        category: null
-      };
     } else {
-      // New event format
+      // New event format (fallback)
       const newEvent = event as Event;
       return {
         name: newEvent.name || 'Untitled Event',

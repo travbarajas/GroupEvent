@@ -309,59 +309,46 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ error: 'Only the event creator can edit this event' });
       }
 
-      // Update the event with provided fields
-      let updatedEvent;
+      // Get current original_event_data and update it
+      let currentEventData = event.original_event_data || {};
       
-      if (updates.date !== undefined && updates.time !== undefined) {
-        // Update both date and time
-        console.log('📅 UPDATING DATE/TIME:', {
-          eventId: event_id,
-          oldDate: event.date,
-          oldTime: event.time,
-          newDate: updates.date,
-          newTime: updates.time
-        });
-        
-        [updatedEvent] = await sql`
-          UPDATE group_events 
-          SET date = ${updates.date}, time = ${updates.time}, updated_at = NOW()
-          WHERE id = ${event_id} AND group_id = ${id}
-          RETURNING *
-        `;
-        
-        console.log('✅ DATABASE UPDATE RESULT:', {
-          updatedId: updatedEvent.id,
-          updatedDate: updatedEvent.date,
-          updatedTime: updatedEvent.time,
-          updatedAt: updatedEvent.updated_at
-        });
-      } else if (updates.location !== undefined) {
-        // Update location
-        [updatedEvent] = await sql`
-          UPDATE group_events 
-          SET location = ${updates.location}, updated_at = NOW()
-          WHERE id = ${event_id} AND group_id = ${id}
-          RETURNING *
-        `;
-      } else if (updates.name !== undefined) {
-        // Update name
-        [updatedEvent] = await sql`
-          UPDATE group_events 
-          SET name = ${updates.name}, updated_at = NOW()
-          WHERE id = ${event_id} AND group_id = ${id}
-          RETURNING *
-        `;
-      } else if (updates.description !== undefined) {
-        // Update description
-        [updatedEvent] = await sql`
-          UPDATE group_events 
-          SET description = ${updates.description}, updated_at = NOW()
-          WHERE id = ${event_id} AND group_id = ${id}
-          RETURNING *
-        `;
-      } else {
-        return res.status(400).json({ error: 'No valid fields to update' });
+      // Apply updates to the original_event_data object
+      if (updates.date !== undefined) {
+        currentEventData.date = updates.date;
       }
+      if (updates.time !== undefined) {
+        currentEventData.time = updates.time;
+      }
+      if (updates.location !== undefined) {
+        currentEventData.location = updates.location;
+      }
+      if (updates.name !== undefined) {
+        currentEventData.name = updates.name;
+      }
+      if (updates.description !== undefined) {
+        currentEventData.description = updates.description;
+      }
+      
+      console.log('📅 UPDATING ORIGINAL_EVENT_DATA:', {
+        eventId: event_id,
+        oldData: event.original_event_data,
+        newData: currentEventData,
+        updates
+      });
+      
+      // Update only the original_event_data field and timestamp
+      const [updatedEvent] = await sql`
+        UPDATE group_events 
+        SET original_event_data = ${JSON.stringify(currentEventData)}, updated_at = NOW()
+        WHERE id = ${event_id} AND group_id = ${id}
+        RETURNING *
+      `;
+      
+      console.log('✅ DATABASE UPDATE RESULT:', {
+        updatedId: updatedEvent.id,
+        updatedEventData: updatedEvent.original_event_data,
+        updatedAt: updatedEvent.updated_at
+      });
       
       return res.status(200).json({ 
         success: true, 
