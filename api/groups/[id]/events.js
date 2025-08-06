@@ -9,7 +9,7 @@ const sql = neon(process.env.DATABASE_URL);
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
@@ -238,6 +238,90 @@ module.exports = async function handler(req, res) {
     } catch (error) {
       console.error('Error adding event to group:', error);
       console.error('Error details:', error.message);
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      const { id } = req.query;
+      const { device_id, event_id, updates } = req.body;
+      
+      if (!device_id || !event_id || !updates) {
+        return res.status(400).json({ error: 'device_id, event_id, and updates are required' });
+      }
+
+      // Check if user is a member of this group
+      const [membership] = await sql`
+        SELECT username FROM members WHERE group_id = ${id} AND device_id = ${device_id}
+      `;
+
+      if (!membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
+
+      // Check if the event exists and if the user is the creator
+      const [event] = await sql`
+        SELECT * FROM group_events 
+        WHERE id = ${event_id} AND group_id = ${id}
+      `;
+
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      // Check if user is the creator of the event
+      if (event.added_by_device_id !== device_id && event.created_by_device_id !== device_id) {
+        return res.status(403).json({ error: 'Only the event creator can edit this event' });
+      }
+
+      // Update the event with provided fields
+      let updatedEvent;
+      
+      if (updates.date !== undefined && updates.time !== undefined) {
+        // Update both date and time
+        [updatedEvent] = await sql`
+          UPDATE group_events 
+          SET date = ${updates.date}, time = ${updates.time}, updated_at = NOW()
+          WHERE id = ${event_id} AND group_id = ${id}
+          RETURNING *
+        `;
+      } else if (updates.location !== undefined) {
+        // Update location
+        [updatedEvent] = await sql`
+          UPDATE group_events 
+          SET location = ${updates.location}, updated_at = NOW()
+          WHERE id = ${event_id} AND group_id = ${id}
+          RETURNING *
+        `;
+      } else if (updates.name !== undefined) {
+        // Update name
+        [updatedEvent] = await sql`
+          UPDATE group_events 
+          SET name = ${updates.name}, updated_at = NOW()
+          WHERE id = ${event_id} AND group_id = ${id}
+          RETURNING *
+        `;
+      } else if (updates.description !== undefined) {
+        // Update description
+        [updatedEvent] = await sql`
+          UPDATE group_events 
+          SET description = ${updates.description}, updated_at = NOW()
+          WHERE id = ${event_id} AND group_id = ${id}
+          RETURNING *
+        `;
+      } else {
+        return res.status(400).json({ error: 'No valid fields to update' });
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Event updated successfully',
+        event: updatedEvent 
+      });
+
+    } catch (error) {
+      console.error('Error updating event:', error);
       return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
