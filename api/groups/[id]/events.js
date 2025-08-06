@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
   }
   
   if (req.method === 'GET') {
+    console.log('🔄 GET REQUEST - checking for updated fields');
     try {
       const { id } = req.query;
       const { device_id } = req.query;
@@ -191,6 +192,14 @@ module.exports = async function handler(req, res) {
         source_type: event.source_type,
         source_event_id: event.source_event_id
       }));
+      
+      console.log('🔍 TRANSFORMED EVENT SAMPLE:', {
+        id: transformedEvents[0]?.id,
+        hasDirectDate: transformedEvents[0]?.date ? 'YES' : 'NO',
+        hasDirectTime: transformedEvents[0]?.time ? 'YES' : 'NO',
+        directDate: transformedEvents[0]?.date,
+        directTime: transformedEvents[0]?.time
+      });
       
       return res.status(200).json({ events: transformedEvents });
     } catch (error) {
