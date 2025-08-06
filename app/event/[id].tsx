@@ -326,14 +326,9 @@ export default function EventDetailScreen() {
                   {getUserDisplayName(deviceId)[0]?.toUpperCase() || '?'}
                 </Text>
               </View>
-              <Text style={styles.attendanceBoxUser}>
+              <Text style={styles.attendanceBoxUser} numberOfLines={1} ellipsizeMode="tail">
                 {getUserDisplayName(deviceId)}
               </Text>
-              {deviceId === currentDeviceId && (
-                <View style={styles.currentUserIndicator}>
-                  <Text style={styles.currentUserText}>You</Text>
-                </View>
-              )}
             </View>
           ))}
           {users.length > 3 && (
@@ -786,18 +781,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   userAvatarText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  currentUserIndicator: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 'auto',
-  },
-  currentUserText: {
     fontSize: 10,
     fontWeight: '600',
     color: '#ffffff',
