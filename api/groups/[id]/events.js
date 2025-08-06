@@ -259,6 +259,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
+    console.log('🚀 PUT REQUEST RECEIVED AT:', new Date().toISOString());
     try {
       const { id } = req.query;
       const { device_id, event_id, updates } = req.body;

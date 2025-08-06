@@ -502,6 +502,7 @@ export default function EventDetailScreen() {
   };
 
   const handleEditDateTime = async () => {
+    console.log('🚀 HANDLE EDIT DATE TIME CALLED!');
     try {
       // Format the date and time for the API
       const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
