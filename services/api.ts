@@ -126,7 +126,6 @@ export class ApiService {
       
       return await response.json();
     } catch (error) {
-      console.error(`API request failed: ${url}`, error);
       throw error;
     }
   }
@@ -257,6 +256,25 @@ export class ApiService {
     });
   }
 
+  static async updateGroupEvent(groupId: string, eventId: string, updates: {
+    name?: string;
+    description?: string;
+    date?: string;
+    time?: string;
+    location?: string;
+    venue_name?: string;
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/groups/${groupId}/events`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_id,
+        event_id: eventId,
+        updates
+      })
+    });
+  }
+
   static async deleteEventFromGroup(groupId: string, eventId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.request(`/groups/${groupId}/events`, {
@@ -310,15 +328,10 @@ export class ApiService {
       participants: participants
     };
     
-    console.log('=== EXPENSE CREATE API REQUEST ===');
-    console.log('Request body:', JSON.stringify(requestBody, null, 2));
-    
     const response = await this.request(`/groups/${groupId}/expenses`, {
       method: 'POST',
       body: JSON.stringify(requestBody)
     });
-    
-    console.log('Create expense response:', response);
     return response;
   }
 
@@ -355,10 +368,6 @@ export class ApiService {
       participants: participants
     };
     
-    console.log('=== EXPENSE UPDATE API REQUEST ===');
-    console.log('Expense ID:', expenseId);
-    console.log('Request body:', JSON.stringify(requestBody, null, 2));
-    
     try {
       // Try PUT method first
       const response = await this.request(`/groups/${groupId}/expenses/${expenseId}`, {
@@ -366,18 +375,14 @@ export class ApiService {
         body: JSON.stringify(requestBody)
       });
       
-      console.log('PUT update successful:', response);
       return response;
       
     } catch (error: any) {
       if (error.message === 'Method not allowed') {
-        console.log('PUT not supported, trying delete+recreate...');
-        
         // Fallback: Delete + Create
         await this.deleteGroupExpense(groupId, expenseId);
         const newExpense = await this.createGroupExpense(groupId, expenseData);
         
-        console.log('Delete+recreate successful:', newExpense);
         return newExpense;
         
       } else {

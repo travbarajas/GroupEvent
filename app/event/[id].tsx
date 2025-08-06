@@ -11,11 +11,13 @@ import {
   Modal,
   Alert,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { ApiService, Event, LegacyEvent } from '@/services/api';
 import CarSeatIndicator from '@/components/CarSeatIndicator';
 import ExpenseTracker from '@/components/ExpenseTracker';
@@ -66,6 +68,11 @@ export default function EventDetailScreen() {
   const [editingDate, setEditingDate] = useState('');
   const [editingTime, setEditingTime] = useState('');
   const [editingLocation, setEditingLocation] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedTime, setSelectedTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (id && groupId) {
@@ -130,11 +137,13 @@ export default function EventDetailScreen() {
       const { events } = await ApiService.getGroupEvents(groupId as string);
       const eventData = events.find(e => e.id === id);
       
+      console.log('DEBUG: Fetched event data:', eventData);
+      
       if (eventData) {
         setEvent(eventData);
       }
     } catch (error) {
-      // Failed to fetch event data
+      console.log('DEBUG: Failed to fetch event data:', error);
     }
   };
 
@@ -451,17 +460,38 @@ export default function EventDetailScreen() {
   };
 
   const handleEditDateTime = async () => {
-    if (!editingDate.trim() && !editingTime.trim()) {
-      Alert.alert('Error', 'Please enter at least a date or time');
-      return;
-    }
-
     try {
-      // For now, just close modal - API integration can be added later
+      // Format the date and time for the API
+      const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const formattedTime = selectedTime.toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }); // HH:MM format
+      
+      console.log('DEBUG: Updating event with:', {
+        groupId,
+        eventId: id,
+        formattedDate,
+        formattedTime
+      });
+      
+      // Call the API to update the event
+      const result = await ApiService.updateGroupEvent(groupId as string, id as string, {
+        date: formattedDate,
+        time: formattedTime
+      });
+      
+      console.log('DEBUG: API result:', result);
+      
+      // Refresh the event data to show the update
+      await fetchEventData();
+      
       setShowDateTimeModal(false);
-      Alert.alert('Success', 'Date and time updated successfully');
+      Alert.alert('Success', 'Date and time updated successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update date and time');
+      console.log('DEBUG: Error updating date/time:', error);
+      Alert.alert('Error', `Failed to update date and time: ${error.message}`);
     }
   };
 
@@ -472,18 +502,84 @@ export default function EventDetailScreen() {
     }
 
     try {
-      // For now, just close modal - API integration can be added later
+      // Call the API to update the event location
+      await ApiService.updateGroupEvent(groupId as string, id as string, {
+        location: editingLocation.trim()
+      });
+      
+      // Refresh the event data to show the update
+      await fetchEventData();
+      
       setShowLocationModal(false);
-      Alert.alert('Success', 'Location updated successfully');
+      Alert.alert('Success', 'Location updated successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update location');
+      Alert.alert('Error', 'Failed to update location. Please try again.');
     }
   };
 
   const openDateTimeModal = () => {
+    // Reset picker states
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    
+    // Parse existing date and time to set initial picker values
+    const currentDate = displayEvent.date ? new Date(displayEvent.date) : new Date();
+    setSelectedDate(currentDate);
+    
+    if (displayEvent.time) {
+      // Parse time and set to selectedTime
+      const timeMatch = displayEvent.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (timeMatch) {
+        const [, hourStr, minuteStr, period] = timeMatch;
+        let hour = parseInt(hourStr, 10);
+        const minute = parseInt(minuteStr, 10);
+        
+        if (period) {
+          if (period.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+          if (period.toUpperCase() === 'AM' && hour === 12) hour = 0;
+        }
+        
+        const timeDate = new Date();
+        timeDate.setHours(hour, minute, 0, 0);
+        setSelectedTime(timeDate);
+      }
+    } else {
+      setSelectedTime(new Date());
+    }
+    
     setEditingDate(displayEvent.date || '');
     setEditingTime(displayEvent.time || '');
     setShowDateTimeModal(true);
+  };
+
+  const formatDateForDisplay = (date: Date): string => {
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  const formatTimeForDisplay = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const onDateChange = (event: any, newDate?: Date) => {
+    if (newDate) {
+      setSelectedDate(newDate);
+    }
+  };
+
+  const onTimeChange = (event: any, newTime?: Date) => {
+    if (newTime) {
+      setSelectedTime(newTime);
+    }
   };
 
   const openLocationModal = () => {
@@ -491,11 +587,43 @@ export default function EventDetailScreen() {
     setShowLocationModal(true);
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Refresh all data
+      await Promise.all([
+        fetchEventData(),
+        fetchAttendance(),
+        fetchExpenses(),
+        fetchMembers(),
+        fetchGroupProfile()
+      ]);
+    } catch (error) {
+      // Silent failure for refresh
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollContainer} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#10b981"
+            colors={['#10b981']}
+          />
+        }
+      >
+        {/* Extended background to prevent black on overscroll */}
+        <View style={styles.extendedBackground} />
+        
         {/* Expandable Header */}
         <Animated.View style={[styles.eventHeader, { height: headerHeight, paddingTop: insets.top }]}>
           <TouchableOpacity 
@@ -517,6 +645,17 @@ export default function EventDetailScreen() {
                   </Text>
                 </View>
                 <View style={styles.headerRightButtons}>
+                  <TouchableOpacity 
+                    onPress={onRefresh} 
+                    style={styles.refreshButton}
+                    disabled={refreshing}
+                  >
+                    <Ionicons 
+                      name="refresh" 
+                      size={20} 
+                      color={refreshing ? "#9ca3af" : "#60a5fa"} 
+                    />
+                  </TouchableOpacity>
                   {isEventCreator() && (
                     <TouchableOpacity 
                       onPress={() => setShowDeleteModal(true)} 
@@ -586,6 +725,7 @@ export default function EventDetailScreen() {
             style={[styles.eventDetailBox, styles.dateTimeBox]}
             onPress={() => isEventCreator() && openDateTimeModal()}
             disabled={!isEventCreator()}
+            activeOpacity={isEventCreator() ? 0.7 : 1}
           >
             <View style={styles.eventDetailHeader}>
               <Ionicons name="calendar-outline" size={18} color="#10b981" />
@@ -595,7 +735,7 @@ export default function EventDetailScreen() {
               )}
             </View>
             <Text style={styles.eventDetailValue}>
-              {displayEvent.date || 'No date set'}
+              {displayEvent.date ? formatDateForDisplay(new Date(displayEvent.date)) : 'No date set'}
             </Text>
             {displayEvent.time && (
               <Text style={styles.eventDetailValue}>
@@ -609,6 +749,7 @@ export default function EventDetailScreen() {
             style={[styles.eventDetailBox, styles.locationBox]}
             onPress={() => isEventCreator() && openLocationModal()}
             disabled={!isEventCreator()}
+            activeOpacity={isEventCreator() ? 0.7 : 1}
           >
             <View style={styles.eventDetailHeader}>
               <Ionicons name="location-outline" size={18} color="#3b82f6" />
@@ -755,8 +896,8 @@ export default function EventDetailScreen() {
         visible={showDateTimeModal}
         onRequestClose={() => setShowDateTimeModal(false)}
       >
-        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-          <View style={styles.modalHeader}>
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 16 }]}>
             <TouchableOpacity 
               onPress={() => setShowDateTimeModal(false)} 
               style={styles.modalBackButton}
@@ -770,24 +911,52 @@ export default function EventDetailScreen() {
           <ScrollView style={styles.modalContent}>
             <View style={[styles.modalSection, styles.firstModalSection]}>
               <Text style={styles.inputLabel}>Date</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., Monday, July 4th, 2025"
-                placeholderTextColor="#9ca3af"
-                value={editingDate}
-                onChangeText={setEditingDate}
-              />
+              <TouchableOpacity 
+                style={styles.dateTimeButton}
+                onPress={() => setShowDatePicker(!showDatePicker)}
+              >
+                <Ionicons name="calendar" size={20} color="#10b981" />
+                <Text style={styles.dateTimeText}>
+                  {formatDateForDisplay(selectedDate)}
+                </Text>
+                <Ionicons name={showDatePicker ? "chevron-up" : "chevron-down"} size={16} color="#666" />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <View style={styles.inlinePicker}>
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={onDateChange}
+                    textColor="#ffffff"
+                  />
+                </View>
+              )}
             </View>
 
             <View style={styles.modalSection}>
               <Text style={styles.inputLabel}>Time</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., 7:00 PM"
-                placeholderTextColor="#9ca3af"
-                value={editingTime}
-                onChangeText={setEditingTime}
-              />
+              <TouchableOpacity 
+                style={styles.dateTimeButton}
+                onPress={() => setShowTimePicker(!showTimePicker)}
+              >
+                <Ionicons name="time" size={20} color="#10b981" />
+                <Text style={styles.dateTimeText}>
+                  {formatTimeForDisplay(selectedTime)}
+                </Text>
+                <Ionicons name={showTimePicker ? "chevron-up" : "chevron-down"} size={16} color="#666" />
+              </TouchableOpacity>
+              {showTimePicker && (
+                <View style={styles.inlinePicker}>
+                  <DateTimePicker
+                    value={selectedTime}
+                    mode="time"
+                    display="spinner"
+                    onChange={onTimeChange}
+                    textColor="#ffffff"
+                  />
+                </View>
+              )}
             </View>
           </ScrollView>
 
@@ -815,8 +984,8 @@ export default function EventDetailScreen() {
         visible={showLocationModal}
         onRequestClose={() => setShowLocationModal(false)}
       >
-        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-          <View style={styles.modalHeader}>
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 16 }]}>
             <TouchableOpacity 
               onPress={() => setShowLocationModal(false)} 
               style={styles.modalBackButton}
@@ -914,8 +1083,8 @@ const styles = StyleSheet.create({
   eventDetailsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     gap: 12,
   },
   eventDetailBox: {
@@ -940,7 +1109,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   eventDetailTitle: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
     flex: 1,
@@ -1350,6 +1519,18 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 4,
   },
+  refreshButton: {
+    padding: 4,
+  },
+  extendedBackground: {
+    position: 'absolute',
+    top: -1000,
+    left: 0,
+    right: 0,
+    height: 1000,
+    backgroundColor: '#1a1a1a',
+    zIndex: -1,
+  },
   // Delete Modal styles
   modalOverlay: {
     flex: 1,
@@ -1688,5 +1869,53 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  pickerButton: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
+    flex: 1,
+  },
+  dateTimePicker: {
+    backgroundColor: '#1a1a1a',
+  },
+  inlinePickerContainer: {
+    marginTop: 12,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 8,
+  },
+  dateTimeButton: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 50,
+  },
+  dateTimeText: {
+    fontSize: 16,
+    color: '#ffffff',
+    flex: 1,
+    marginLeft: 12,
+  },
+  inlinePicker: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    marginTop: 8,
+    paddingVertical: 8,
   },
 });
