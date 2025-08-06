@@ -137,13 +137,11 @@ export default function EventDetailScreen() {
       const { events } = await ApiService.getGroupEvents(groupId as string);
       const eventData = events.find(e => e.id === id);
       
-      console.log('DEBUG: Fetched event data:', eventData);
-      
       if (eventData) {
         setEvent(eventData);
       }
     } catch (error) {
-      console.log('DEBUG: Failed to fetch event data:', error);
+      // Failed to fetch event data
     }
   };
 
@@ -394,8 +392,26 @@ export default function EventDetailScreen() {
       };
     }
 
-    // Check if it's a legacy event
-    if ('original_event_data' in event && event.original_event_data) {
+    // Check if it's an event with database fields (prioritize actual DB fields over original_event_data)
+    const eventAny = event as any;
+    
+    if (eventAny.date || eventAny.time || eventAny.name || eventAny.location) {
+      // This event has direct database fields, use those (they're the updated ones)
+      return {
+        name: eventAny.name || eventAny.custom_name || 'Untitled Event',
+        displayName: eventAny.custom_name || eventAny.name || 'Untitled Event',
+        description: eventAny.description || 'No description available',
+        date: eventAny.date || '',
+        time: eventAny.time || '',
+        location: eventAny.location || eventAny.venue_name || '',
+        created_by_username: eventAny.created_by_username || 'Unknown',
+        price: eventAny.price,
+        currency: eventAny.currency || 'USD',
+        is_free: eventAny.is_free,
+        category: eventAny.category
+      };
+    } else if ('original_event_data' in event && event.original_event_data) {
+      // Fallback to original_event_data for legacy events without direct DB fields
       const legacyEvent = event as LegacyEvent;
       return {
         name: legacyEvent.original_event_data.name || 'Untitled Event',
@@ -469,20 +485,11 @@ export default function EventDetailScreen() {
         minute: '2-digit' 
       }); // HH:MM format
       
-      console.log('DEBUG: Updating event with:', {
-        groupId,
-        eventId: id,
-        formattedDate,
-        formattedTime
-      });
-      
       // Call the API to update the event
-      const result = await ApiService.updateGroupEvent(groupId as string, id as string, {
+      await ApiService.updateGroupEvent(groupId as string, id as string, {
         date: formattedDate,
         time: formattedTime
       });
-      
-      console.log('DEBUG: API result:', result);
       
       // Refresh the event data to show the update
       await fetchEventData();
@@ -490,8 +497,7 @@ export default function EventDetailScreen() {
       setShowDateTimeModal(false);
       Alert.alert('Success', 'Date and time updated successfully!');
     } catch (error) {
-      console.log('DEBUG: Error updating date/time:', error);
-      Alert.alert('Error', `Failed to update date and time: ${error.message}`);
+      Alert.alert('Error', 'Failed to update date and time. Please try again.');
     }
   };
 

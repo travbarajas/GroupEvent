@@ -87,7 +87,6 @@ export default function CarSeatIndicator({
       setLoading(true);
       
       const url = `https://group-event.vercel.app/api/groups/${groupId}/cars?device_id=${currentUserId}${eventId ? `&event_id=${eventId}` : ''}`;
-      console.log('Loading cars from:', url);
       
       const response = await fetch(url, {
         method: 'GET',

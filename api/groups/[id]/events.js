@@ -247,8 +247,6 @@ module.exports = async function handler(req, res) {
       const { id } = req.query;
       const { device_id, event_id, updates } = req.body;
       
-      console.log('PUT request received:', { id, device_id, event_id, updates });
-      
       if (!device_id || !event_id || !updates) {
         return res.status(400).json({ error: 'device_id, event_id, and updates are required' });
       }
@@ -282,14 +280,12 @@ module.exports = async function handler(req, res) {
       
       if (updates.date !== undefined && updates.time !== undefined) {
         // Update both date and time
-        console.log('Updating date and time:', updates.date, updates.time);
         [updatedEvent] = await sql`
           UPDATE group_events 
           SET date = ${updates.date}, time = ${updates.time}, updated_at = NOW()
           WHERE id = ${event_id} AND group_id = ${id}
           RETURNING *
         `;
-        console.log('Updated event:', updatedEvent);
       } else if (updates.location !== undefined) {
         // Update location
         [updatedEvent] = await sql`
