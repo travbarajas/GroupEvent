@@ -85,6 +85,18 @@ export default function EventDetailScreen() {
     return () => clearInterval(backgroundPoll);
   }, [groupId]);
 
+  // Background polling for attendance updates every 15 seconds
+  useEffect(() => {
+    if (!groupId || !id) return;
+    
+    // Poll every 15 seconds for attendance updates when component is mounted
+    const attendancePoll = setInterval(() => {
+      fetchAttendance();
+    }, 15000);
+    
+    return () => clearInterval(attendancePoll);
+  }, [groupId, id]);
+
   // Fast polling when expense modal is open
   useEffect(() => {
     if ((!showExpenseModal && !showAddExpenseModal) || !groupId) return;
