@@ -914,7 +914,8 @@ const styles = StyleSheet.create({
   eventDetailsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
     gap: 12,
   },
   eventDetailBox: {
@@ -923,6 +924,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
+    minHeight: 90,
+    justifyContent: 'flex-start',
   },
   dateTimeBox: {
     borderColor: '#10b981',
@@ -975,6 +978,7 @@ const styles = StyleSheet.create({
   },
   attendanceContainer: {
     padding: 20,
+    paddingTop: 0,
   },
   attendanceBoxRow: {
     flexDirection: 'row',
