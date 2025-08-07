@@ -22,6 +22,7 @@ import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
+import ExpenseScreen from '@/components/ExpenseScreen';
 import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
 import { calendarCache } from '@/utils/calendarCache';
 import { useRealtimeChat } from '@/hooks/useRealtimeChat';
@@ -437,12 +438,12 @@ export default function GroupDetailScreen() {
     }
   };
 
-  // Get next 4 days (today + 3)
-  const getNext4Days = () => {
+  // Get next 7 days (today + 6)
+  const getNext7Days = () => {
     const days = [];
     const today = new Date();
     
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
@@ -461,13 +462,10 @@ export default function GroupDetailScreen() {
         return eventDate === dateString;
       });
       
-      // Create abbreviations for events (first letter of each word)
+      // Create abbreviations for events (up to 20 characters)
       const eventsWithAbbreviations = dayEvents.map(event => {
         const title = event.custom_name || event.original_event_data?.title || 'Event';
-        const abbreviation = title
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase())
-          .join('');
+        const abbreviation = title.substring(0, 20);
         
         return {
           ...event,
@@ -529,39 +527,27 @@ export default function GroupDetailScreen() {
       .slice(0, 2); // Show max 2 upcoming events
   };
 
-  const FourDayPreview = () => {
-    const next4Days = getNext4Days();
+  const SevenDayPreview = () => {
+    const next7Days = getNext7Days();
     
     return (
-      <TouchableOpacity 
-        style={styles.fourDayPreview}
-        activeOpacity={0.8}
-        onPress={() => router.push({
-          pathname: '/calendar',
-          params: { groupId: id }
-        })}
-      >
-        {/* Calendar Button integrated into 4-day preview */}
+      <View style={styles.sevenDayPreview}>
+        {/* Header with Calendar Button */}
         <TouchableOpacity 
-          style={styles.integratedCalendarButton}
-          activeOpacity={0.6}
+          style={styles.calendarHeader}
+          activeOpacity={0.8}
           onPress={() => router.push({
             pathname: '/calendar',
             params: { groupId: id }
           })}
         >
-          <View style={styles.calendarButtonContent}>
-            <Ionicons name="calendar" size={20} color="#60a5fa" />
-            <Text style={styles.integratedCalendarButtonText}>Calendar</Text>
-            <Ionicons name="chevron-forward" size={14} color="#9ca3af" style={styles.calendarButtonArrow} />
-          </View>
+          <Ionicons name="calendar" size={20} color="#60a5fa" />
+          <Text style={styles.calendarHeaderText}>7-Day Calendar</Text>
+          <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
         </TouchableOpacity>
         
-        {/* Separator line between calendar button and 4-day preview */}
-        <View style={styles.calendarPreviewSeparator} />
-        
-        <View style={styles.fourDayPreviewContent}>
-          {next4Days.map((day, index) => (
+        <View style={styles.sevenDayPreviewContent}>
+          {next7Days.map((day, index) => (
             <TouchableOpacity 
               key={index} 
               style={[
@@ -605,13 +591,15 @@ export default function GroupDetailScreen() {
                 router.push(`/date-events?date=${day.dateString}&groupId=${id}`);
               }}
             >
-              <Text style={styles.dayPreviewName}>{day.dayName}</Text>
-              <Text style={[
-                styles.dayPreviewNumber,
-                index === 0 && styles.dayPreviewTodayText
-              ]}>
-                {day.dayNumber}
-              </Text>
+              <View style={styles.dayPreviewHeader}>
+                <Text style={styles.dayPreviewName}>{day.dayName}</Text>
+                <Text style={[
+                  styles.dayPreviewNumber,
+                  index === 0 && styles.dayPreviewTodayText
+                ]}>
+                  {day.dayNumber}
+                </Text>
+              </View>
               <View style={styles.dayPreviewEventContainer}>
                 {day.events && day.events.slice(0, 3).map((event, eventIndex) => (
                   <View 
@@ -642,7 +630,7 @@ export default function GroupDetailScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -670,7 +658,7 @@ export default function GroupDetailScreen() {
               key={event.id}
               style={[
                 styles.upcomingEventItem,
-                { borderLeftWidth: 3, borderLeftColor: creatorColor + '80' },
+                { borderLeftWidth: 3, borderLeftColor: creatorColor },
                 isLast && { borderBottomWidth: 0 }
               ]}
               activeOpacity={0.7}
@@ -893,7 +881,7 @@ export default function GroupDetailScreen() {
     
     return (
       <TouchableOpacity 
-        style={[styles.eventBlock, { borderColor: creatorColor + '80' }]} 
+        style={[styles.eventBlock, { borderColor: creatorColor }]} 
         activeOpacity={0.8} 
         onPress={handleEventPress}
       >
@@ -1028,12 +1016,14 @@ export default function GroupDetailScreen() {
         }
       >
         
-        {/* Side by Side: Upcoming Events and 4-Day Preview with integrated Calendar Button */}
-        <View style={styles.sideBySideContainer}>
-          <View style={styles.upcomingEventsSection}>
-            <UpcomingEventsList />
-          </View>
-          <FourDayPreview />
+        {/* Upcoming Events - Full Width */}
+        <View style={styles.fullWidthContainer}>
+          <UpcomingEventsList />
+        </View>
+        
+        {/* 7-Day Calendar Preview - Full Width */}
+        <View style={styles.fullWidthContainer}>
+          <SevenDayPreview />
         </View>
         
         {/* Group Expenses Block - Full Width */}
@@ -1123,13 +1113,31 @@ export default function GroupDetailScreen() {
         />
       )}
 
-      <ExpenseTracker
+      {/* New Expense Management Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
         visible={showExpenseTracker}
-        onClose={() => setShowExpenseTracker(false)}
-        groupName={group?.name || ''}
-        groupId={id as string}
-        members={members}
-      />
+        onRequestClose={() => setShowExpenseTracker(false)}
+      >
+        <SafeAreaView style={styles.expenseModalContainer}>
+          <View style={styles.expenseModalHeader}>
+            <TouchableOpacity 
+              onPress={() => setShowExpenseTracker(false)} 
+              style={styles.expenseModalBackButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.expenseModalTitle}>Expenses - {group?.name}</Text>
+            <View style={styles.expenseModalSpacer} />
+          </View>
+          <ExpenseScreen 
+            groupId={id as string}
+            currentUserId={currentDeviceId}
+            groupMembers={members}
+          />
+        </SafeAreaView>
+      </Modal>
 
 
       {/* Leave Group Modal */}
@@ -1328,6 +1336,33 @@ const styles = StyleSheet.create({
     padding: 16,
     flex: 1.2,
   },
+  sevenDayPreview: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    padding: 16,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  calendarHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
+    flex: 1,
+  },
+  sevenDayPreviewContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
   integratedCalendarButton: {
     marginBottom: 16,
   },
@@ -1348,23 +1383,32 @@ const styles = StyleSheet.create({
   dayPreviewItem: {
     alignItems: 'center',
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
     borderRadius: 8,
     backgroundColor: 'transparent',
-    minHeight: 80,
-    justifyContent: 'space-between',
+    minHeight: 120,
+    justifyContent: 'flex-start',
   },
   dayPreviewToday: {
     backgroundColor: 'rgba(96, 165, 250, 0.1)',
     borderWidth: 1,
     borderColor: '#60a5fa',
   },
+  dayPreviewHeader: {
+    alignItems: 'center',
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 6,
+    minHeight: 35,
+    justifyContent: 'center',
+  },
   dayPreviewName: {
     fontSize: 10,
     color: '#9ca3af',
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dayPreviewNumber: {
     fontSize: 18,
@@ -1382,17 +1426,24 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   eventAbbreviation: {
-    minWidth: 16,
-    height: 16,
+    minWidth: 20,
+    minHeight: 20,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 2,
+    maxWidth: '95%',
+    width: 'auto',
   },
   eventAbbreviationText: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#ffffff',
-    fontWeight: '700',
+    fontWeight: '600',
+    textAlign: 'center',
+    flexWrap: 'wrap',
+    lineHeight: 12,
   },
   // Upcoming Events
   upcomingEventsSection: {
@@ -1777,5 +1828,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 16,
+  },
+  // Expense Modal styles
+  expenseModalContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  expenseModalHeader: {
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expenseModalBackButton: {
+    padding: 4,
+  },
+  expenseModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+    textAlign: 'center',
+  },
+  expenseModalSpacer: {
+    width: 32, // Same width as back button to center title
   },
 });

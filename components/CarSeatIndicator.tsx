@@ -482,24 +482,121 @@ export default function CarSeatIndicator({
       >
         <View style={styles.carSeatHeader}>
           <Ionicons name="car-sport" size={20} color="#60a5fa" />
-          <Text style={styles.carSeatTitle}>Car Seats</Text>
+          <Text style={styles.carSeatTitle}>Transportation</Text>
           <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
         </View>
         
-        {cars.length === 0 ? (
-          <Text style={styles.noCarText}>No cars added</Text>
-        ) : (
-          <View style={styles.carListPreview}>
-            {cars.map(car => (
-              <View key={car.id} style={styles.carPreviewItem}>
-                <Text style={styles.carPreviewName}>{car.name}</Text>
-                <Text style={styles.carPreviewCapacity}>
-                  {getOccupiedSeats(car)}/{car.capacity}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+        <View style={styles.carListPreview} pointerEvents="box-none">
+          {cars.length === 0 ? (
+            <Text style={styles.noCarText}>No vehicles added</Text>
+          ) : (
+            cars.map(car => {
+              const isCreator = car.createdBy === currentUserId;
+              return (
+                <TouchableOpacity 
+                  key={car.id} 
+                  style={styles.carPreviewContainer}
+                  onPress={() => handleClaimSeat(car.id)}
+                  activeOpacity={0.7}
+                  disabled={updatingSeats.has(car.id)}
+                >
+                  <View style={[
+                    styles.carPreviewItem,
+                    updatingSeats.has(car.id) && styles.carPreviewItemUpdating
+                  ]}>
+                    <View style={styles.carPreviewLeft}>
+                      <Text style={styles.carPreviewName}>{car.name}</Text>
+                      
+                      {/* Seat circles to the right of the name */}
+                      <View style={styles.seatCirclesContainer}>
+                        {Array.from({ length: Math.ceil(car.capacity / 6) }, (_, rowIndex) => (
+                          <View key={rowIndex} style={styles.seatCirclesRow}>
+                            {car.seats.slice(rowIndex * 6, (rowIndex + 1) * 6).map((seat, index) => (
+                              <View
+                                key={rowIndex * 6 + index}
+                                style={[
+                                  styles.seatCircle,
+                                  seat && { backgroundColor: getUserColor(seat) }
+                                ]}
+                              />
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    
+                    {/* Creator controls or capacity for non-creators */}
+                    {isCreator ? (
+                      <View style={styles.creatorControls}>
+                        <TouchableOpacity 
+                          style={styles.controlButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleCapacityChange(car.id, 1);
+                          }}
+                        >
+                          <Ionicons name="add" size={14} color="#60a5fa" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.controlButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleCapacityChange(car.id, -1);
+                          }}
+                          disabled={car.capacity <= 1}
+                        >
+                          <Ionicons 
+                            name="remove" 
+                            size={14} 
+                            color={car.capacity <= 1 ? '#666' : '#60a5fa'} 
+                          />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.controlButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteVehicle(car.id);
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <Text style={styles.carPreviewCapacity}>
+                        {getOccupiedSeats(car)}/{car.capacity}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+          
+          {/* Add Vehicle Button in Preview */}
+          <TouchableOpacity 
+            style={[
+              styles.addVehiclePreviewButton,
+              creatingCar && styles.addVehiclePreviewButtonDisabled
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleAddCar();
+            }}
+            disabled={creatingCar}
+          >
+            <Ionicons 
+              name="add" 
+              size={16} 
+              color={creatingCar ? "#666" : "#60a5fa"} 
+            />
+            <Text style={[
+              styles.addVehiclePreviewText,
+              creatingCar && styles.addVehiclePreviewTextDisabled
+            ]}>
+              {creatingCar ? 'Creating...' : 'Add Vehicle'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
 
       {/* Car Seat Modal */}
@@ -515,7 +612,7 @@ export default function CarSeatIndicator({
             <TouchableOpacity onPress={() => setShowModal(false)} style={styles.backButton}>
               <Ionicons name="chevron-back" size={24} color="#ffffff" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Car Seats</Text>
+            <Text style={styles.modalTitle}>Transportation</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -539,7 +636,7 @@ export default function CarSeatIndicator({
                 styles.addCarText,
                 creatingCar && styles.addCarTextDisabled
               ]}>
-                {creatingCar ? 'Creating...' : 'Add Car'}
+                {creatingCar ? 'Creating...' : 'Add Vehicle'}
               </Text>
             </TouchableOpacity>
 
@@ -582,21 +679,92 @@ const styles = StyleSheet.create({
   carListPreview: {
     gap: 8,
   },
+  carPreviewContainer: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    padding: 10,
+  },
   carPreviewItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  carPreviewLeft: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
   },
   carPreviewName: {
     fontSize: 12,
     color: '#ffffff',
     fontWeight: '500',
-    flex: 1,
+    marginRight: 8,
   },
   carPreviewCapacity: {
     fontSize: 12,
     color: '#60a5fa',
     fontWeight: '600',
+  },
+  carPreviewItemUpdating: {
+    opacity: 0.7,
+  },
+  creatorControls: {
+    flexDirection: 'row',
+    gap: 4,
+    marginRight: -2,
+  },
+  controlButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seatCirclesContainer: {
+    gap: 4,
+  },
+  seatCirclesRow: {
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  seatCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#4a4a4a',
+    backgroundColor: 'transparent',
+  },
+  addVehiclePreviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+    padding: 10,
+    marginTop: 8,
+  },
+  addVehiclePreviewButtonDisabled: {
+    opacity: 0.5,
+    borderColor: '#666',
+  },
+  addVehiclePreviewText: {
+    fontSize: 12,
+    color: '#60a5fa',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  addVehiclePreviewTextDisabled: {
+    color: '#666',
   },
   modalContainer: {
     flex: 1,

@@ -135,37 +135,13 @@ export default function EventDetailScreen() {
     try {
       // Fetch all group events and find the specific one
       const { events } = await ApiService.getGroupEvents(groupId as string);
-      console.log('📊 FETCHED EVENTS:', events?.length, 'events');
-      
-      // Debug: Log the raw structure of our specific event
-      const rawEventData = events.find(e => e.id === id);
-      console.log('🔎 RAW EVENT FROM API:', {
-        eventId: rawEventData?.id,
-        rawKeys: Object.keys(rawEventData || {}),
-        date: rawEventData?.date,
-        time: rawEventData?.time,
-        name: rawEventData?.name,
-        location: rawEventData?.location,
-        original_event_data: rawEventData?.original_event_data
-      });
-      
       const eventData = events.find(e => e.id === id);
-      console.log('🎯 FOUND EVENT DATA:', {
-        eventId: eventData?.id,
-        hasDirectDate: !!(eventData as any)?.date,
-        hasDirectTime: !!(eventData as any)?.time,
-        directDate: (eventData as any)?.date,
-        directTime: (eventData as any)?.time,
-        hasOriginalEventData: !!(eventData as any)?.original_event_data,
-        originalDate: (eventData as any)?.original_event_data?.date,
-        originalTime: (eventData as any)?.original_event_data?.time
-      });
       
       if (eventData) {
         setEvent(eventData);
       }
     } catch (error) {
-      console.error('❌ FETCH ERROR:', error);
+      // Failed to fetch event data
     }
   };
 
@@ -289,7 +265,7 @@ export default function EventDetailScreen() {
 
   const headerHeight = headerAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [120 + insets.top, 220 + insets.top],
+    outputRange: [70 + insets.top, 220 + insets.top],
   });
 
   const handleAttendanceChange = async (status: 'going' | 'maybe' | 'not_going') => {
@@ -419,14 +395,6 @@ export default function EventDetailScreen() {
     // Prioritize original_event_data as the source of truth for all event details
     const eventAny = event as any;
     
-    console.log('📅 DISPLAY EVENT FIELD CHECK:', {
-      hasOriginalEventData: !!eventAny.original_event_data,
-      originalDate: eventAny.original_event_data?.date,
-      originalTime: eventAny.original_event_data?.time,
-      originalName: eventAny.original_event_data?.name,
-      originalLocation: eventAny.original_event_data?.location,
-      eventId: eventAny.id
-    });
     
     if ('original_event_data' in event && event.original_event_data) {
       // Use original_event_data as the primary source of truth for all event details
@@ -533,38 +501,18 @@ export default function EventDetailScreen() {
         minute: '2-digit' 
       }); // HH:MM format
       
-      console.log('🔄 UPDATING EVENT:', {
-        eventId: id,
-        groupId,
-        formattedDate,
-        formattedTime,
-        originalDate: displayEvent.date,
-        originalTime: displayEvent.time
-      });
-      
       // Call the API to update the event
       const apiResult = await ApiService.updateGroupEvent(groupId as string, id as string, {
         date: formattedDate,
         time: formattedTime
       });
       
-      console.log('✅ API UPDATE RESULT:', apiResult);
-      
       // Refresh the event data to show the update
-      console.log('🔄 FETCHING UPDATED DATA...');
       await fetchEventData();
-      
-      console.log('📊 EVENT AFTER FETCH:', {
-        eventId: event?.id,
-        date: (event as any)?.date,
-        time: (event as any)?.time,
-        originalEventData: (event as any)?.original_event_data
-      });
       
       setShowDateTimeModal(false);
       Alert.alert('Success', 'Date and time updated successfully!');
     } catch (error) {
-      console.error('❌ UPDATE ERROR:', error);
       Alert.alert('Error', 'Failed to update date and time. Please try again.');
     }
   };
@@ -711,11 +659,11 @@ export default function EventDetailScreen() {
                   <Ionicons name="chevron-back" size={24} color="#ffffff" />
                 </TouchableOpacity>
                 <View style={styles.headerTitleSection}>
-                  <Text style={styles.eventName}>
+                  <Text style={styles.eventName} adjustsFontSizeToFit={true} numberOfLines={1}>
                     {displayEvent.displayName}
                   </Text>
-                  <Text style={styles.createdByText}>
-                    Created by {displayEvent.created_by_username}
+                  <Text style={styles.eventPreviewDescription} numberOfLines={1}>
+                    {displayEvent.description}
                   </Text>
                 </View>
                 <View style={styles.headerRightButtons}>
@@ -750,6 +698,9 @@ export default function EventDetailScreen() {
               
               {isHeaderExpanded && (
                 <Animated.View style={{ opacity: headerAnimation }}>
+                  <Text style={styles.createdByText}>
+                    Created by {displayEvent.created_by_username}
+                  </Text>
                   <Text style={styles.eventLongDescription}>
                     {displayEvent.description}
                   </Text>
@@ -759,25 +710,6 @@ export default function EventDetailScreen() {
           </TouchableOpacity>
         </Animated.View>
         
-        {/* GPT Input Field */}
-        <View style={styles.gptInputContainer}>
-          <View style={styles.gptInputBox}>
-            <Ionicons name="search-outline" size={20} color="#6b7280" style={styles.gptInputIcon} />
-            <TextInput
-              style={styles.gptInput}
-              placeholder="Ask questions about this event..."
-              placeholderTextColor="#6b7280"
-              value={gptInput}
-              onChangeText={setGptInput}
-              returnKeyType="search"
-            />
-            {gptInput.length > 0 && (
-              <TouchableOpacity onPress={() => setGptInput('')} style={styles.clearButton}>
-                <Ionicons name="close-circle" size={20} color="#6b7280" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
 
         {/* Price info (only if not free and has price) */}
         {!displayEvent.is_free && displayEvent.price && (
@@ -840,7 +772,7 @@ export default function EventDetailScreen() {
 
         {/* Attendance Sections */}
         <View style={styles.attendanceContainer}>
-          <Text style={styles.sectionTitle}>Attendance</Text>
+          <Text style={styles.sectionTitle}>Who's Going</Text>
           
           <View style={styles.attendanceBoxRow}>
             <AttendanceBox 
@@ -1032,22 +964,23 @@ export default function EventDetailScreen() {
                 </View>
               )}
             </View>
+            
+            {/* Move modal actions up into the ScrollView */}
+            <View style={styles.modalActionsInline}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton} 
+                onPress={() => setShowDateTimeModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalSaveButton, { backgroundColor: '#10b981' }]} 
+                onPress={handleEditDateTime}
+              >
+                <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity 
-              style={styles.modalCancelButton} 
-              onPress={() => setShowDateTimeModal(false)}
-            >
-              <Text style={styles.modalCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.modalSaveButton, { backgroundColor: '#10b981' }]} 
-              onPress={handleEditDateTime}
-            >
-              <Text style={styles.modalSaveButtonText}>Save Changes</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </Modal>
 
@@ -1081,24 +1014,32 @@ export default function EventDetailScreen() {
                 onChangeText={setEditingLocation}
                 multiline
                 numberOfLines={3}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  // Dismiss keyboard when done is pressed
+                  const textInput = editingLocation;
+                  setEditingLocation(textInput); // Trigger re-render to blur
+                }}
+                blurOnSubmit={true}
               />
             </View>
+            
+            {/* Move modal actions up into the ScrollView */}
+            <View style={styles.modalActionsInline}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton} 
+                onPress={() => setShowLocationModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalSaveButton, { backgroundColor: '#3b82f6' }]} 
+                onPress={handleEditLocation}
+              >
+                <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity 
-              style={styles.modalCancelButton} 
-              onPress={() => setShowLocationModal(false)}
-            >
-              <Text style={styles.modalCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.modalSaveButton, { backgroundColor: '#3b82f6' }]} 
-              onPress={handleEditLocation}
-            >
-              <Text style={styles.modalSaveButtonText}>Save Changes</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </Modal>
 
@@ -1127,16 +1068,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContent: {
-    paddingTop: 20,
+    paddingTop: 12,
     paddingHorizontal: 20,
-    paddingBottom: 0,
+    paddingBottom: 12,
     flex: 1,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
   },
   headerTitleSection: {
     flex: 1,
@@ -1146,7 +1086,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#ffffff',
-    marginBottom: 8,
+  },
+  eventPreviewDescription: {
+    fontSize: 13,
+    color: '#9ca3af',
+    fontWeight: '400',
+    marginTop: 2,
   },
   createdByText: {
     fontSize: 13,
@@ -1919,6 +1864,12 @@ const styles = StyleSheet.create({
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#2a2a2a',
+  },
+  modalActionsInline: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    marginTop: 16,
   },
   modalCancelButton: {
     flex: 1,

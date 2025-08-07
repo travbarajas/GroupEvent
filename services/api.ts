@@ -265,12 +265,6 @@ export class ApiService {
     venue_name?: string;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    console.log('📡 API SERVICE UPDATE CALL:', {
-      groupId,
-      eventId,
-      updates,
-      device_id
-    });
     return this.request(`/groups/${groupId}/events`, {
       method: 'PUT',
       body: JSON.stringify({

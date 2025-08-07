@@ -6,7 +6,6 @@ if (!process.env.DATABASE_URL) {
 
 const sql = neon(process.env.DATABASE_URL);
 
-// Force redeploy v2
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,7 +17,6 @@ module.exports = async function handler(req, res) {
   }
   
   if (req.method === 'GET') {
-    console.log('🔄 GET REQUEST - checking for updated fields');
     try {
       const { id } = req.query;
       const { device_id } = req.query;
@@ -194,14 +192,6 @@ module.exports = async function handler(req, res) {
         source_event_id: event.source_event_id
       }));
       
-      console.log('🔍 TRANSFORMED EVENT SAMPLE:', {
-        id: transformedEvents[0]?.id,
-        hasDirectDate: transformedEvents[0]?.date ? 'YES' : 'NO',
-        hasDirectTime: transformedEvents[0]?.time ? 'YES' : 'NO',
-        directDate: transformedEvents[0]?.date,
-        directTime: transformedEvents[0]?.time
-      });
-      
       return res.status(200).json({ events: transformedEvents });
     } catch (error) {
       console.error('Error fetching group events:', error);
@@ -269,7 +259,6 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    console.log('🚀 PUT REQUEST RECEIVED AT:', new Date().toISOString());
     try {
       const { id } = req.query;
       const { device_id, event_id, updates } = req.body;
@@ -277,13 +266,6 @@ module.exports = async function handler(req, res) {
       if (!device_id || !event_id || !updates) {
         return res.status(400).json({ error: 'device_id, event_id, and updates are required' });
       }
-      
-      console.log('📡 API PUT REQUEST:', {
-        groupId: id,
-        eventId: event_id,
-        updates,
-        deviceId: device_id
-      });
 
       // Check if user is a member of this group
       const [membership] = await sql`
@@ -329,13 +311,6 @@ module.exports = async function handler(req, res) {
         currentEventData.description = updates.description;
       }
       
-      console.log('📅 UPDATING ORIGINAL_EVENT_DATA:', {
-        eventId: event_id,
-        oldData: event.original_event_data,
-        newData: currentEventData,
-        updates
-      });
-      
       // Update only the original_event_data field and timestamp
       const [updatedEvent] = await sql`
         UPDATE group_events 
@@ -343,12 +318,6 @@ module.exports = async function handler(req, res) {
         WHERE id = ${event_id} AND group_id = ${id}
         RETURNING *
       `;
-      
-      console.log('✅ DATABASE UPDATE RESULT:', {
-        updatedId: updatedEvent.id,
-        updatedEventData: updatedEvent.original_event_data,
-        updatedAt: updatedEvent.updated_at
-      });
       
       return res.status(200).json({ 
         success: true, 
