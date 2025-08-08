@@ -712,6 +712,7 @@ export default function ExpenseBlock({
         await ApiService.createGroupExpense(groupId, {
           description: newExpenseDescription.trim(),
           totalAmount: amount,
+          eventId: eventId,
           participants: participants
         });
         // Note: Not reloading from API to preserve custom percentages

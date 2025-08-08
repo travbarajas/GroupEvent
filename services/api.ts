@@ -329,7 +329,7 @@ export class ApiService {
     }));
     
     const requestBody = {
-      device_id,
+      created_by_device_id: device_id,
       description: expenseData.description,
       total_amount: expenseData.totalAmount,
       participants: participants,
