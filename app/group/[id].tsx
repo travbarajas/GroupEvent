@@ -1034,6 +1034,7 @@ export default function GroupDetailScreen() {
             events={groupEvents}
             members={members}
             groupName={group?.name || ''}
+            onExpensePress={() => setShowExpenseTracker(true)}
           />
         </View>
         

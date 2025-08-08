@@ -301,9 +301,41 @@ export default function AddExpenseModal({
                   ]}
                   onPress={() => toggleUserSelection(member.device_id, 'payer')}
                 >
-                  <Text style={styles.memberText}>
-                    {getMemberDisplayName(member)}
-                  </Text>
+                  <View style={styles.memberRow}>
+                    <Text style={styles.memberText}>
+                      {getMemberDisplayName(member)}
+                    </Text>
+                    {payers.includes(member.device_id) && (
+                      <View style={styles.amountInfo}>
+                        {payers.length > 1 && (
+                          <>
+                            <Text style={styles.percentageText}>
+                              {Math.round(payerSplits[member.device_id] || 0)}%
+                            </Text>
+                            <Text style={styles.dollarAmount}>
+                              ${((parseFloat(amount) || 0) * ((payerSplits[member.device_id] || 0) / 100)).toFixed(2)}
+                            </Text>
+                            <TouchableOpacity
+                              style={[
+                                styles.lockButtonInline,
+                                lockedPayers[member.device_id] && styles.locked
+                              ]}
+                              onPress={() => toggleLock(member.device_id, 'payer')}
+                            >
+                              <Text style={styles.lockText}>
+                                {lockedPayers[member.device_id] ? '🔒' : '🔓'}
+                              </Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
+                        {payers.length === 1 && (
+                          <Text style={styles.dollarAmount}>
+                            ${(parseFloat(amount) || 0).toFixed(2)}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 </TouchableOpacity>
                 
                 {payers.length > 1 && payers.includes(member.device_id) && (
@@ -319,20 +351,6 @@ export default function AddExpenseModal({
                       thumbStyle={styles.sliderThumb}
                       disabled={lockedPayers[member.device_id]}
                     />
-                    <Text style={styles.percentage}>
-                      {Math.round(payerSplits[member.device_id] || 0)}%
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.lockButton,
-                        lockedPayers[member.device_id] && styles.locked
-                      ]}
-                      onPress={() => toggleLock(member.device_id, 'payer')}
-                    >
-                      <Text style={styles.lockText}>
-                        {lockedPayers[member.device_id] ? '🔒' : '🔓'}
-                      </Text>
-                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -348,9 +366,41 @@ export default function AddExpenseModal({
                   ]}
                   onPress={() => toggleUserSelection(member.device_id, 'ower')}
                 >
-                  <Text style={styles.memberText}>
-                    {getMemberDisplayName(member)}
-                  </Text>
+                  <View style={styles.memberRow}>
+                    <Text style={styles.memberText}>
+                      {getMemberDisplayName(member)}
+                    </Text>
+                    {owers.includes(member.device_id) && (
+                      <View style={styles.amountInfo}>
+                        {owers.length > 1 && (
+                          <>
+                            <Text style={styles.percentageText}>
+                              {Math.round(owerSplits[member.device_id] || 0)}%
+                            </Text>
+                            <Text style={styles.dollarAmount}>
+                              ${((parseFloat(amount) || 0) * ((owerSplits[member.device_id] || 0) / 100)).toFixed(2)}
+                            </Text>
+                            <TouchableOpacity
+                              style={[
+                                styles.lockButtonInline,
+                                lockedOwers[member.device_id] && styles.locked
+                              ]}
+                              onPress={() => toggleLock(member.device_id, 'ower')}
+                            >
+                              <Text style={styles.lockText}>
+                                {lockedOwers[member.device_id] ? '🔒' : '🔓'}
+                              </Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
+                        {owers.length === 1 && (
+                          <Text style={styles.dollarAmount}>
+                            ${(parseFloat(amount) || 0).toFixed(2)}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 </TouchableOpacity>
                 
                 {owers.length > 1 && owers.includes(member.device_id) && (
@@ -366,20 +416,6 @@ export default function AddExpenseModal({
                       thumbStyle={styles.sliderThumb}
                       disabled={lockedOwers[member.device_id]}
                     />
-                    <Text style={styles.percentage}>
-                      {Math.round(owerSplits[member.device_id] || 0)}%
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.lockButton,
-                        lockedOwers[member.device_id] && styles.locked
-                      ]}
-                      onPress={() => toggleLock(member.device_id, 'ower')}
-                    >
-                      <Text style={styles.lockText}>
-                        {lockedOwers[member.device_id] ? '🔒' : '🔓'}
-                      </Text>
-                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -467,34 +503,49 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
   },
-  sliderContainer: {
+  memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  amountInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  percentageText: {
+    color: '#60a5fa',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dollarAmount: {
+    color: '#10b981',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  lockButtonInline: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  sliderContainer: {
     paddingHorizontal: 12,
+    marginTop: 8,
     marginBottom: 8,
   },
   slider: {
-    flex: 1,
+    width: '100%',
     height: 40,
   },
   sliderThumb: {
     backgroundColor: '#60a5fa',
     width: 20,
     height: 20,
-  },
-  percentage: {
-    width: 50,
-    textAlign: 'right',
-    marginRight: 8,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  lockButton: {
-    padding: 8,
-    borderRadius: 4,
-    backgroundColor: '#2a2a2a',
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
   },
   locked: {
     backgroundColor: '#fbbf24',

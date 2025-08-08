@@ -51,6 +51,8 @@ interface GroupExpenseIndicatorProps {
   // Optional modal props for use in event screens
   visible?: boolean;
   onClose?: () => void;
+  // Callback to open expanded expense view
+  onExpensePress?: () => void;
 }
 
 export default function GroupExpenseIndicator({ 
@@ -60,7 +62,8 @@ export default function GroupExpenseIndicator({
   members,
   groupName,
   visible,
-  onClose 
+  onClose,
+  onExpensePress 
 }: GroupExpenseIndicatorProps) {
   const [showModal, setShowModal] = useState(false);
   
@@ -372,7 +375,7 @@ export default function GroupExpenseIndicator({
         <TouchableOpacity 
           style={styles.integratedExpenseButton}
           activeOpacity={0.6}
-          onPress={() => setShowModal(true)}
+          onPress={() => onExpensePress ? onExpensePress() : setShowModal(true)}
         >
           <View style={styles.expenseButtonContent}>
             <Ionicons name="wallet" size={20} color="#10b981" />
@@ -414,8 +417,18 @@ export default function GroupExpenseIndicator({
               )}
             </View>
             
-            {/* Right - User Balance */}
+            {/* Right - Add Expense Button */}
             <View style={styles.expenseRightSection}>
+              <TouchableOpacity 
+                style={styles.addExpenseButton}
+                onPress={() => onExpensePress ? onExpensePress() : setShowModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={16} color="#ffffff" />
+                <Text style={styles.addExpenseButtonText}>Add</Text>
+              </TouchableOpacity>
+              
+              {/* User Balance below button */}
               {(expenseData.userOwes > 0 || expenseData.userOwed > 0) ? (
                 <View style={styles.userBalanceSection}>
                   {expenseData.userOwed > 0 ? (
@@ -1189,6 +1202,7 @@ const styles = StyleSheet.create({
   expenseRightSection: {
     flex: 0.25,
     alignItems: 'flex-end',
+    gap: 8,
   },
   userBalanceSection: {
     alignItems: 'flex-end',
@@ -1274,5 +1288,20 @@ const styles = StyleSheet.create({
     color: '#10b981',
     fontWeight: '500',
     textAlign: 'right',
+  },
+  // Add Expense Button styles
+  addExpenseButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addExpenseButtonText: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '600',
   },
 });
