@@ -187,6 +187,11 @@ export default function AddExpenseModal({
   };
 
   const toggleLock = (userId: string, type: 'payer' | 'ower') => {
+    // Don't allow locking the last unlocked user
+    if (isLastUnlockedUser(userId, type)) {
+      return;
+    }
+    
     if (type === 'payer') {
       setLockedPayers(prev => ({
         ...prev,
@@ -298,6 +303,22 @@ export default function AddExpenseModal({
     return Math.max(0, 100 - lockedSum);
   };
 
+  const isLastUnlockedUser = (userId: string, type: 'payer' | 'ower'): boolean => {
+    const users = type === 'payer' ? payers : owers;
+    const locked = type === 'payer' ? lockedPayers : lockedOwers;
+    
+    // Count unlocked users
+    const unlockedUsers = users.filter(id => !locked[id]);
+    
+    // This user is the last unlocked if there's only 1 unlocked user and it's them
+    return unlockedUsers.length === 1 && unlockedUsers[0] === userId;
+  };
+
+  const isEffectivelyLocked = (userId: string, type: 'payer' | 'ower'): boolean => {
+    const locked = type === 'payer' ? lockedPayers : lockedOwers;
+    return locked[userId] || isLastUnlockedUser(userId, type);
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.modalOverlay}>
@@ -351,12 +372,14 @@ export default function AddExpenseModal({
                             <TouchableOpacity
                               style={[
                                 styles.lockButtonInline,
-                                lockedPayers[member.device_id] && styles.locked
+                                isEffectivelyLocked(member.device_id, 'payer') && styles.locked,
+                                isLastUnlockedUser(member.device_id, 'payer') && styles.autoLocked
                               ]}
                               onPress={() => toggleLock(member.device_id, 'payer')}
+                              disabled={isLastUnlockedUser(member.device_id, 'payer')}
                             >
                               <Text style={styles.lockText}>
-                                {lockedPayers[member.device_id] ? '🔒' : '🔓'}
+                                {isEffectivelyLocked(member.device_id, 'payer') ? '🔒' : '🔓'}
                               </Text>
                             </TouchableOpacity>
                           </>
@@ -382,7 +405,7 @@ export default function AddExpenseModal({
                       minimumTrackTintColor="#60a5fa"
                       maximumTrackTintColor="#2a2a2a"
                       thumbStyle={styles.sliderThumb}
-                      disabled={lockedPayers[member.device_id]}
+                      disabled={lockedPayers[member.device_id] || isLastUnlockedUser(member.device_id, 'payer')}
                     />
                   </View>
                 )}
@@ -416,12 +439,14 @@ export default function AddExpenseModal({
                             <TouchableOpacity
                               style={[
                                 styles.lockButtonInline,
-                                lockedOwers[member.device_id] && styles.locked
+                                isEffectivelyLocked(member.device_id, 'ower') && styles.locked,
+                                isLastUnlockedUser(member.device_id, 'ower') && styles.autoLocked
                               ]}
                               onPress={() => toggleLock(member.device_id, 'ower')}
+                              disabled={isLastUnlockedUser(member.device_id, 'ower')}
                             >
                               <Text style={styles.lockText}>
-                                {lockedOwers[member.device_id] ? '🔒' : '🔓'}
+                                {isEffectivelyLocked(member.device_id, 'ower') ? '🔒' : '🔓'}
                               </Text>
                             </TouchableOpacity>
                           </>
@@ -447,7 +472,7 @@ export default function AddExpenseModal({
                       minimumTrackTintColor="#60a5fa"
                       maximumTrackTintColor="#2a2a2a"
                       thumbStyle={styles.sliderThumb}
-                      disabled={lockedOwers[member.device_id]}
+                      disabled={lockedOwers[member.device_id] || isLastUnlockedUser(member.device_id, 'ower')}
                     />
                   </View>
                 )}
@@ -582,6 +607,10 @@ const styles = StyleSheet.create({
   },
   locked: {
     backgroundColor: '#fbbf24',
+  },
+  autoLocked: {
+    backgroundColor: '#6b7280',
+    opacity: 0.7,
   },
   lockText: {
     fontSize: 16,
