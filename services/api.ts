@@ -121,7 +121,13 @@ export class ApiService {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        console.error('🚨 API Response Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          errorData: errorData
+        });
+        throw new Error(errorData.details || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
       
       return await response.json();
@@ -319,6 +325,7 @@ export class ApiService {
       member_device_id: p.device_id,
       role: p.role,
       individual_amount: p.amount,
+      payment_status: p.role === 'payer' ? 'completed' : 'pending',
       ...(p.role === 'payer' ? {
         payer_percentage: p.percentage,
         payer_amount: p.amount
