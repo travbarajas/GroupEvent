@@ -1013,16 +1013,26 @@ export default function ExpenseBlock({
             <Text style={styles.title}>Group Expenses</Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.expandButton}
-            onPress={() => {
-              setSelectedExpense(null);
-              setShowExpenseModal(true);
-            }}
-          >
-            <Ionicons name="expand" size={16} color="#10b981" />
-            <Text style={styles.expandButtonText}>View All</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity 
+              style={styles.addExpenseHeaderButton}
+              onPress={() => setShowAddExpenseModal(true)}
+            >
+              <Ionicons name="add" size={16} color="#ffffff" />
+              <Text style={styles.addExpenseHeaderButtonText}>Add</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.expandButton}
+              onPress={() => {
+                setSelectedExpense(null);
+                setShowExpenseModal(true);
+              }}
+            >
+              <Ionicons name="expand" size={16} color="#10b981" />
+              <Text style={styles.expandButtonText}>View All</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {expenseItems.length > 0 && (
@@ -1819,6 +1829,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 14,
     fontWeight: '600',
@@ -1840,6 +1855,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#10b981',
     fontWeight: '500',
+  },
+  addExpenseHeaderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10b981',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  addExpenseHeaderButtonText: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '600',
   },
   expandButton: {
     flexDirection: 'row',
