@@ -57,25 +57,34 @@ export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMe
     participants: any[];
   }) => {
     try {
+      const requestData = {
+        ...expenseData,
+        created_by_device_id: currentUserId,
+        ...(eventId && { event_id: eventId })
+      };
+      
+      console.log('🚀 Creating expense with data:', JSON.stringify(requestData, null, 2));
+      
       const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...expenseData,
-          created_by_device_id: currentUserId,
-          ...(eventId && { event_id: eventId })
-        })
+        body: JSON.stringify(requestData)
       });
       
+      console.log('📡 Response status:', response.status);
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Expense created successfully:', responseData);
         await fetchExpenses();
         setShowAddModal(false);
         Alert.alert('Success', 'Expense added successfully!');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add expense');
+        const errorData = await response.text();
+        console.error('❌ Failed to add expense:', response.status, errorData);
+        throw new Error(`Server error: ${errorData}`);
       }
     } catch (error: any) {
       console.error('Error adding expense:', error);

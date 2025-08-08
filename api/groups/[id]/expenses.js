@@ -102,7 +102,18 @@ module.exports = async function handler(req, res) {
     try {
       const { description, total_amount, created_by_device_id, participants, event_id } = req.body;
       
+      console.log('🚀 API received expense creation request:', {
+        groupId,
+        description,
+        total_amount,
+        created_by_device_id,
+        participants: participants?.length || 0,
+        event_id,
+        body: req.body
+      });
+      
       if (!created_by_device_id) {
+        console.error('❌ Missing created_by_device_id');
         return res.status(400).json({ error: 'created_by_device_id is required' });
       }
 
@@ -124,14 +135,26 @@ module.exports = async function handler(req, res) {
       
       try {
         // Create the expense
+        console.log('💾 Creating expense in database:', {
+          groupId,
+          event_id,
+          description,
+          total_amount,
+          created_by_device_id
+        });
+        
         const [newExpense] = await sql`
           INSERT INTO group_expenses (group_id, event_id, description, total_amount, created_by_device_id)
           VALUES (${groupId}, ${event_id}, ${description}, ${total_amount}, ${created_by_device_id})
           RETURNING *
         `;
+        
+        console.log('✅ Expense created with ID:', newExpense.id);
 
         // Insert participants
+        console.log('👥 Inserting participants:', participants.length);
         for (const participant of participants) {
+          console.log('👤 Inserting participant:', participant);
           await sql`
             INSERT INTO expense_participants (id, expense_id, member_device_id, role, individual_amount, payment_status)
             VALUES (gen_random_uuid(), ${newExpense.id}, ${participant.member_device_id}, ${participant.role}, ${participant.individual_amount}, ${participant.payment_status})
