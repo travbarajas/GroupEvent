@@ -22,6 +22,7 @@ import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseTracker from '@/components/ExpenseTracker';
+import ExpenseScreen from '@/components/ExpenseScreen';
 import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
 import { calendarCache } from '@/utils/calendarCache';
 import { useRealtimeChat } from '@/hooks/useRealtimeChat';
@@ -1113,16 +1114,31 @@ export default function GroupDetailScreen() {
         />
       )}
 
-      {/* Expense Tracker Modal */}
-      <ExpenseTracker
+      {/* Advanced Expense Management Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
         visible={showExpenseTracker}
-        onClose={() => setShowExpenseTracker(false)}
-        groupId={id as string}
-        groupName={group?.name || 'Group'}
-        members={members}
-        currentDeviceId={currentDeviceId}
-        initialStep="list"
-      />
+        onRequestClose={() => setShowExpenseTracker(false)}
+      >
+        <SafeAreaView style={styles.expenseModalContainer}>
+          <View style={styles.expenseModalHeader}>
+            <TouchableOpacity 
+              onPress={() => setShowExpenseTracker(false)} 
+              style={styles.expenseModalBackButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.expenseModalTitle}>Expenses - {group?.name}</Text>
+            <View style={styles.expenseModalSpacer} />
+          </View>
+          <ExpenseScreen 
+            groupId={id as string}
+            currentUserId={currentDeviceId}
+            groupMembers={members}
+          />
+        </SafeAreaView>
+      </Modal>
 
 
       {/* Leave Group Modal */}
@@ -1815,4 +1831,31 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   // Expense Modal styles
+  expenseModalContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  expenseModalHeader: {
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expenseModalBackButton: {
+    padding: 4,
+  },
+  expenseModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+    textAlign: 'center',
+  },
+  expenseModalSpacer: {
+    width: 32, // Same width as back button to center title
+  },
 });

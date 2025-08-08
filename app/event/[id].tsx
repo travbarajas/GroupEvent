@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ApiService, Event, LegacyEvent } from '@/services/api';
 import CarSeatIndicator from '@/components/CarSeatIndicator';
-import ExpenseTracker from '@/components/ExpenseTracker';
+import ExpenseScreen from '@/components/ExpenseScreen';
 import ChecklistBlock from '@/components/ChecklistBlock';
 import ExpenseBlock from '@/components/ExpenseBlock';
 
@@ -872,31 +872,38 @@ export default function EventDetailScreen() {
         </View>
       </Modal>
 
-      {/* Expense Tracker Modal - List View */}
-      <ExpenseTracker
-        visible={showExpenseModal}
-        onClose={() => setShowExpenseModal(false)}
-        groupId={groupId as string}
-        eventId={id as string}
-        groupName={displayEvent.displayName}
-        members={members}
-        currentDeviceId={currentDeviceId}
-        onExpensesChange={handleExpensesChange}
-        initialStep="list"
-      />
-
-      {/* Expense Tracker Modal - Create View */}
-      <ExpenseTracker
-        visible={showAddExpenseModal}
-        onClose={() => setShowAddExpenseModal(false)}
-        groupId={groupId as string}
-        eventId={id as string}
-        groupName={displayEvent.displayName}
-        members={members}
-        currentDeviceId={currentDeviceId}
-        onExpensesChange={handleExpensesChange}
-        initialStep="create"
-      />
+      {/* Advanced Expense Management Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showExpenseModal || showAddExpenseModal}
+        onRequestClose={() => {
+          setShowExpenseModal(false);
+          setShowAddExpenseModal(false);
+        }}
+      >
+        <SafeAreaView style={styles.expenseModalContainer}>
+          <View style={styles.expenseModalHeader}>
+            <TouchableOpacity 
+              onPress={() => {
+                setShowExpenseModal(false);
+                setShowAddExpenseModal(false);
+              }} 
+              style={styles.expenseModalBackButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.expenseModalTitle}>Expenses - {displayEvent.displayName}</Text>
+            <View style={styles.expenseModalSpacer} />
+          </View>
+          <ExpenseScreen 
+            groupId={groupId as string}
+            eventId={id as string}
+            currentUserId={currentDeviceId}
+            groupMembers={members}
+          />
+        </SafeAreaView>
+      </Modal>
 
       {/* Date & Time Edit Modal */}
       <Modal
@@ -1945,5 +1952,33 @@ const styles = StyleSheet.create({
     borderColor: '#2a2a2a',
     marginTop: 8,
     paddingVertical: 8,
+  },
+  // Expense Modal styles
+  expenseModalContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  expenseModalHeader: {
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expenseModalBackButton: {
+    padding: 4,
+  },
+  expenseModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+    textAlign: 'center',
+  },
+  expenseModalSpacer: {
+    width: 32, // Same width as back button to center title
   },
 });

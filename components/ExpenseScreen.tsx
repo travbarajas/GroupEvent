@@ -15,11 +15,12 @@ interface GroupMember {
 
 interface ExpenseScreenProps {
   groupId: string;
+  eventId?: string;
   currentUserId: string;
   groupMembers: GroupMember[];
 }
 
-export default function ExpenseScreen({ groupId, currentUserId, groupMembers }: ExpenseScreenProps) {
+export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMembers }: ExpenseScreenProps) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,13 +35,8 @@ export default function ExpenseScreen({ groupId, currentUserId, groupMembers }: 
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/expenses`);
-      if (response.ok) {
-        const data = await response.json();
-        setExpenses(data);
-      } else {
-        console.error('Failed to fetch expenses:', response.status);
-      }
+      const { expenses: expenseData } = await ApiService.getGroupExpenses(groupId, eventId);
+      setExpenses(expenseData);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       Alert.alert('Error', 'Failed to load expenses. Please try again.');
@@ -68,7 +64,8 @@ export default function ExpenseScreen({ groupId, currentUserId, groupMembers }: 
         },
         body: JSON.stringify({
           ...expenseData,
-          created_by_device_id: currentUserId
+          created_by_device_id: currentUserId,
+          ...(eventId && { event_id: eventId })
         })
       });
       
