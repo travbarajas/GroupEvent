@@ -131,17 +131,39 @@ export default function GroupExpenseIndicator({
       const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
       
       // Transform API data to match our ExpenseItem interface
-      const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => ({
-        id: expense.id,
-        description: expense.description,
-        totalAmount: parseFloat(expense.total_amount),
-        paidBy: expense.payers || [],
-        splitBetween: expense.owers || [],
-        individualAmount: expense.individual_amount || 0,
-        paymentStatus: expense.payment_status || {},
-        createdAt: expense.created_at,
-        createdByDeviceId: expense.created_by_device_id
-      }));
+      const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => {
+        // Extract payers and owers from participants array
+        const payers = expense.participants
+          .filter((p: any) => p.role === 'payer')
+          .map((p: any) => p.member_device_id);
+        
+        const owers = expense.participants
+          .filter((p: any) => p.role === 'ower')
+          .map((p: any) => p.member_device_id);
+        
+        // Build payment status object from participants
+        const paymentStatus: { [memberId: string]: 'pending' | 'sent' | 'completed' } = {};
+        expense.participants.forEach((p: any) => {
+          paymentStatus[p.member_device_id] = p.payment_status;
+        });
+        
+        // Calculate individual amount for owers (assuming equal split)
+        const individualAmount = owers.length > 0 
+          ? parseFloat(expense.total_amount) / owers.length 
+          : 0;
+        
+        return {
+          id: expense.id,
+          description: expense.description,
+          totalAmount: parseFloat(expense.total_amount),
+          paidBy: payers,
+          splitBetween: owers,
+          individualAmount: individualAmount,
+          paymentStatus: paymentStatus,
+          createdAt: expense.created_at,
+          createdByDeviceId: expense.created_by_device_id
+        };
+      });
       
       setExpenses(transformedExpenses);
     } catch (error) {

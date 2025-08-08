@@ -292,7 +292,9 @@ export class ApiService {
   // Expenses endpoints
   static async getGroupExpenses(groupId: string): Promise<{ expenses: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/expenses?device_id=${device_id}`);
+    const expenses = await this.request(`/groups/${groupId}/expenses?device_id=${device_id}`);
+    // API returns array directly, but we want to wrap it for consistency
+    return { expenses: expenses };
   }
 
   static async createGroupExpense(groupId: string, expenseData: {
