@@ -20,23 +20,46 @@ module.exports = async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      // Get all expenses for this group with participants in new format
+      const { event_id } = req.query;
+      
+      // Get expenses for this group, optionally filtered by event_id
       let expenses = [];
       
       try {
-        const rawExpenses = await sql`
-          SELECT 
-            ge.id,
-            ge.group_id,
-            ge.description,
-            ge.total_amount,
-            ge.created_by_device_id,
-            ge.created_at,
-            ge.updated_at
-          FROM group_expenses ge
-          WHERE ge.group_id = ${groupId}
-          ORDER BY ge.created_at DESC
-        `;
+        let rawExpenses;
+        if (event_id) {
+          // Filter by specific event
+          rawExpenses = await sql`
+            SELECT 
+              ge.id,
+              ge.group_id,
+              ge.event_id,
+              ge.description,
+              ge.total_amount,
+              ge.created_by_device_id,
+              ge.created_at,
+              ge.updated_at
+            FROM group_expenses ge
+            WHERE ge.group_id = ${groupId} AND ge.event_id = ${event_id}
+            ORDER BY ge.created_at DESC
+          `;
+        } else {
+          // Get all group expenses (for group-level view)
+          rawExpenses = await sql`
+            SELECT 
+              ge.id,
+              ge.group_id,
+              ge.event_id,
+              ge.description,
+              ge.total_amount,
+              ge.created_by_device_id,
+              ge.created_at,
+              ge.updated_at
+            FROM group_expenses ge
+            WHERE ge.group_id = ${groupId}
+            ORDER BY ge.created_at DESC
+          `;
+        }
 
         // For each expense, get participants in the new format
         for (const expense of rawExpenses) {
@@ -49,6 +72,7 @@ module.exports = async function handler(req, res) {
           expenses.push({
             id: expense.id,
             group_id: expense.group_id,
+            event_id: expense.event_id,
             description: expense.description,
             total_amount: parseFloat(expense.total_amount),
             created_by_device_id: expense.created_by_device_id,
@@ -76,7 +100,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { description, total_amount, created_by_device_id, participants } = req.body;
+      const { description, total_amount, created_by_device_id, participants, event_id } = req.body;
       
       if (!created_by_device_id) {
         return res.status(400).json({ error: 'created_by_device_id is required' });
@@ -101,8 +125,8 @@ module.exports = async function handler(req, res) {
       try {
         // Create the expense
         const [newExpense] = await sql`
-          INSERT INTO group_expenses (group_id, description, total_amount, created_by_device_id)
-          VALUES (${groupId}, ${description}, ${total_amount}, ${created_by_device_id})
+          INSERT INTO group_expenses (group_id, event_id, description, total_amount, created_by_device_id)
+          VALUES (${groupId}, ${event_id}, ${description}, ${total_amount}, ${created_by_device_id})
           RETURNING *
         `;
 

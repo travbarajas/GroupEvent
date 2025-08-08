@@ -45,6 +45,7 @@ interface GroupMember {
 
 interface ExpenseBlockProps {
   groupId: string;
+  eventId?: string;
   members: GroupMember[];
   currentDeviceId: string;
 }
@@ -52,6 +53,7 @@ interface ExpenseBlockProps {
 
 export default function ExpenseBlock({
   groupId,
+  eventId,
   members,
   currentDeviceId,
 }: ExpenseBlockProps) {
@@ -148,7 +150,7 @@ export default function ExpenseBlock({
 
   const loadExpenses = async () => {
     try {
-      const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
+      const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId, eventId);
       
       console.log('Raw API response:', JSON.stringify(apiExpenses, null, 2));
       

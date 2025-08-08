@@ -37,6 +37,7 @@ interface ExpenseTrackerProps {
   onClose: () => void;
   groupName: string;
   groupId: string;
+  eventId?: string;
   members: GroupMember[];
   currentDeviceId?: string;
   onExpensesChange?: (expenses: ExpenseItem[]) => void;
@@ -48,6 +49,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
   onClose,
   groupName,
   groupId,
+  eventId,
   members,
   currentDeviceId,
   onExpensesChange,
@@ -92,7 +94,7 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
 
   const loadExpenses = async () => {
     try {
-      const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId);
+      const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId, eventId);
       
       // Transform API data to match our ExpenseItem interface
       const transformedExpenses: ExpenseItem[] = apiExpenses.map(expense => ({
@@ -172,11 +174,35 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({
       resetCreateForm();
       
       // Background API call
+      const participants = [];
+      const amountPerOwerPerson = selectedOwers.size > 0 ? amount / selectedOwers.size : 0;
+      const amountPerPayerPerson = selectedPayers.size > 0 ? amount / selectedPayers.size : 0;
+      
+      // Add payers
+      selectedPayers.forEach(payerId => {
+        participants.push({
+          device_id: payerId,
+          role: 'payer' as const,
+          percentage: selectedPayers.size > 0 ? 100 / selectedPayers.size : 0,
+          amount: amountPerPayerPerson
+        });
+      });
+      
+      // Add owers
+      selectedOwers.forEach(owerId => {
+        participants.push({
+          device_id: owerId,
+          role: 'ower' as const,
+          percentage: selectedOwers.size > 0 ? 100 / selectedOwers.size : 0,
+          amount: amountPerOwerPerson
+        });
+      });
+      
       await ApiService.createGroupExpense(groupId, {
         description: expenseDescription,
         totalAmount: amount,
-        paidBy: Array.from(selectedPayers),
-        splitBetween: Array.from(selectedOwers)
+        eventId,
+        participants
       });
       
       // Reload expenses from API to get the latest data with real IDs

@@ -290,9 +290,13 @@ export class ApiService {
   // Events are fetched through group context instead
 
   // Expenses endpoints
-  static async getGroupExpenses(groupId: string): Promise<{ expenses: any[] }> {
+  static async getGroupExpenses(groupId: string, eventId?: string): Promise<{ expenses: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    const expenses = await this.request(`/groups/${groupId}/expenses?device_id=${device_id}`);
+    let url = `/groups/${groupId}/expenses?device_id=${device_id}`;
+    if (eventId) {
+      url += `&event_id=${eventId}`;
+    }
+    const expenses = await this.request(url);
     // API returns array directly, but we want to wrap it for consistency
     return { expenses: expenses };
   }
@@ -300,6 +304,7 @@ export class ApiService {
   static async createGroupExpense(groupId: string, expenseData: {
     description: string;
     totalAmount: number;
+    eventId?: string;
     participants: Array<{
       device_id: string;
       role: 'payer' | 'ower';
@@ -327,7 +332,8 @@ export class ApiService {
       device_id,
       description: expenseData.description,
       total_amount: expenseData.totalAmount,
-      participants: participants
+      participants: participants,
+      ...(expenseData.eventId && { event_id: expenseData.eventId })
     };
     
     const response = await this.request(`/groups/${groupId}/expenses`, {

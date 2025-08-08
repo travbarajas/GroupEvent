@@ -812,6 +812,7 @@ export default function EventDetailScreen() {
         {/* Expenses Block - Full Width */}
         <ExpenseBlock 
           groupId={groupId as string}
+          eventId={id as string}
           members={members}
           currentDeviceId={currentDeviceId}
         />
@@ -876,6 +877,7 @@ export default function EventDetailScreen() {
         visible={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
         groupId={groupId as string}
+        eventId={id as string}
         groupName={displayEvent.displayName}
         members={members}
         currentDeviceId={currentDeviceId}
@@ -888,6 +890,7 @@ export default function EventDetailScreen() {
         visible={showAddExpenseModal}
         onClose={() => setShowAddExpenseModal(false)}
         groupId={groupId as string}
+        eventId={id as string}
         groupName={displayEvent.displayName}
         members={members}
         currentDeviceId={currentDeviceId}

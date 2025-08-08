@@ -418,12 +418,12 @@ export default function GroupExpenseIndicator({
               <Text style={styles.expenseCount}>{expenseData.eventCount} expense{expenseData.eventCount === 1 ? '' : 's'}</Text>
             </View>
             
-            {/* Middle - Recent Expenses */}
+            {/* Middle - Outstanding Expenses */}
             <View style={styles.expenseMiddleSection}>
               {expenses.length > 0 ? (
                 <View style={styles.expenseList}>
-                  <Text style={styles.recentExpensesLabel}>Recent expenses</Text>
-                  {expenses.slice(0, 2).map(expense => (
+                  <Text style={styles.recentExpensesLabel}>Outstanding expenses</Text>
+                  {getSortedExpenses().filter(expense => !isExpenseFullyPaid(expense)).slice(0, 3).map(expense => (
                     <View key={expense.id} style={styles.expenseItem}>
                       <Text style={styles.expenseItemName} numberOfLines={1}>
                         {expense.description}
@@ -433,6 +433,9 @@ export default function GroupExpenseIndicator({
                       </Text>
                     </View>
                   ))}
+                  {getSortedExpenses().filter(expense => !isExpenseFullyPaid(expense)).length === 0 && (
+                    <Text style={styles.noExpensesText}>All settled up!</Text>
+                  )}
                 </View>
               ) : (
                 <Text style={styles.noExpensesText}>No expenses yet</Text>
