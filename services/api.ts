@@ -336,11 +336,20 @@ export class ApiService {
       ...(expenseData.eventId && { event_id: expenseData.eventId })
     };
     
-    const response = await this.request(`/groups/${groupId}/expenses`, {
-      method: 'POST',
-      body: JSON.stringify(requestBody)
-    });
-    return response;
+    console.log('💼 ApiService sending request:', JSON.stringify(requestBody, null, 2));
+    
+    try {
+      const response = await this.request(`/groups/${groupId}/expenses`, {
+        method: 'POST',
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('✅ ApiService got response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ ApiService request failed:', error);
+      throw error;
+    }
   }
 
   static async updateGroupExpense(groupId: string, expenseId: string, expenseData: {

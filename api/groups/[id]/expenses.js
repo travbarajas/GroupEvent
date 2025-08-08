@@ -169,15 +169,22 @@ module.exports = async function handler(req, res) {
           message: 'Expense created successfully' 
         });
       } catch (transactionError) {
+        console.error('💥 Database transaction failed:', transactionError);
         await sql`ROLLBACK`;
         throw transactionError;
       }
 
     } catch (error) {
-      console.error('Error creating expense:', error);
+      console.error('❌ Error creating expense:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        code: error.code
+      });
       return res.status(500).json({ 
         error: 'Failed to create expense',
-        details: error.message
+        details: error.message,
+        code: error.code
       });
     }
   }
