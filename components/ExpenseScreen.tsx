@@ -57,6 +57,15 @@ export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMe
     participants: any[];
   }) => {
     try {
+      console.log('👤 Current User ID:', currentUserId);
+      console.log('🏷️  Event ID:', eventId);
+      console.log('🏢 Group ID:', groupId);
+      
+      if (!currentUserId) {
+        Alert.alert('Error', 'User ID not found. Please try refreshing the page.');
+        return;
+      }
+      
       const requestData = {
         ...expenseData,
         created_by_device_id: currentUserId,
