@@ -157,19 +157,19 @@ export default function AddExpenseModal({
       }
     });
     
+    // Calculate maximum allowed value for this user
+    const maxAllowedValue = 100 - lockedSum;
+    
+    // Silently constrain the value to prevent exceeding 100%
+    const constrainedValue = Math.min(Math.max(0, value), maxAllowedValue);
+    
     // Calculate available percentage for unlocked users
-    const availablePercentage = 100 - lockedSum - value;
+    const availablePercentage = 100 - lockedSum - constrainedValue;
     const unlockedUsers = users.filter(id => 
       id !== userId && !locked[id]
     );
     
-    // If the new value would exceed available space
-    if (value + lockedSum > 100) {
-      Alert.alert('Invalid Split', 'Total cannot exceed 100%');
-      return;
-    }
-    
-    const newSplits = { ...splits, [userId]: value };
+    const newSplits = { ...splits, [userId]: constrainedValue };
     
     // Distribute remaining percentage among unlocked users
     if (unlockedUsers.length > 0 && availablePercentage >= 0) {
@@ -213,12 +213,29 @@ export default function AddExpenseModal({
       return;
     }
     
-    // Validate percentages sum to 100%
+    // Validate percentages sum to 100% (with small tolerance for rounding)
     const payerSum = Object.values(payerSplits).reduce((a, b) => a + b, 0);
     const owerSum = Object.values(owerSplits).reduce((a, b) => a + b, 0);
     
-    if (Math.abs(payerSum - 100) > 0.1 || Math.abs(owerSum - 100) > 0.1) {
-      Alert.alert('Invalid Split', 'Percentages must add up to 100%');
+    // If percentages don't add up to 100%, silently normalize them
+    if (Math.abs(payerSum - 100) > 0.1) {
+      const normalizedPayerSplits: { [key: string]: number } = {};
+      const factor = 100 / payerSum;
+      Object.keys(payerSplits).forEach(id => {
+        normalizedPayerSplits[id] = (payerSplits[id] || 0) * factor;
+      });
+      setPayerSplits(normalizedPayerSplits);
+    }
+    
+    if (Math.abs(owerSum - 100) > 0.1) {
+      const normalizedOwerSplits: { [key: string]: number } = {};
+      const factor = 100 / owerSum;
+      Object.keys(owerSplits).forEach(id => {
+        normalizedOwerSplits[id] = (owerSplits[id] || 0) * factor;
+      });
+      setOwerSplits(normalizedOwerSplits);
+      
+      // Don't proceed with save if we had to normalize - let user see the changes first
       return;
     }
     
@@ -263,6 +280,22 @@ export default function AddExpenseModal({
 
   const getMemberDisplayName = (member: GroupMember): string => {
     return member.username || `User ${member.device_id.slice(-4)}`;
+  };
+
+  const getMaxValueForUser = (userId: string, type: 'payer' | 'ower'): number => {
+    const splits = type === 'payer' ? payerSplits : owerSplits;
+    const locked = type === 'payer' ? lockedPayers : lockedOwers;
+    
+    // Calculate the sum of locked percentages (excluding current user)
+    let lockedSum = 0;
+    Object.keys(locked).forEach(id => {
+      if (locked[id] && id !== userId) {
+        lockedSum += splits[id] || 0;
+      }
+    });
+    
+    // Maximum this user can have is 100% minus all locked percentages
+    return Math.max(0, 100 - lockedSum);
   };
 
   return (
@@ -343,7 +376,7 @@ export default function AddExpenseModal({
                     <Slider
                       style={styles.slider}
                       minimumValue={0}
-                      maximumValue={100}
+                      maximumValue={getMaxValueForUser(member.device_id, 'payer')}
                       value={payerSplits[member.device_id] || 0}
                       onValueChange={(value) => updateSplit(member.device_id, value, 'payer')}
                       minimumTrackTintColor="#60a5fa"
@@ -408,7 +441,7 @@ export default function AddExpenseModal({
                     <Slider
                       style={styles.slider}
                       minimumValue={0}
-                      maximumValue={100}
+                      maximumValue={getMaxValueForUser(member.device_id, 'ower')}
                       value={owerSplits[member.device_id] || 0}
                       onValueChange={(value) => updateSplit(member.device_id, value, 'ower')}
                       minimumTrackTintColor="#60a5fa"
