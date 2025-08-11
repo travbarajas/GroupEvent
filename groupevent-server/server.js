@@ -13,6 +13,8 @@ app.use(express.json());
 const groups = new Map();
 const members = new Map(); // memberId -> member data
 const groupMembers = new Map(); // groupId -> Set of memberIds
+const devices = new Map(); // deviceId -> { device_id, fingerprint, created_at, linked_user }
+const fingerprints = new Map(); // fingerprint -> deviceId (for fast lookups)
 
 // Generate short group IDs for links
 function generateGroupId() {
@@ -173,6 +175,131 @@ app.get('/api/health', (req, res) => {
     groups: groups.size,
     members: members.size
   });
+});
+
+// --- DEVICE FINGERPRINT ENDPOINTS ---
+
+// Register device with fingerprint
+app.post('/api/devices/register', (req, res) => {
+  const { device_id, fingerprint } = req.body;
+  
+  if (!device_id || !fingerprint) {
+    return res.status(400).json({ 
+      error: 'device_id and fingerprint are required' 
+    });
+  }
+
+  try {
+    // Store device info
+    const deviceData = {
+      device_id,
+      fingerprint,
+      created_at: new Date(),
+      linked_user: null
+    };
+    
+    devices.set(device_id, deviceData);
+    fingerprints.set(fingerprint, device_id);
+    
+    console.log(`📱 Device registered: ${device_id} with fingerprint: ${fingerprint.substring(0, 10)}...`);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Device registered successfully'
+    });
+  } catch (error) {
+    console.error('Error registering device:', error);
+    res.status(500).json({ error: 'Failed to register device' });
+  }
+});
+
+// Find device by fingerprint
+app.get('/api/devices/fingerprint/:fingerprint', (req, res) => {
+  const { fingerprint } = req.params;
+  
+  if (!fingerprint) {
+    return res.status(400).json({ error: 'fingerprint is required' });
+  }
+
+  try {
+    const deviceId = fingerprints.get(decodeURIComponent(fingerprint));
+    
+    if (!deviceId) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    
+    const deviceData = devices.get(deviceId);
+    
+    if (!deviceData) {
+      return res.status(404).json({ error: 'Device data not found' });
+    }
+    
+    console.log(`🔍 Found device for fingerprint: ${fingerprint.substring(0, 10)}... -> ${deviceId}`);
+    
+    res.json({
+      device_id: deviceData.device_id,
+      created_at: deviceData.created_at,
+      linked_user: deviceData.linked_user
+    });
+  } catch (error) {
+    console.error('Error finding device by fingerprint:', error);
+    res.status(500).json({ error: 'Failed to find device' });
+  }
+});
+
+// Link device to user (for future manual linking feature)
+app.post('/api/devices/link', (req, res) => {
+  const { device_id, fingerprint, username, pin } = req.body;
+  
+  if (!device_id || !fingerprint || !username || !pin) {
+    return res.status(400).json({ 
+      error: 'device_id, fingerprint, username, and pin are required' 
+    });
+  }
+
+  try {
+    // In a real app, you'd validate the PIN against the user
+    // For now, just store the linking
+    let deviceData = devices.get(device_id);
+    
+    if (!deviceData) {
+      // Create new device record
+      deviceData = {
+        device_id,
+        fingerprint,
+        created_at: new Date(),
+        linked_user: null
+      };
+      devices.set(device_id, deviceData);
+      fingerprints.set(fingerprint, device_id);
+    }
+    
+    // Link to user
+    deviceData.linked_user = { username, pin, linked_at: new Date() };
+    
+    console.log(`🔗 Device linked: ${device_id} -> ${username}`);
+    
+    res.json({
+      success: true,
+      message: 'Device linked to user successfully'
+    });
+  } catch (error) {
+    console.error('Error linking device to user:', error);
+    res.status(500).json({ error: 'Failed to link device' });
+  }
+});
+
+// Get device info (debug endpoint)
+app.get('/api/devices/:deviceId', (req, res) => {
+  const { deviceId } = req.params;
+  
+  const deviceData = devices.get(deviceId);
+  
+  if (!deviceData) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  res.json(deviceData);
 });
 
 // --- ERROR HANDLING ---

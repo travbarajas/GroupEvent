@@ -438,12 +438,12 @@ export default function GroupDetailScreen() {
     }
   };
 
-  // Get next 7 days (today + 6)
-  const getNext7Days = () => {
+  // Get next 5 days (today + 4)
+  const getNext5Days = () => {
     const days = [];
     const today = new Date();
     
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 5; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
@@ -487,13 +487,13 @@ export default function GroupDetailScreen() {
     return days;
   };
 
-  // Get upcoming events (next 7 days)
+  // Get upcoming events (next 5 days)
   const getUpcomingEvents = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time for accurate day comparison
     const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    nextWeek.setHours(23, 59, 59, 999); // End of the 7th day
+    nextWeek.setDate(today.getDate() + 5);
+    nextWeek.setHours(23, 59, 59, 999); // End of the 5th day
     
     return groupEvents
       .filter(event => {
@@ -527,8 +527,8 @@ export default function GroupDetailScreen() {
       .slice(0, 2); // Show max 2 upcoming events
   };
 
-  const SevenDayPreview = () => {
-    const next7Days = getNext7Days();
+  const FiveDayPreview = () => {
+    const next5Days = getNext5Days();
     
     return (
       <View style={styles.sevenDayPreview}>
@@ -542,12 +542,12 @@ export default function GroupDetailScreen() {
           })}
         >
           <Ionicons name="calendar" size={20} color="#60a5fa" />
-          <Text style={styles.calendarHeaderText}>7-Day Calendar</Text>
+          <Text style={styles.calendarHeaderText}>Calendar</Text>
           <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
         </TouchableOpacity>
         
         <View style={styles.sevenDayPreviewContent}>
-          {next7Days.map((day, index) => (
+          {next5Days.map((day, index) => (
             <TouchableOpacity 
               key={index} 
               style={[
@@ -1021,9 +1021,9 @@ export default function GroupDetailScreen() {
           <UpcomingEventsList />
         </View>
         
-        {/* 7-Day Calendar Preview - Full Width */}
+        {/* 5-Day Calendar Preview - Full Width */}
         <View style={styles.fullWidthContainer}>
-          <SevenDayPreview />
+          <FiveDayPreview />
         </View>
         
         {/* Group Expenses Block - Full Width */}

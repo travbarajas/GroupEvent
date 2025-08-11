@@ -535,6 +535,44 @@ export class ApiService {
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');
   }
+
+  // Device fingerprint sync methods
+  static async registerDevice(deviceId: string, fingerprint: string): Promise<any> {
+    return this.request('/devices/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id: deviceId,
+        fingerprint: fingerprint
+      })
+    });
+  }
+
+  static async findDeviceByFingerprint(fingerprint: string): Promise<{ device_id: string } | null> {
+    try {
+      return await this.request(`/devices/fingerprint/${encodeURIComponent(fingerprint)}`);
+    } catch (error) {
+      // Return null if not found (404) rather than throwing
+      return null;
+    }
+  }
+
+  static async linkDeviceToUser(deviceId: string, fingerprint: string, username: string, pin: string): Promise<boolean> {
+    try {
+      await this.request('/devices/link', {
+        method: 'POST',
+        body: JSON.stringify({
+          device_id: deviceId,
+          fingerprint: fingerprint,
+          username: username,
+          pin: pin
+        })
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to link device to user:', error);
+      return false;
+    }
+  }
 }
 
 // Convenience hooks/functions for common operations
@@ -618,7 +656,7 @@ export class GroupService {
   static async getGroupCars(groupId: string, eventId?: string): Promise<{ cars: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
     const eventParam = eventId ? `&event_id=${eventId}` : '';
-    return this.request(`/groups/${groupId}/cars?device_id=${device_id}${eventParam}`);
+    return ApiService.request(`/groups/${groupId}/cars?device_id=${device_id}${eventParam}`);
   }
 
   static async createGroupCar(groupId: string, carData: {
@@ -627,7 +665,7 @@ export class GroupService {
     eventId?: string;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/cars`, {
+    return ApiService.request(`/groups/${groupId}/cars`, {
       method: 'POST',
       body: JSON.stringify({
         device_id,
@@ -643,7 +681,7 @@ export class GroupService {
     capacity?: number;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/cars/${carId}`, {
+    return ApiService.request(`/groups/${groupId}/cars/${carId}`, {
       method: 'PUT',
       body: JSON.stringify({
         device_id,
@@ -654,7 +692,7 @@ export class GroupService {
 
   static async deleteGroupCar(groupId: string, carId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/cars/${carId}`, {
+    return ApiService.request(`/groups/${groupId}/cars/${carId}`, {
       method: 'DELETE',
       body: JSON.stringify({
         device_id
@@ -664,7 +702,7 @@ export class GroupService {
 
   static async joinCarSeat(groupId: string, carId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/cars/${carId}/seats`, {
+    return ApiService.request(`/groups/${groupId}/cars/${carId}/seats`, {
       method: 'POST',
       body: JSON.stringify({
         device_id
@@ -674,7 +712,7 @@ export class GroupService {
 
   static async leaveCarSeat(groupId: string, carId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/groups/${groupId}/cars/${carId}/seats`, {
+    return ApiService.request(`/groups/${groupId}/cars/${carId}/seats`, {
       method: 'DELETE',
       body: JSON.stringify({
         device_id
