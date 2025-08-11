@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Dimensions } from 'react-native';
 import Constants from 'expo-constants';
-import { ApiService } from '@/services/api';
+import { HttpClient } from '@/utils/httpClient';
 
 const DEVICE_ID_KEY = 'device_id';
 const FINGERPRINT_KEY = 'device_fingerprint';
@@ -34,7 +34,13 @@ export class DeviceIdManager {
         // Register this device with backend
         const fingerprint = await this.getDeviceFingerprint();
         try {
-          await ApiService.registerDevice(deviceId, fingerprint);
+          await HttpClient.request('/devices/register', {
+            method: 'POST',
+            body: JSON.stringify({
+              device_id: deviceId,
+              fingerprint: fingerprint
+            })
+          });
         } catch (error) {
           console.log('Could not register device with backend:', error);
         }
@@ -55,7 +61,8 @@ export class DeviceIdManager {
       const fingerprint = await this.getDeviceFingerprint();
       
       // Check if this fingerprint already exists in our backend
-      const existingDevice = await ApiService.findDeviceByFingerprint(fingerprint);
+      const existingDevice = await HttpClient.request<{ device_id: string } | null>(`/devices/fingerprint/${encodeURIComponent(fingerprint)}`)
+        .catch(() => null); // Return null if not found (404) rather than throwing
       
       if (existingDevice) {
         console.log('Found existing device for this fingerprint, syncing...');
@@ -146,7 +153,16 @@ export class DeviceIdManager {
       const deviceId = await this.getDeviceId();
       const fingerprint = await this.getDeviceFingerprint();
       
-      return await ApiService.linkDeviceToUser(deviceId, fingerprint, username, pin);
+      await HttpClient.request('/devices/link', {
+        method: 'POST',
+        body: JSON.stringify({
+          device_id: deviceId,
+          fingerprint: fingerprint,
+          username: username,
+          pin: pin
+        })
+      });
+      return true;
     } catch (error) {
       console.error('Error linking device to user:', error);
       return false;

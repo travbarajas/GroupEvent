@@ -536,43 +536,7 @@ export class ApiService {
     return this.request('/health');
   }
 
-  // Device fingerprint sync methods
-  static async registerDevice(deviceId: string, fingerprint: string): Promise<any> {
-    return this.request('/devices/register', {
-      method: 'POST',
-      body: JSON.stringify({
-        device_id: deviceId,
-        fingerprint: fingerprint
-      })
-    });
-  }
-
-  static async findDeviceByFingerprint(fingerprint: string): Promise<{ device_id: string } | null> {
-    try {
-      return await this.request(`/devices/fingerprint/${encodeURIComponent(fingerprint)}`);
-    } catch (error) {
-      // Return null if not found (404) rather than throwing
-      return null;
-    }
-  }
-
-  static async linkDeviceToUser(deviceId: string, fingerprint: string, username: string, pin: string): Promise<boolean> {
-    try {
-      await this.request('/devices/link', {
-        method: 'POST',
-        body: JSON.stringify({
-          device_id: deviceId,
-          fingerprint: fingerprint,
-          username: username,
-          pin: pin
-        })
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to link device to user:', error);
-      return false;
-    }
-  }
+  // Device fingerprint sync methods moved to utils/deviceId.ts to avoid circular dependency
 }
 
 // Convenience hooks/functions for common operations
