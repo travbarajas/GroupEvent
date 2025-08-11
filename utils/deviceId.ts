@@ -12,27 +12,34 @@ export class DeviceIdManager {
 
   static async getDeviceId(): Promise<string> {
     if (this.deviceId) {
+      console.log(`📱 Using cached device ID: ${this.deviceId}`);
       return this.deviceId;
     }
 
     try {
+      console.log('🚀 Getting device ID - checking for cross-browser sync...');
+      
       // First, try to sync across browsers using fingerprint
       const syncedDeviceId = await this.syncDeviceAcrossBrowsers();
       if (syncedDeviceId) {
+        console.log(`✅ Cross-browser sync successful: ${syncedDeviceId}`);
         this.deviceId = syncedDeviceId;
         return syncedDeviceId;
       }
 
+      console.log('📂 No cross-browser sync, checking local storage...');
       // Fallback to local storage
       let deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
       
       if (!deviceId) {
+        console.log('🆕 No local device ID found, generating new one...');
         // Generate new device ID and register it
         deviceId = this.generateDeviceId();
         await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
         
         // Register this device with backend
         const fingerprint = await this.getDeviceFingerprint();
+        console.log(`📡 Registering new device ${deviceId} with fingerprint ${fingerprint}`);
         try {
           await HttpClient.request('/devices/register', {
             method: 'POST',
@@ -41,9 +48,12 @@ export class DeviceIdManager {
               fingerprint: fingerprint
             })
           });
+          console.log('✅ Device registration successful');
         } catch (error) {
-          console.log('Could not register device with backend:', error);
+          console.log('❌ Could not register device with backend:', error);
         }
+      } else {
+        console.log(`📂 Using existing local device ID: ${deviceId}`);
       }
       
       this.deviceId = deviceId;
@@ -59,18 +69,23 @@ export class DeviceIdManager {
   private static async syncDeviceAcrossBrowsers(): Promise<string | null> {
     try {
       const fingerprint = await this.getDeviceFingerprint();
+      console.log(`🔄 Attempting device sync with fingerprint: ${fingerprint}`);
       
       // Check if this fingerprint already exists in our backend
       const existingDevice = await HttpClient.request<{ device_id: string } | null>(`/devices/fingerprint/${encodeURIComponent(fingerprint)}`)
-        .catch(() => null); // Return null if not found (404) rather than throwing
+        .catch((error) => {
+          console.log('Device fingerprint lookup failed (expected for new devices):', error.message);
+          return null;
+        }); // Return null if not found (404) rather than throwing
       
       if (existingDevice) {
-        console.log('Found existing device for this fingerprint, syncing...');
+        console.log(`✅ Found existing device for this fingerprint, syncing from ${this.deviceId || 'none'} to ${existingDevice.device_id}`);
         // Update local storage with the existing device ID
         await AsyncStorage.setItem(DEVICE_ID_KEY, existingDevice.device_id);
         return existingDevice.device_id;
       }
       
+      console.log('❌ No existing device found for this fingerprint');
       return null;
     } catch (error) {
       console.log('Could not sync device across browsers:', error);
@@ -108,6 +123,19 @@ export class DeviceIdManager {
         // Language (with safe fallback)
         `lang:${this.getLanguage()}`,
       ];
+
+      // Debug logging to see what components are being used
+      console.log('🔍 Fingerprint components:', {
+        window: `${width}x${height}`,
+        screen: `${screenWidth}x${screenHeight}`,
+        platform: Platform.OS,
+        version: Platform.Version,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        deviceName: Constants.deviceName,
+        platformModel: Constants.platform?.ios?.model || Constants.platform?.android?.model || 'unknown',
+        language: this.getLanguage(),
+        components: fingerprintComponents
+      });
 
       // Create hash-like fingerprint
       const rawFingerprint = fingerprintComponents.join('|');
