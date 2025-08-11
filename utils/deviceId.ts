@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Dimensions } from 'react-native';
+import Constants from 'expo-constants';
 import { ApiService } from '@/services/api';
 
 const DEVICE_ID_KEY = 'device_id';
@@ -88,18 +89,17 @@ export class DeviceIdManager {
       const { width: screenWidth, height: screenHeight } = Dimensions.get('screen');
       
       const fingerprintComponents = [
-        // Screen dimensions (consistent across browsers on same device)
+        // Screen dimensions (most reliable - same across all browsers on device)
         `screen:${screenWidth}x${screenHeight}`,
-        `window:${width}x${height}`,
-        // Platform info
+        // Platform info (stable)
         `platform:${Platform.OS}`,
         `version:${Platform.Version}`,
         // Timezone (consistent across browsers)
         `tz:${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
-        // Language
-        `lang:${navigator.language || 'unknown'}`,
-        // User agent partial (for distinguishing devices, not browsers)
-        `ua:${this.extractDeviceFromUA(navigator.userAgent)}`,
+        // Device name from Constants (if available)
+        `device:${Constants.deviceName || Constants.platform?.ios?.model || Constants.platform?.android?.model || 'unknown'}`,
+        // Language (with safe fallback)
+        `lang:${this.getLanguage()}`,
       ];
 
       // Create hash-like fingerprint
@@ -122,18 +122,18 @@ export class DeviceIdManager {
     }
   }
 
-  private static extractDeviceFromUA(userAgent: string): string {
-    // Extract device-specific info, not browser-specific
-    if (Platform.OS === 'ios') {
-      // Extract iPhone/iPad model
-      const match = userAgent.match(/(iPhone|iPad)[^;)]*|OS [\d_]+/);
-      return match ? match[0] : 'ios_device';
-    } else if (Platform.OS === 'android') {
-      // Extract Android device info
-      const match = userAgent.match(/Android [\d.]+|[^)]*\)/);
-      return match ? match[0] : 'android_device';
+  private static getLanguage(): string {
+    try {
+      // Try multiple ways to get language in React Native
+      if (typeof navigator !== 'undefined' && navigator.language) {
+        return navigator.language;
+      }
+      
+      // Fallback to Intl API
+      return Intl.DateTimeFormat().resolvedOptions().locale || 'en-US';
+    } catch (error) {
+      return 'en-US';
     }
-    return 'unknown_device';
   }
 
   private static generateDeviceId(): string {
