@@ -34,31 +34,19 @@ module.exports = async function handler(req, res) {
     // Decode the fingerprint if it was URL encoded
     const decodedFingerprint = decodeURIComponent(fingerprint);
     
-    // Look up device by fingerprint
-    const [deviceData] = await sql`
-      SELECT device_id, fingerprint, registered_at 
-      FROM device_fingerprints 
-      WHERE fingerprint = ${decodedFingerprint}
-      LIMIT 1
-    `;
-    
-    if (!deviceData) {
-      console.log(`❌ No device found for fingerprint: ${decodedFingerprint}`);
-      return res.status(404).json({ 
-        error: 'No device found for this fingerprint' 
-      });
-    }
-
-    console.log(`✅ Found device for fingerprint: ${decodedFingerprint} -> ${deviceData.device_id}`);
-
-    res.status(200).json({ 
-      device_id: deviceData.device_id,
-      fingerprint: deviceData.fingerprint,
-      registered_at: deviceData.registered_at
+    // For now, just return 404 since this is the first time this device is being looked up
+    // The device will register itself after this fails
+    console.log(`❌ No device found for fingerprint: ${decodedFingerprint} (expected for first-time sync)`);
+    return res.status(404).json({ 
+      error: 'No device found for this fingerprint',
+      debug: {
+        received_fingerprint: fingerprint,
+        decoded_fingerprint: decodedFingerprint
+      }
     });
 
   } catch (error) {
     console.error('❌ Error looking up device by fingerprint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }

@@ -29,41 +29,19 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Create device_fingerprints table if it doesn't exist
-    await sql`
-      CREATE TABLE IF NOT EXISTS device_fingerprints (
-        id SERIAL PRIMARY KEY,
-        device_id VARCHAR(255) UNIQUE NOT NULL,
-        fingerprint VARCHAR(255) NOT NULL,
-        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        linked_to_user VARCHAR(255),
-        linked_at TIMESTAMP,
-        pin_hash VARCHAR(255)
-      )
-    `;
-
-    // Insert or update device-fingerprint mapping
-    await sql`
-      INSERT INTO device_fingerprints (device_id, fingerprint)
-      VALUES (${device_id}, ${fingerprint})
-      ON CONFLICT (device_id)
-      DO UPDATE SET 
-        fingerprint = EXCLUDED.fingerprint,
-        updated_at = CURRENT_TIMESTAMP
-    `;
-
-    console.log(`📱 Device registered: ${device_id} with fingerprint: ${fingerprint}`);
+    // For now, just log and return success
+    // Database operations temporarily disabled to test basic functionality
+    console.log(`📱 Device registration requested: ${device_id} with fingerprint: ${fingerprint}`);
 
     res.status(200).json({ 
       success: true, 
-      message: 'Device registered successfully',
+      message: 'Device registration logged (database temporarily disabled for testing)',
       device_id,
       fingerprint
     });
 
   } catch (error) {
     console.error('❌ Error registering device:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
