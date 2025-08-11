@@ -1,6 +1,12 @@
-import { kv } from '@vercel/kv';
+const { neon } = require('@neondatabase/serverless');
 
-export default async function handler(req, res) {
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
+const sql = neon(process.env.DATABASE_URL);
+
+module.exports = async function handler(req, res) {
   // Enable CORS for all origins
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -27,10 +33,14 @@ export default async function handler(req, res) {
 
     // Decode the fingerprint if it was URL encoded
     const decodedFingerprint = decodeURIComponent(fingerprint);
-    const fingerprintKey = `fingerprint:${decodedFingerprint}`;
     
     // Look up device by fingerprint
-    const deviceData = await kv.get(fingerprintKey);
+    const [deviceData] = await sql`
+      SELECT device_id, fingerprint, registered_at 
+      FROM device_fingerprints 
+      WHERE fingerprint = ${decodedFingerprint}
+      LIMIT 1
+    `;
     
     if (!deviceData) {
       console.log(`❌ No device found for fingerprint: ${decodedFingerprint}`);
