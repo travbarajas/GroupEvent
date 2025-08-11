@@ -19,6 +19,15 @@ export class DeviceIdManager {
     try {
       console.log('🚀 Getting device ID - checking for cross-browser sync...');
       
+      // TEMPORARY: Clear old device IDs to force sync functionality for existing users
+      // This will cause existing users to re-register and enable sync
+      const existingDeviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+      if (existingDeviceId && existingDeviceId.includes('1752')) { // Old timestamp range
+        console.log('🧹 Clearing old device ID to enable sync functionality:', existingDeviceId);
+        await AsyncStorage.removeItem(DEVICE_ID_KEY);
+        await AsyncStorage.removeItem(FINGERPRINT_KEY);
+      }
+      
       // First, try to sync across browsers using fingerprint
       const syncedDeviceId = await this.syncDeviceAcrossBrowsers();
       if (syncedDeviceId) {
