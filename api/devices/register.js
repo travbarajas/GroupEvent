@@ -1,3 +1,11 @@
+const { neon } = require('@neondatabase/serverless');
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
+const sql = neon(process.env.DATABASE_URL);
+
 module.exports = async function handler(req, res) {
   // Enable CORS for all origins
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,13 +29,35 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // For now, just log and return success
-    // Database operations temporarily disabled to test basic functionality
-    console.log(`📱 Device registration requested: ${device_id} with fingerprint: ${fingerprint}`);
+    // Create device_fingerprints table if it doesn't exist
+    await sql`
+      CREATE TABLE IF NOT EXISTS device_fingerprints (
+        id SERIAL PRIMARY KEY,
+        device_id VARCHAR(255) UNIQUE NOT NULL,
+        fingerprint VARCHAR(255) NOT NULL,
+        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        linked_to_user VARCHAR(255),
+        linked_at TIMESTAMP,
+        pin_hash VARCHAR(255)
+      )
+    `;
+
+    // Insert or update device-fingerprint mapping
+    await sql`
+      INSERT INTO device_fingerprints (device_id, fingerprint)
+      VALUES (${device_id}, ${fingerprint})
+      ON CONFLICT (device_id)
+      DO UPDATE SET 
+        fingerprint = EXCLUDED.fingerprint,
+        updated_at = CURRENT_TIMESTAMP
+    `;
+
+    console.log(`📱 Device registered: ${device_id} with fingerprint: ${fingerprint}`);
 
     res.status(200).json({ 
       success: true, 
-      message: 'Device registration logged (database temporarily disabled for testing)',
+      message: 'Device registered successfully',
       device_id,
       fingerprint
     });
