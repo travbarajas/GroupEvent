@@ -21,12 +21,19 @@ export class HttpClient {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('🚨 HTTP Response Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          url: url,
-          errorData: errorData
-        });
+        
+        // Don't log 404 errors as they're often expected (e.g., device not found on first sync)
+        if (response.status !== 404) {
+          console.error('🚨 HTTP Response Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            url: url,
+            errorData: errorData
+          });
+        } else {
+          console.log('📍 Resource not found (404):', url);
+        }
+        
         throw new Error(errorData.details || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
       
