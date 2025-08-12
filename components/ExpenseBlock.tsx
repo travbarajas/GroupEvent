@@ -929,11 +929,30 @@ export default function ExpenseBlock({
               {expense.name}
             </Text>
             
-            {/* Total Amount - Top Right */}
-            <Text style={styles.totalAmountTopRight}>
-              ${(expense.total_amount || 0).toFixed(2)}
-            </Text>
+            <View style={styles.titleRightSection}>
+              {/* Total Amount */}
+              <Text style={styles.totalAmountTopRight}>
+                ${(expense.total_amount || 0).toFixed(2)}
+              </Text>
+              
+              {/* Delete Button - Right of amount */}
+              {canDelete && (
+                <TouchableOpacity 
+                  style={styles.deleteButtonTitleRow}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    deleteExpense(expense.id);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close" size={16} color="#ef4444" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
+
+          {/* Content Break */}
+          <View style={styles.contentBreak} />
 
           {/* Content Row - User's debt status */}
           <View style={styles.contentRowNew}>
@@ -984,20 +1003,6 @@ export default function ExpenseBlock({
                 );
               })()}
             </View>
-            
-            {/* Bottom Left: Delete Button */}
-            {canDelete && (
-              <TouchableOpacity 
-                style={styles.deleteButtonBottomLeft}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  deleteExpense(expense.id);
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close" size={16} color="#ef4444" />
-              </TouchableOpacity>
-            )}
         </View>
 
         </View>
@@ -2470,7 +2475,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  titleRightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButtonTitleRow: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contentBreak: {
+    height: 1,
+    backgroundColor: '#3a3a3a',
+    marginBottom: 8,
   },
   contentRow: {
     flexDirection: 'row',
