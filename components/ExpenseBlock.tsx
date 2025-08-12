@@ -534,6 +534,7 @@ export default function ExpenseBlock({
           const newExpenseResponse = await ApiService.createGroupExpense(groupId, {
             description: editingExpenseDescription.trim(),
             totalAmount: amount,
+            eventId: eventId, // Associate with the current event
             participants: participants
           });
           
