@@ -539,20 +539,58 @@ export default function ExpenseBlock({
           
           // Check if this was an optimistic expense
           const wasOptimisticExpense = selectedExpense.id.startsWith('optimistic-');
+          const newExpenseId = newExpenseResponse?.expenseId || newExpenseResponse?.expense?.id;
           
-          if (wasOptimisticExpense && newExpenseResponse?.expense?.id) {
-            // Map percentage data from optimistic ID to new real ID
-            console.log(`📊 Mapping percentage data from ${selectedExpense.id} to ${newExpenseResponse.expense.id}`);
-            await mapPercentageData(selectedExpense.id, newExpenseResponse.expense.id);
+          if (!newExpenseId) {
+            throw new Error('Failed to get new expense ID from API response');
           }
           
-          // Only delete the original expense if it's not optimistic (optimistic ones don't exist in database)
-          if (!wasOptimisticExpense) {
+          console.log(`✅ New expense created with ID: ${newExpenseId}`);
+          
+          // Create the new expense object for frontend state
+          const newExpense: ExpenseItem = {
+            id: newExpenseId,
+            name: editingExpenseDescription.trim(),
+            total_amount: amount,
+            addedBy: currentDeviceId,
+            participants: [
+              ...Array.from(editingSelectedPayers).map(deviceId => ({
+                device_id: deviceId,
+                payer_percentage: editingPayersPercentages[deviceId] || 0,
+                payer_amount: (amount * (editingPayersPercentages[deviceId] || 0)) / 100,
+                payment_status: 'pending' as const
+              })),
+              ...Array.from(editingSelectedOwers).map(deviceId => ({
+                device_id: deviceId,
+                ower_percentage: editingOwersPercentages[deviceId] || 0,
+                ower_amount: (amount * (editingOwersPercentages[deviceId] || 0)) / 100,
+                payment_status: 'pending' as const
+              }))
+            ],
+            createdAt: new Date().toISOString(),
+          };
+          
+          if (wasOptimisticExpense) {
+            // Map percentage data from optimistic ID to new real ID
+            console.log(`📊 Mapping percentage data from ${selectedExpense.id} to ${newExpenseId}`);
+            await mapPercentageData(selectedExpense.id, newExpenseId);
+            
+            // Remove optimistic expense and add new real expense
+            console.log('🔄 Replacing optimistic expense with real expense in state');
+            setExpenseItems(prev => prev.filter(expense => expense.id !== selectedExpense.id).concat(newExpense));
+          } else {
+            // For real expenses, delete the old one and add the new one
             console.log('Deleting original expense...');
             await ApiService.deleteGroupExpense(groupId, selectedExpense.id);
-          } else {
-            console.log('Skipping delete for optimistic expense - it only existed in frontend');
+            
+            // Replace old expense with new expense in state
+            console.log('🔄 Replacing old expense with new expense in state');
+            setExpenseItems(prev => prev.filter(expense => expense.id !== selectedExpense.id).concat(newExpense));
           }
+          
+          // Save percentage data for the new expense ID
+          console.log(`💾 Saving percentage data for new expense ID: ${newExpenseId}`);
+          await savePercentageData(newExpenseId, editingPayersPercentages, editingOwersPercentages);
           
           console.log('Successfully updated expense via recreate+delete');
           
@@ -571,15 +609,7 @@ export default function ExpenseBlock({
           // If API fails, at least we have the optimistic update
         }
         
-        // For optimistic expenses, we need to reload to get the new real expense ID
-        // This is crucial for proper persistence when user leaves and returns to screen
-        const wasOptimisticExpense = selectedExpense.id.startsWith('optimistic-');
-        if (wasOptimisticExpense) {
-          console.log('🔄 Reloading expenses because we edited an optimistic expense - need to get real IDs');
-          // Remove the optimistic expense from frontend state
-          setExpenseItems(prev => prev.filter(expense => expense.id !== selectedExpense.id));
-          await loadExpenses();
-        }
+        // State updates are handled in the success block above
         
       } else {
         console.warn('Cannot sync changes to server - user did not create this expense');
@@ -863,10 +893,11 @@ export default function ExpenseBlock({
           const initialOwersPercentages: {[key: string]: number} = {};
           const owersData = expense.participants.filter(p => p.ower_amount !== undefined && p.ower_amount > 0);
           owersData.forEach(participant => {
-            // If percentage is missing or invalid, calculate equal split
-            const percentage = participant.ower_percentage && participant.ower_percentage > 0 
+            // If percentage is missing or appears to be wrong (like 1 instead of 100), calculate equal split
+            const percentage = participant.ower_percentage && participant.ower_percentage >= 5 
               ? participant.ower_percentage 
               : Math.floor(100 / owersData.length);
+            console.log(`🔧 Ower ${participant.device_id}: stored=${participant.ower_percentage}, using=${percentage}`);
             initialOwersPercentages[participant.device_id] = percentage;
           });
           setEditingOwersPercentages(initialOwersPercentages);
@@ -876,10 +907,11 @@ export default function ExpenseBlock({
           const initialPayersPercentages: {[key: string]: number} = {};
           const payersData = expense.participants.filter(p => p.payer_amount !== undefined && p.payer_amount > 0);
           payersData.forEach(participant => {
-            // If percentage is missing or invalid, calculate equal split
-            const percentage = participant.payer_percentage && participant.payer_percentage > 0 
+            // If percentage is missing or appears to be wrong (like 1 instead of 100), calculate equal split
+            const percentage = participant.payer_percentage && participant.payer_percentage >= 5 
               ? participant.payer_percentage 
               : Math.floor(100 / payersData.length);
+            console.log(`🔧 Payer ${participant.device_id}: stored=${participant.payer_percentage}, using=${percentage}`);
             initialPayersPercentages[participant.device_id] = percentage;
           });
           setEditingPayersPercentages(initialPayersPercentages);
