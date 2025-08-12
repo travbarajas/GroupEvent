@@ -20,6 +20,7 @@ import * as Linking from 'expo-linking';
 import { useGroups, Group } from '../../contexts/GroupsContext';
 import { ApiService } from '../../services/api';
 import ProfileSetupModal from '../../components/ProfileSetupModal';
+import { PlatformDetector } from '../../utils/platform';
 
 const { width } = Dimensions.get('window');
 
@@ -170,6 +171,15 @@ export default function GroupsTab() {
     });
   };
 
+  const handleDownloadApp = () => {
+    const appStoreUrl = PlatformDetector.getAppStoreUrl();
+    Linking.openURL(appStoreUrl).catch(err => {
+      console.error('Failed to open app store link:', err);
+      // Fallback: show alert with URL
+      alert(`Visit: ${appStoreUrl}`);
+    });
+  };
+
   const GroupBlock = ({ group }: { group: Group }) => (
     <TouchableOpacity 
       style={styles.groupBlock} 
@@ -241,22 +251,47 @@ export default function GroupsTab() {
           />
         }
       >
-        {/* Add Group Block */}
-        <TouchableOpacity 
-          style={styles.addGroupBlock} 
-          activeOpacity={0.8}
-          onPress={() => setShowCreateModal(true)}
-        >
-          <View style={styles.addGroupContent}>
-            <View style={styles.addIconContainer}>
-              <Ionicons name="add" size={32} color="#60a5fa" />
+        {/* Add Group Block - Different UI for Browser vs Native App */}
+        {PlatformDetector.isNativeApp() ? (
+          // Native App: Show Create Group button
+          <TouchableOpacity 
+            style={styles.addGroupBlock} 
+            activeOpacity={0.8}
+            onPress={() => setShowCreateModal(true)}
+          >
+            <View style={styles.addGroupContent}>
+              <View style={styles.addIconContainer}>
+                <Ionicons name="add" size={32} color="#60a5fa" />
+              </View>
+              <View style={styles.addTextContainer}>
+                <Text style={styles.addGroupTitle}>Create New Group</Text>
+                <Text style={styles.addGroupSubtitle}>Start coordinating with friends</Text>
+              </View>
             </View>
-            <View style={styles.addTextContainer}>
-              <Text style={styles.addGroupTitle}>Create New Group</Text>
-              <Text style={styles.addGroupSubtitle}>Start coordinating with friends</Text>
+          </TouchableOpacity>
+        ) : (
+          // Browser: Show Download App message
+          <TouchableOpacity 
+            style={styles.downloadAppBlock} 
+            activeOpacity={0.8}
+            onPress={handleDownloadApp}
+          >
+            <View style={styles.addGroupContent}>
+              <View style={styles.downloadIconContainer}>
+                <Ionicons name="download" size={32} color="#60a5fa" />
+              </View>
+              <View style={styles.addTextContainer}>
+                <Text style={styles.downloadAppTitle}>Download the App to Create Groups</Text>
+                <Text style={styles.downloadAppSubtitle}>
+                  You're using {PlatformDetector.getPlatformDescription()}. Get the full experience!
+                </Text>
+              </View>
+              <View style={styles.downloadArrow}>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
         
         {/* Existing Groups */}
         {filteredGroups.map(group => (
@@ -432,6 +467,36 @@ const styles = StyleSheet.create({
   addGroupSubtitle: {
     fontSize: 14,
     color: '#9ca3af',
+  },
+  // Download App Block Styles (for browser users)
+  downloadAppBlock: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+    borderStyle: 'solid',
+  },
+  downloadIconContainer: {
+    backgroundColor: '#1e3a8a',
+    padding: 12,
+    borderRadius: 6,
+    marginRight: 16,
+  },
+  downloadAppTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#60a5fa',
+    marginBottom: 4,
+  },
+  downloadAppSubtitle: {
+    fontSize: 14,
+    color: '#9ca3af',
+    lineHeight: 20,
+  },
+  downloadArrow: {
+    marginLeft: 8,
+    alignSelf: 'center',
   },
   modalOverlay: {
     flex: 1,
