@@ -371,6 +371,15 @@ export class ApiService {
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     
+    // Check if this is an optimistic expense (frontend-only, not in database yet)
+    const isOptimisticExpense = expenseId.startsWith('optimistic-');
+    
+    if (isOptimisticExpense) {
+      console.log(`📝 Updating optimistic expense ${expenseId} - creating new expense instead of updating`);
+      // For optimistic expenses, just create a new one since they don't exist in the database
+      return await this.createGroupExpense(groupId, expenseData);
+    }
+    
     // Transform participants into the format backend expects
     const participants = expenseData.participants.map(p => ({
       member_device_id: p.device_id,
@@ -393,7 +402,7 @@ export class ApiService {
     };
     
     try {
-      // Try PUT method first
+      // Try PUT method first (for real expenses that exist in database)
       const response = await this.request(`/groups/${groupId}/expenses/${expenseId}`, {
         method: 'PUT',
         body: JSON.stringify(requestBody)
@@ -403,7 +412,8 @@ export class ApiService {
       
     } catch (error: any) {
       if (error.message === 'Method not allowed') {
-        // Fallback: Delete + Create
+        // Fallback: Delete + Create (only for real expenses)
+        console.log(`🔄 PUT failed for expense ${expenseId}, trying delete+create fallback`);
         await this.deleteGroupExpense(groupId, expenseId);
         const newExpense = await this.createGroupExpense(groupId, expenseData);
         
@@ -476,6 +486,16 @@ export class ApiService {
 
   static async deleteGroupExpense(groupId: string, expenseId: string): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
+    
+    // Check if this is an optimistic expense (frontend-only, not in database)
+    const isOptimisticExpense = expenseId.startsWith('optimistic-');
+    
+    if (isOptimisticExpense) {
+      console.log(`⚠️ Attempted to delete optimistic expense ${expenseId} - skipping database deletion`);
+      // For optimistic expenses, just return success since they don't exist in the database
+      return { success: true, message: 'Optimistic expense removed from frontend only' };
+    }
+    
     return this.request(`/groups/${groupId}/expenses/${expenseId}`, {
       method: 'DELETE',
       body: JSON.stringify({ device_id })

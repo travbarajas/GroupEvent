@@ -25,6 +25,22 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'device_id is required' });
       }
 
+      // Check if this is an optimistic expense ID (frontend-only, not in database)
+      if (expenseId.startsWith('optimistic-')) {
+        console.log(`⚠️ Attempted to delete optimistic expense ${expenseId} - returning success without database operation`);
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Optimistic expense deleted (frontend-only, no database operation needed)' 
+        });
+      }
+
+      // Validate UUID format to prevent database errors
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(expenseId)) {
+        console.log(`⚠️ Invalid expense ID format: ${expenseId}`);
+        return res.status(400).json({ error: 'Invalid expense ID format' });
+      }
+
       // Check if user is a member of this group
       const [membership] = await sql`
         SELECT 1 FROM members WHERE group_id = ${groupId} AND device_id = ${device_id}
