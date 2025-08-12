@@ -14,11 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ApiService } from '@/services/api';
+import DateRangePicker from '@/components/DateRangePicker';
 
 interface CreateEventForm {
   name: string;
   description: string;
-  date: Date;
+  startDate: Date;
+  endDate: Date | null; // null means single day event
   time: Date | null;
   location: string;
 }
@@ -30,19 +32,21 @@ export default function CreateEventScreen() {
   const [form, setForm] = useState<CreateEventForm>({
     name: '',
     description: '',
-    date: new Date(),
+    startDate: new Date(),
+    endDate: new Date(), // Initialize with today as end date too
     time: null,
     location: '',
   });
   
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      setForm(prev => ({ ...prev, date: selectedDate }));
-    }
+  const handleDateRangeChange = (startDate: Date, endDate: Date | null) => {
+    setForm(prev => ({ 
+      ...prev, 
+      startDate: startDate,
+      endDate: endDate
+    }));
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
@@ -51,13 +55,19 @@ export default function CreateEventScreen() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const formatDateRange = (startDate: Date, endDate: Date | null) => {
+    if (!endDate) {
+      return startDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    
+    const start = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const end = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${start} - ${end}`;
   };
 
   const formatTime = (time: Date) => {
@@ -81,7 +91,8 @@ export default function CreateEventScreen() {
       await ApiService.createCustomEvent(groupId as string, {
         name: form.name,
         description: form.description,
-        date: form.date,
+        startDate: form.startDate,
+        endDate: form.endDate,
         time: form.time,
         location: form.location
       });
@@ -145,31 +156,14 @@ export default function CreateEventScreen() {
             />
           </View>
 
-          {/* Date */}
+          {/* Date Range */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Date *</Text>
-            <TouchableOpacity 
-              style={styles.dateTimeButton}
-              onPress={() => setShowDatePicker(!showDatePicker)}
-            >
-              <Ionicons name="calendar" size={20} color="#60a5fa" />
-              <Text style={styles.dateTimeText}>
-                {formatDate(form.date)}
-              </Text>
-              <Ionicons name={showDatePicker ? "chevron-up" : "chevron-down"} size={16} color="#666" />
-            </TouchableOpacity>
-            {showDatePicker && (
-              <View style={styles.inlinePicker}>
-                <DateTimePicker
-                  value={form.date}
-                  mode="date"
-                  display="spinner"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                  textColor="#ffffff"
-                />
-              </View>
-            )}
+            <DateRangePicker
+              startDate={form.startDate}
+              endDate={form.endDate}
+              onDateChange={handleDateRangeChange}
+            />
           </View>
 
           {/* Time */}

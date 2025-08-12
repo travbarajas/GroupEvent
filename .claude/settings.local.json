@@ -34,7 +34,9 @@
       "Bash(node:*)",
       "Bash(git reset:*)",
       "Bash(mv:*)",
-      "Bash(npm start:*)"
+      "Bash(npm start:*)",
+      "Bash(git config:*)",
+      "Bash(timeout 30 npx expo start --port 8083)"
     ],
     "deny": []
   }

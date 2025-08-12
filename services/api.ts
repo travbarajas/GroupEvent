@@ -237,14 +237,18 @@ export class ApiService {
   static async createCustomEvent(groupId: string, eventData: {
     name: string;
     description?: string;
-    date: Date;
+    startDate: Date;
+    endDate?: Date | null;
     time?: Date;
     location?: string;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
     
-    // Format the date and time to match the expected format
-    const formattedDate = eventData.date.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Format the dates and time to match the expected format
+    const formattedStartDate = eventData.startDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const formattedEndDate = eventData.endDate 
+      ? eventData.endDate.toISOString().split('T')[0] 
+      : null;
     const formattedTime = eventData.time 
       ? eventData.time.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
       : null;
@@ -255,9 +259,13 @@ export class ApiService {
         device_id,
         name: eventData.name,
         description: eventData.description || '',
-        date: formattedDate,
+        date: formattedStartDate, // Use start date as the main date
         time: formattedTime,
-        location: eventData.location || ''
+        location: eventData.location || '',
+        // For now, we'll store end_date in description if it's a range
+        ...(formattedEndDate && formattedEndDate !== formattedStartDate && {
+          description: `${eventData.description || ''}${eventData.description ? '\n\n' : ''}📅 Multi-day event: ${formattedStartDate} to ${formattedEndDate}`
+        })
       })
     });
   }

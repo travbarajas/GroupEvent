@@ -152,23 +152,15 @@ export default function ExpenseBlock({
     try {
       const { expenses: apiExpenses } = await ApiService.getGroupExpenses(groupId, eventId);
       
-      console.log('Raw API response:', JSON.stringify(apiExpenses, null, 2));
       
       // Transform API data to match our interface
       const transformedExpenses: ExpenseItem[] = apiExpenses.map((expense: any) => {
-        console.log('Processing expense:', {
-          id: expense.id,
-          description: expense.description,
-          payers_percentages: expense.payers_percentages,
-          owers_percentages: expense.owers_percentages
-        });
         
         // Create participants array from API data
         const participants: ExpenseParticipant[] = [];
         
         // Check if API returns participant records with percentage data
         if (expense.participants && Array.isArray(expense.participants)) {
-          console.log('Processing expense participants from API:', expense.participants);
           
           expense.participants.forEach((participant: any) => {
             const participantData: ExpenseParticipant = {
@@ -188,14 +180,6 @@ export default function ExpenseBlock({
               participantData.ower_amount = parseFloat(participant.ower_amount) || parseFloat(participant.individual_amount) || 0;
             }
             
-            console.log(`Participant ${participant.member_device_id} (${participant.role}):`, {
-              payer_percentage: participantData.payer_percentage,
-              payer_amount: participantData.payer_amount,
-              ower_percentage: participantData.ower_percentage,
-              ower_amount: participantData.ower_amount,
-              hasPayerData: !!(participantData.payer_percentage || participantData.payer_amount),
-              hasOwerData: !!(participantData.ower_percentage || participantData.ower_amount)
-            });
             
             participants.push(participantData);
           });

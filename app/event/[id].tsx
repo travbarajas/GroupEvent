@@ -448,19 +448,6 @@ export default function EventDetailScreen() {
 
   const displayEvent = getDisplayEvent();
   
-  // Debug what data is being displayed
-  console.log('📅 DISPLAY EVENT DATA:', {
-    eventId: event?.id,
-    displayDate: displayEvent.date,
-    displayTime: displayEvent.time,
-    eventHasDirectDate: !!(event as any)?.date,
-    eventHasDirectTime: !!(event as any)?.time,
-    eventDirectDate: (event as any)?.date,
-    eventDirectTime: (event as any)?.time,
-    eventHasOriginalData: !!(event as any)?.original_event_data,
-    originalDataDate: (event as any)?.original_event_data?.date,
-    originalDataTime: (event as any)?.original_event_data?.time
-  });
 
   // Function to convert 24-hour time to 12-hour AM/PM format
   const formatTimeToAMPM = (time: string): string => {
