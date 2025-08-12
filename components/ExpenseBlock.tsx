@@ -531,15 +531,28 @@ export default function ExpenseBlock({
           console.log('Participants:', JSON.stringify(participants, null, 2));
           
           console.log('Creating updated expense...');
-          await ApiService.createGroupExpense(groupId, {
+          const newExpenseResponse = await ApiService.createGroupExpense(groupId, {
             description: editingExpenseDescription.trim(),
             totalAmount: amount,
             participants: participants
           });
           
-          // Only delete the original expense if the create succeeded
-          console.log('Deleting original expense...');
-          await ApiService.deleteGroupExpense(groupId, selectedExpense.id);
+          // Check if this was an optimistic expense
+          const wasOptimisticExpense = selectedExpense.id.startsWith('optimistic-');
+          
+          if (wasOptimisticExpense && newExpenseResponse?.expense?.id) {
+            // Map percentage data from optimistic ID to new real ID
+            console.log(`📊 Mapping percentage data from ${selectedExpense.id} to ${newExpenseResponse.expense.id}`);
+            await mapPercentageData(selectedExpense.id, newExpenseResponse.expense.id);
+          }
+          
+          // Only delete the original expense if it's not optimistic (optimistic ones don't exist in database)
+          if (!wasOptimisticExpense) {
+            console.log('Deleting original expense...');
+            await ApiService.deleteGroupExpense(groupId, selectedExpense.id);
+          } else {
+            console.log('Skipping delete for optimistic expense - it only existed in frontend');
+          }
           
           console.log('Successfully updated expense via recreate+delete');
           
@@ -553,12 +566,24 @@ export default function ExpenseBlock({
           alert('Failed to sync changes to server. Changes are saved locally only.');
           // If API fails, at least we have the optimistic update
         }
+        
+        // For optimistic expenses, we need to reload to get the new real expense ID
+        // This is crucial for proper persistence when user leaves and returns to screen
+        const wasOptimisticExpense = selectedExpense.id.startsWith('optimistic-');
+        if (wasOptimisticExpense) {
+          console.log('🔄 Reloading expenses because we edited an optimistic expense - need to get real IDs');
+          // Remove the optimistic expense from frontend state
+          setExpenseItems(prev => prev.filter(expense => expense.id !== selectedExpense.id));
+          await loadExpenses();
+        }
+        
       } else {
         console.warn('Cannot sync changes to server - user did not create this expense');
         alert('Changes saved locally only. You can only sync changes for expenses you created.');
       }
       
     } catch (error) {
+      console.error('Failed to update expense:', error);
       alert('Failed to update expense. Please try again.');
       // Reload expenses on error to revert optimistic update
       loadExpenses();
@@ -855,70 +880,66 @@ export default function ExpenseBlock({
               {expense.name}
             </Text>
             
-            {/* User Financial Info */}
-            {(() => {
-              // Find user's role in this expense using new data structure
-              const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
-              const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
-              
-              if (!userAsOwer && !userAsPayer) {
+            {/* Total Amount - Top Right */}
+            <Text style={styles.totalAmountTopRight}>
+              ${(expense.total_amount || 0).toFixed(2)}
+            </Text>
+          </View>
+
+          {/* Content Row - User's debt status */}
+          <View style={styles.contentRowNew}>
+            {/* User's owe status */}
+            <View style={styles.userOwesContainer}>
+              {(() => {
+                // Find user's role in this expense
+                const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+                const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+                
+                if (!userAsOwer && !userAsPayer) {
+                  return <Text style={styles.userDebtText}>Not involved</Text>;
+                }
+                
+                // Calculate what user owes
+                const userPaid = userAsPayer?.payer_amount || 0;
+                const userOwes = userAsOwer?.ower_amount || 0;
+                const netAmount = userPaid - userOwes;
+                
+                if (Math.abs(netAmount) < 0.01) {
+                  return <Text style={styles.userDebtText}>All settled up</Text>;
+                }
+                
+                if (netAmount > 0) {
+                  // User is owed money
+                  return <Text style={styles.userOwedText}>You are owed ${netAmount.toFixed(2)}</Text>;
+                }
+                
+                // User owes money - show who they owe to
+                const payers = expense.participants
+                  .filter(p => p.payer_amount !== undefined && p.payer_amount > 0)
+                  .map(p => validMembers.find(m => m.device_id === p.device_id)?.username || 'Unknown')
+                  .filter(name => name !== 'Unknown');
+                
+                let payersText = '';
+                if (payers.length === 1) {
+                  payersText = payers[0];
+                } else if (payers.length === 2) {
+                  payersText = `${payers[0]} and ${payers[1]}`;
+                } else if (payers.length > 2) {
+                  payersText = `${payers.slice(0, -1).join(', ')}, and ${payers[payers.length - 1]}`;
+                }
+                
                 return (
-                  <View style={styles.headerUserAmountContainer}>
-                    <Text style={styles.headerUserStatusText}>Not involved</Text>
-                  </View>
-                );
-              }
-              
-              let statusText = "";
-              let isOwing = false;
-              let userPercentage = 0;
-              
-              // Get stored amounts directly from the data
-              const userPaid = userAsPayer?.payer_amount || 0;
-              const userOwes = userAsOwer?.ower_amount || 0;
-              
-              // Calculate net amount: what they paid minus what they owe
-              const netAmount = userPaid - userOwes;
-              
-              if (Math.abs(netAmount) < 0.01) {
-                // Close to zero, consider it even
-                statusText = "Even";
-                isOwing = false;
-              } else if (netAmount > 0) {
-                // User is owed money
-                statusText = `You are owed $${netAmount.toFixed(2)}`;
-                isOwing = false;
-              } else {
-                // User owes money
-                statusText = `You owe $${Math.abs(netAmount).toFixed(2)}`;
-                isOwing = true;
-              }
-              
-              // Get stored percentage if user owes money
-              if (userAsOwer && userAsOwer.ower_percentage) {
-                userPercentage = userAsOwer.ower_percentage;
-              }
-              
-              return (
-                <View style={styles.headerUserAmountContainer}>
-                  <Text style={[
-                    styles.headerUserStatusText,
-                    statusText === "Even" ? styles.userEvenText : (isOwing ? styles.userOwesText : styles.userOwedText)
-                  ]}>
-                    {statusText}
+                  <Text style={styles.userOwesText}>
+                    You owe ${Math.abs(netAmount).toFixed(2)} to {payersText}
                   </Text>
-                  {userPercentage > 0 && (
-                    <Text style={styles.headerUserPercentageText}>
-                      {userPercentage}%
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
+                );
+              })()}
+            </View>
             
+            {/* Bottom Left: Delete Button */}
             {canDelete && (
               <TouchableOpacity 
-                style={styles.deleteNewSection}
+                style={styles.deleteButtonBottomLeft}
                 onPress={(e) => {
                   e.stopPropagation();
                   deleteExpense(expense.id);
@@ -928,77 +949,7 @@ export default function ExpenseBlock({
                 <Ionicons name="close" size={16} color="#ef4444" />
               </TouchableOpacity>
             )}
-          </View>
-
-          {/* Content Row */}
-          <View style={styles.contentRow}>
-            {/* Left Side: Participants List */}
-            <View style={styles.participantsListColumn}>
-              {/* Payers List */}
-              {expense.participants
-                .filter(p => p.payer_amount !== undefined && p.payer_amount > 0)
-                .map(participant => {
-                  const member = validMembers.find(m => m.device_id === participant.device_id);
-                  const isCurrentUser = participant.device_id === currentDeviceId;
-                  const currentStatus = participant.payment_status || 'pending';
-                  const isCompleted = currentStatus === 'completed';
-                  
-                  return (
-                    <View key={`payer-${participant.device_id}`} style={styles.participantRow}>
-                      <View style={styles.participantInfo}>
-                        <View style={[styles.participantAvatar, styles.payerAvatar]}>
-                          <Text style={styles.participantAvatarText}>
-                            {member?.username?.[0]?.toUpperCase() || '?'}
-                          </Text>
-                        </View>
-                        <Text style={styles.participantName}>
-                          {member?.username || 'Unknown'}
-                        </Text>
-                        <Text style={styles.participantAmount}>
-                          Paid ${participant.payer_amount?.toFixed(2) || '0.00'}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              
-              {/* Owers List */}
-              {expense.participants
-                .filter(p => p.ower_amount !== undefined && p.ower_amount > 0)
-                .map(participant => {
-                  const member = validMembers.find(m => m.device_id === participant.device_id);
-                  const isCurrentUser = participant.device_id === currentDeviceId;
-                  const currentStatus = participant.payment_status || 'pending';
-                  const isCompleted = currentStatus === 'completed';
-                  const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
-                  
-                  return (
-                    <View key={`ower-${participant.device_id}`} style={styles.participantRow}>
-                      <View style={styles.participantInfo}>
-                        <View style={[styles.participantAvatar, styles.owerAvatar]}>
-                          <Text style={styles.participantAvatarText}>
-                            {member?.username?.[0]?.toUpperCase() || '?'}
-                          </Text>
-                        </View>
-                        <Text style={styles.participantName}>
-                          {member?.username || 'Unknown'}
-                        </Text>
-                        <Text style={styles.participantAmount}>
-                          Owes ${participant.ower_amount?.toFixed(2) || '0.00'}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-            </View>
-
-            {/* Right Side: Total Amount */}
-            <View style={styles.amountColumn}>
-              <Text style={styles.totalAmount}>
-                ${(expense.total_amount || 0).toFixed(2)}
-              </Text>
-            </View>
-          </View>
+        </View>
 
         </View>
       </TouchableOpacity>
@@ -2653,5 +2604,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#9ca3af',
     marginTop: 2,
+  },
+  // New UI Layout Styles
+  totalAmountTopRight: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10b981',
+    textAlign: 'right',
+  },
+  contentRowNew: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  userOwesContainer: {
+    flex: 1,
+  },
+  userDebtText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  userOwesText: {
+    fontSize: 12,
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  userOwedText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  deleteButtonBottomLeft: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 });
