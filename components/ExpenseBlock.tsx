@@ -556,6 +556,10 @@ export default function ExpenseBlock({
           
           console.log('Successfully updated expense via recreate+delete');
           
+          // Close the modal to prevent duplicate edits
+          setShowExpenseModal(false);
+          setSelectedExpense(null);
+          
           // Don't reload expenses - the optimistic update already has correct data
           // Reloading would lose our percentage data since the new expense has a different ID
           console.log('Skipping reload to preserve percentage data. Server sync complete.');
@@ -580,6 +584,10 @@ export default function ExpenseBlock({
       } else {
         console.warn('Cannot sync changes to server - user did not create this expense');
         alert('Changes saved locally only. You can only sync changes for expenses you created.');
+        
+        // Close the modal after showing the message
+        setShowExpenseModal(false);
+        setSelectedExpense(null);
       }
       
     } catch (error) {
@@ -855,7 +863,11 @@ export default function ExpenseBlock({
           const initialOwersPercentages: {[key: string]: number} = {};
           const owersData = expense.participants.filter(p => p.ower_amount !== undefined && p.ower_amount > 0);
           owersData.forEach(participant => {
-            initialOwersPercentages[participant.device_id] = participant.ower_percentage || 0;
+            // If percentage is missing or invalid, calculate equal split
+            const percentage = participant.ower_percentage && participant.ower_percentage > 0 
+              ? participant.ower_percentage 
+              : Math.floor(100 / owersData.length);
+            initialOwersPercentages[participant.device_id] = percentage;
           });
           setEditingOwersPercentages(initialOwersPercentages);
           setEditingLockedPercentages(new Set());
@@ -864,7 +876,11 @@ export default function ExpenseBlock({
           const initialPayersPercentages: {[key: string]: number} = {};
           const payersData = expense.participants.filter(p => p.payer_amount !== undefined && p.payer_amount > 0);
           payersData.forEach(participant => {
-            initialPayersPercentages[participant.device_id] = participant.payer_percentage || 0;
+            // If percentage is missing or invalid, calculate equal split
+            const percentage = participant.payer_percentage && participant.payer_percentage > 0 
+              ? participant.payer_percentage 
+              : Math.floor(100 / payersData.length);
+            initialPayersPercentages[participant.device_id] = percentage;
           });
           setEditingPayersPercentages(initialPayersPercentages);
           setEditingLockedPayersPercentages(new Set());
