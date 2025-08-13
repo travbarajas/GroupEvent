@@ -42,7 +42,6 @@ export default function AddExpenseModal({
   const [owerSplits, setOwerSplits] = useState<{ [key: string]: number }>({});
   const [lockedPayers, setLockedPayers] = useState<{ [key: string]: boolean }>({});
   const [lockedOwers, setLockedOwers] = useState<{ [key: string]: boolean }>({});
-  const [expenseCounter, setExpenseCounter] = useState(1);
 
   useEffect(() => {
     if (expense) {
@@ -244,7 +243,7 @@ export default function AddExpenseModal({
       return;
     }
     
-    const finalDescription = description.trim() || `Expense ${expenseCounter}`;
+    const finalDescription = description.trim() || 'Expense';
     const totalAmount = numAmount;
     
     // Calculate individual amounts based on percentages
@@ -275,10 +274,6 @@ export default function AddExpenseModal({
       total_amount: totalAmount,
       participants
     });
-    
-    if (!description.trim()) {
-      setExpenseCounter(prev => prev + 1);
-    }
     
     resetForm();
   };

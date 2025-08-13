@@ -392,6 +392,67 @@ export default function GroupDetailScreen() {
 
   const sampleEvents: any[] = [];
 
+  // Helper function to parse date range from event description
+  const parseEventDateRange = (event: any): { startDate: string, endDate: string | null, isMultiDay: boolean } => {
+    const description = event.original_event_data?.description || '';
+    const mainDate = event.original_event_data?.date;
+    
+    // Check if description contains multi-day event marker
+    const multiDayMatch = description.match(/📅 Multi-day event: (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/);
+    
+    if (multiDayMatch) {
+      return {
+        startDate: multiDayMatch[1],
+        endDate: multiDayMatch[2],
+        isMultiDay: true
+      };
+    }
+    
+    return {
+      startDate: mainDate,
+      endDate: null,
+      isMultiDay: false
+    };
+  };
+
+  // Helper function to format date range for display
+  const formatDateRangeDisplay = (startDate: string, endDate: string | null): string => {
+    if (!startDate) return '';
+    
+    const formatDisplayDate = (dateStr: string): string => {
+      const date = new Date(dateStr + 'T00:00:00'); // Ensure local time
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      
+      // Reset time for comparison
+      today.setHours(0, 0, 0, 0);
+      tomorrow.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      
+      if (date.getTime() === today.getTime()) {
+        return 'Today';
+      } else if (date.getTime() === tomorrow.getTime()) {
+        return 'Tomorrow';
+      } else {
+        return date.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+    };
+    
+    if (!endDate || endDate === startDate) {
+      return formatDisplayDate(startDate);
+    }
+    
+    const startDisplay = formatDisplayDate(startDate);
+    const endDisplay = formatDisplayDate(endDate);
+    
+    return `${startDisplay} - ${endDisplay}`;
+  };
+
   // Helper function to format event dates (same as calendar)
   const formatEventDate = (dateString: string): string | null => {
     if (!dateString || typeof dateString !== 'string') return null;
@@ -438,10 +499,26 @@ export default function GroupDetailScreen() {
     }
   };
 
-  // Get next 5 days (today + 4)
+  // Get next 5 days (today + 4) with multi-day event detection
   const getNext5Days = () => {
     const days = [];
     const today = new Date();
+    
+    // First, collect all multi-day events that span across our 5-day window
+    const multiDayEventRanges = groupEvents
+      .map(event => {
+        const range = parseEventDateRange(event);
+        if (range.isMultiDay && range.endDate) {
+          return {
+            ...event,
+            ...range,
+            title: event.custom_name || event.original_event_data?.name || 'Event',
+            color: event.created_by_color || '#4f8cd9'
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
     
     for (let i = 0; i < 5; i++) {
       const date = new Date(today);
@@ -456,31 +533,81 @@ export default function GroupDetailScreen() {
       const day = String(date.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
       
-      // Find events for this date
+      // Find single-day events for this date
       const dayEvents = groupEvents.filter(event => {
         const eventDate = formatEventDate(event.original_event_data?.date);
-        return eventDate === dateString;
+        const range = parseEventDateRange(event);
+        return eventDate === dateString && !range.isMultiDay;
       });
       
-      // Create abbreviations for events (up to 20 characters)
-      const eventsWithAbbreviations = dayEvents.map(event => {
-        const title = event.custom_name || event.original_event_data?.title || 'Event';
-        const abbreviation = title.substring(0, 20);
-        
-        return {
-          ...event,
-          abbreviation,
-          color: event.created_by_color || '#60a5fa' // Use creator's color, default blue if no color
-        };
+      // Find multi-day events that include this date
+      const multiDayEvents = multiDayEventRanges.filter(event => {
+        if (!event) return false;
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        const currentDate = new Date(dateString);
+        return currentDate >= startDate && currentDate <= endDate;
       });
+      
+      // Check if this day should connect to adjacent days for multi-day events
+      const connectLeft = i > 0 && multiDayEvents.some(event => {
+        if (!event) return false;
+        const prevDate = new Date(today);
+        prevDate.setDate(today.getDate() + i - 1);
+        const prevDateString = prevDate.toISOString().split('T')[0];
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        const prevDateTime = new Date(prevDateString);
+        return prevDateTime >= startDate && prevDateTime <= endDate;
+      });
+      
+      const connectRight = i < 4 && multiDayEvents.some(event => {
+        if (!event) return false;
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + i + 1);
+        const nextDateString = nextDate.toISOString().split('T')[0];
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        const nextDateTime = new Date(nextDateString);
+        return nextDateTime >= startDate && nextDateTime <= endDate;
+      });
+      
+      // Create abbreviations for all events and sort them (multi-day first)
+      const allEvents = [...dayEvents, ...multiDayEvents];
+      const eventsWithAbbreviations = allEvents
+        .map(event => {
+          const title = event.custom_name || event.original_event_data?.name || event.title || 'Event';
+          const abbreviation = title.substring(0, 20);
+          
+          return {
+            ...event,
+            abbreviation,
+            color: event.created_by_color || event.color || '#60a5fa',
+            isMultiDay: parseEventDateRange(event).isMultiDay
+          };
+        })
+        .sort((a, b) => {
+          // Multi-day events first, then single-day events
+          if (a.isMultiDay && !b.isMultiDay) return -1;
+          if (!a.isMultiDay && b.isMultiDay) return 1;
+          return 0; // Keep original order within same type
+        });
+      
+      // Get the color of the first multi-day event for connections
+      const firstMultiDayEvent = eventsWithAbbreviations.find(e => e.isMultiDay);
+      const connectionColor = firstMultiDayEvent?.color || '#4f8cd9';
       
       days.push({
         dayName,
         dayNumber,
-        hasEvents: dayEvents.length > 0,
-        eventCount: dayEvents.length,
+        hasEvents: allEvents.length > 0,
+        eventCount: allEvents.length,
         dateString,
-        events: eventsWithAbbreviations
+        events: eventsWithAbbreviations,
+        connectLeft,
+        connectRight,
+        multiDayEvents: multiDayEvents.length,
+        connectionColor
       });
     }
     
@@ -510,18 +637,29 @@ export default function GroupDetailScreen() {
         return eventDate >= today && eventDate <= nextWeek;
       })
       .sort((a, b) => {
-        const dateStringA = formatEventDate(a.original_event_data?.date) || '';
-        const dateStringB = formatEventDate(b.original_event_data?.date) || '';
+        // Parse date ranges for both events
+        const rangeA = parseEventDateRange(a);
+        const rangeB = parseEventDateRange(b);
         
-        // Parse both dates consistently as local time
-        const partsA = dateStringA.split('-');
-        const partsB = dateStringB.split('-');
+        // Calculate duration for each event (multi-day vs single day)
+        const getDuration = (range: { startDate: string, endDate: string | null, isMultiDay: boolean }) => {
+          if (!range.isMultiDay || !range.endDate) return 1;
+          const start = new Date(range.startDate);
+          const end = new Date(range.endDate);
+          return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        };
         
-        if (partsA.length !== 3 || partsB.length !== 3) return 0;
+        const durationA = getDuration(rangeA);
+        const durationB = getDuration(rangeB);
         
-        const dateA = new Date(parseInt(partsA[0]), parseInt(partsA[1]) - 1, parseInt(partsA[2]));
-        const dateB = new Date(parseInt(partsB[0]), parseInt(partsB[1]) - 1, parseInt(partsB[2]));
+        // Sort by duration first (longer events first), then by start date
+        if (durationA !== durationB) {
+          return durationB - durationA; // Higher duration first
+        }
         
+        // Same duration, sort by start date
+        const dateA = new Date(rangeA.startDate);
+        const dateB = new Date(rangeB.startDate);
         return dateA.getTime() - dateB.getTime();
       })
       .slice(0, 2); // Show max 2 upcoming events
@@ -529,6 +667,7 @@ export default function GroupDetailScreen() {
 
   const FiveDayPreview = () => {
     const next5Days = getNext5Days();
+    
     
     return (
       <View style={styles.sevenDayPreview}>
@@ -547,9 +686,10 @@ export default function GroupDetailScreen() {
         </TouchableOpacity>
         
         <View style={styles.sevenDayPreviewContent}>
+          {/* Day headers and single-day events */}
           {next5Days.map((day, index) => (
             <TouchableOpacity 
-              key={index} 
+              key={index}
               style={[
                 styles.dayPreviewItem,
                 index === 0 && styles.dayPreviewToday
@@ -591,8 +731,11 @@ export default function GroupDetailScreen() {
                 router.push(`/date-events?date=${day.dateString}&groupId=${id}`);
               }}
             >
-              <View style={styles.dayPreviewHeader}>
-                <Text style={styles.dayPreviewName}>{day.dayName}</Text>
+              <View style={[
+                styles.dayPreviewHeader,
+                index === 0 && styles.dayPreviewHeaderToday
+              ]}>
+                <Text style={[styles.dayPreviewName, index === 0 && styles.dayPreviewTodayText]}>{day.dayName}</Text>
                 <Text style={[
                   styles.dayPreviewNumber,
                   index === 0 && styles.dayPreviewTodayText
@@ -601,31 +744,77 @@ export default function GroupDetailScreen() {
                 </Text>
               </View>
               <View style={styles.dayPreviewEventContainer}>
-                {day.events && day.events.slice(0, 3).map((event, eventIndex) => (
-                  <View 
-                    key={eventIndex} 
-                    style={[
-                      styles.eventAbbreviation,
-                      { backgroundColor: event.color }
-                    ]}
-                  >
-                    <Text style={styles.eventAbbreviationText}>
-                      {event.abbreviation}
-                    </Text>
-                  </View>
-                ))}
-                {day.events && day.events.length > 3 && (
-                  <View 
-                    style={[
-                      styles.eventAbbreviation,
-                      { backgroundColor: '#666' }
-                    ]}
-                  >
-                    <Text style={styles.eventAbbreviationText}>
-                      +{day.events.length - 3}
-                    </Text>
-                  </View>
-                )}
+                {/* Render all events with proper spacing */}
+                {(() => {
+                  if (!day.events) return null;
+                  
+                  // Sort events by duration (longest multi-day first, then single-day)
+                  const sortedEvents = [...day.events].sort((a, b) => {
+                    // First separate multi-day from single-day
+                    if (a.isMultiDay && !b.isMultiDay) return -1;
+                    if (!a.isMultiDay && b.isMultiDay) return 1;
+                    
+                    // For multi-day events, sort by duration (longest first)
+                    if (a.isMultiDay && b.isMultiDay) {
+                      const rangeA = parseEventDateRange(a);
+                      const rangeB = parseEventDateRange(b);
+                      
+                      const getDuration = (range) => {
+                        if (!range.isMultiDay || !range.endDate) return 1;
+                        const start = new Date(range.startDate);
+                        const end = new Date(range.endDate);
+                        return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                      };
+                      
+                      const durationA = getDuration(rangeA);
+                      const durationB = getDuration(rangeB);
+                      
+                      return durationB - durationA; // Longer duration first
+                    }
+                    
+                    return 0; // Keep original order for single-day events
+                  });
+                  
+                  const eventsToShow = sortedEvents.slice(0, 3);
+                  const hiddenEventCount = Math.max(0, day.events.length - 3);
+                  
+                  return (
+                    <>
+                      {eventsToShow.map((event, eventIndex) => {
+                        // For multi-day events, show more text; for single-day, show abbreviation
+                        const displayText = event.isMultiDay 
+                          ? (event.custom_name || event.original_event_data?.name || event.title || 'Event').substring(0, 15)
+                          : event.abbreviation;
+                        
+                        return (
+                          <View 
+                            key={eventIndex} 
+                            style={[
+                              styles.eventAbbreviation,
+                              { backgroundColor: event.color }
+                            ]}
+                          >
+                            <Text style={styles.eventAbbreviationText} numberOfLines={1}>
+                              {displayText}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                      {hiddenEventCount > 0 && (
+                        <View 
+                          style={[
+                            styles.eventAbbreviation,
+                            { backgroundColor: '#666' }
+                          ]}
+                        >
+                          <Text style={styles.eventAbbreviationText}>
+                            +{hiddenEventCount}
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
               </View>
             </TouchableOpacity>
           ))}
@@ -650,7 +839,31 @@ export default function GroupDetailScreen() {
           const originalEvent = event.original_event_data;
           const displayName = event.custom_name || originalEvent?.name || 'Untitled Event';
           const isLast = index === upcomingEvents.length - 1;
-          const dateInfo = formatUpcomingEventDate(originalEvent?.date, originalEvent?.time);
+          
+          // Use new date range logic
+          const { startDate, endDate, isMultiDay } = parseEventDateRange(event);
+          const dateRangeDisplay = formatDateRangeDisplay(startDate, endDate);
+          
+          // Format time
+          let timeText = '';
+          const timeString = originalEvent?.time;
+          if (timeString && timeString !== 'No time') {
+            let cleanTime = timeString.replace(/\.000Z?$/, '').replace(/:\d{2}\..*$/, '');
+            if (!cleanTime.includes('AM') && !cleanTime.includes('PM')) {
+              try {
+                const timeDate = new Date(`1970-01-01T${cleanTime}`);
+                if (!isNaN(timeDate.getTime())) {
+                  cleanTime = timeDate.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                }
+              } catch (e) {}
+            }
+            timeText = cleanTime;
+          }
+          
           const creatorColor = event.created_by_color || '#2a2a2a'; // Default to gray if no color
           
           return (
@@ -680,13 +893,13 @@ export default function GroupDetailScreen() {
                   <Text style={styles.upcomingEventName}>{displayName}</Text>
                 </View>
                 <View style={styles.upcomingEventDateStack}>
-                  <Text style={styles.upcomingEventDayOfWeek}>{dateInfo.dayOfWeek}</Text>
-                  {dateInfo.daysText ? (
-                    <Text style={styles.upcomingEventDaysText}>{dateInfo.daysText}</Text>
-                  ) : null}
-                  {dateInfo.timeText ? (
-                    <Text style={styles.upcomingEventTime}>{dateInfo.timeText}</Text>
-                  ) : null}
+                  <Text style={styles.upcomingEventDayOfWeek}>{dateRangeDisplay}</Text>
+                  {isMultiDay && (
+                    <Text style={styles.upcomingEventDaysText}>Multi-day event</Text>
+                  )}
+                  {timeText && (
+                    <Text style={styles.upcomingEventTime}>{timeText}</Text>
+                  )}
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={12} color="#9ca3af" />
@@ -900,7 +1113,16 @@ export default function GroupDetailScreen() {
                 <Text style={styles.originalEventName}>{originalEvent?.name}</Text>
               )}
               <Text style={styles.eventDate}>
-                {formatUserFriendlyDate(originalEvent?.date, originalEvent?.time)}
+                {(() => {
+                  // Use the date range logic for multi-day events
+                  const { startDate, endDate, isMultiDay } = parseEventDateRange(event);
+                  if (isMultiDay && endDate) {
+                    const dateRangeDisplay = formatDateRangeDisplay(startDate, endDate);
+                    return `${dateRangeDisplay}${originalEvent?.time && originalEvent.time !== 'No time' ? ` at ${originalEvent.time}` : ''}`;
+                  } else {
+                    return formatUserFriendlyDate(originalEvent?.date, originalEvent?.time);
+                  }
+                })()}
               </Text>
               <Text style={styles.eventParticipants}>
                 Added by {event.created_by_username || 'Unknown'}
@@ -1363,6 +1585,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     flex: 1,
+    position: 'relative',
   },
   integratedCalendarButton: {
     marginBottom: 16,
@@ -1392,9 +1615,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   dayPreviewToday: {
-    backgroundColor: 'rgba(96, 165, 250, 0.1)',
-    borderWidth: 1,
-    borderColor: '#60a5fa',
+    // Removed background highlighting - now using line indicator instead
   },
   dayPreviewHeader: {
     alignItems: 'center',
@@ -1404,6 +1625,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     minHeight: 35,
     justifyContent: 'center',
+  },
+  dayPreviewHeaderToday: {
+    borderBottomColor: '#60a5fa',
   },
   dayPreviewName: {
     fontSize: 10,
@@ -1420,6 +1644,29 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   dayPreviewEventContainer: {
+    minHeight: 80,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    flexDirection: 'column',
+    gap: 4,
+    paddingTop: 4,
+  },
+  eventConnectionContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    justifyContent: 'flex-start',
+    zIndex: 0,
+  },
+  connectionDayHeader: {
+    alignItems: 'center',
+    paddingBottom: 6,
+    marginBottom: 6,
+    minHeight: 35,
+    justifyContent: 'center',
+  },
+  connectionEventContainer: {
     minHeight: 16,
     justifyContent: 'flex-start',
     alignItems: 'center',
@@ -1434,7 +1681,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    marginBottom: 2,
     maxWidth: '95%',
     width: 'auto',
   },

@@ -16,9 +16,11 @@ import { ApiService } from '../services/api';
 interface Event {
   id: string;
   custom_name: string;
+  created_by_color?: string;
   original_event_data: {
     name: string;
     date: string;
+    description?: string;
     venue?: {
       name: string;
       city: string;
@@ -49,10 +51,22 @@ export default function DateEventsScreen() {
       setLoading(true);
       const eventsData = await ApiService.getGroupEvents(groupId as string);
       
-      // Filter events for the selected date
+      // Filter events for the selected date (both single-day and multi-day)
       const dateEvents = (eventsData.events || []).filter((event: Event) => {
-        const eventDate = formatEventDate(event.original_event_data?.date);
-        return eventDate === date;
+        const range = parseEventDateRange(event);
+        
+        if (range.isMultiDay && range.endDate) {
+          // For multi-day events, check if the selected date falls within the range
+          const startDate = new Date(range.startDate);
+          const endDate = new Date(range.endDate);
+          const selectedDate = new Date(date as string);
+          
+          return selectedDate >= startDate && selectedDate <= endDate;
+        } else {
+          // For single-day events, check exact date match
+          const eventDate = formatEventDate(event.original_event_data?.date);
+          return eventDate === date;
+        }
       });
       
       setEvents(dateEvents);
@@ -62,6 +76,29 @@ export default function DateEventsScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to parse date range from event description
+  const parseEventDateRange = (event: Event): { startDate: string, endDate: string | null, isMultiDay: boolean } => {
+    const description = event.original_event_data?.description || '';
+    const mainDate = event.original_event_data?.date;
+    
+    // Check if description contains multi-day event marker
+    const multiDayMatch = description.match(/📅 Multi-day event: (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/);
+    
+    if (multiDayMatch) {
+      return {
+        startDate: multiDayMatch[1],
+        endDate: multiDayMatch[2],
+        isMultiDay: true
+      };
+    }
+    
+    return {
+      startDate: mainDate,
+      endDate: null,
+      isMultiDay: false
+    };
   };
 
   const formatEventDate = (dateString: string): string | null => {
@@ -121,11 +158,12 @@ export default function DateEventsScreen() {
     const eventData = event.original_event_data;
     const venue = eventData?.venue;
     const imageUrl = eventData?.images?.[0]?.url;
+    const creatorColor = event.created_by_color || '#2a2a2a'; // Default to gray if no color
 
     return (
       <TouchableOpacity
         key={event.id}
-        style={styles.eventCard}
+        style={[styles.eventCard, { borderColor: creatorColor }]}
         onPress={() => router.push(`/event/${event.id}?groupId=${groupId}`)}
       >
         {imageUrl && (

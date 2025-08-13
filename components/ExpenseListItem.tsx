@@ -41,6 +41,7 @@ export default function ExpenseListItem({
   onPress,
   onDelete,
 }: ExpenseListItemProps) {
+  const canEdit = expense.created_by_device_id === currentDeviceId;
   const canDelete = expense.created_by_device_id === currentDeviceId;
   const createdByMember = members.find(m => m.device_id === expense.created_by_device_id);
 
@@ -152,9 +153,10 @@ export default function ExpenseListItem({
 
   return (
     <TouchableOpacity 
-      style={styles.expenseItem}
-      onPress={onPress}
-      activeOpacity={0.7}
+      style={[styles.expenseItem, !canEdit && styles.expenseItemDisabled]}
+      onPress={canEdit ? onPress : undefined}
+      activeOpacity={canEdit ? 0.7 : 1}
+      disabled={!canEdit}
     >
       {/* Participant Avatars */}
       <View style={styles.participantSection}>
@@ -209,6 +211,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderWidth: 1,
     borderColor: '#3a3a3a',
+  },
+  expenseItemDisabled: {
+    opacity: 0.6,
   },
   participantSection: {
     width: 80,

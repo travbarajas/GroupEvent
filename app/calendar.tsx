@@ -68,28 +68,37 @@ const DateCell = memo(({
       </Text>
       {hasEvents && events.length > 0 && (
         <View style={styles.eventPillsContainer}>
-          {events.slice(0, 2).map((event, index) => {
-            // Create abbreviation from event title (first letter of each word)
-            const abbreviation = event.title
-              .split(' ')
-              .map(word => word.charAt(0).toUpperCase())
-              .join('')
-              .substring(0, 3); // Limit to 3 characters for wide pills
+          {(() => {
+            // Sort events to prioritize multi-day events first
+            const sortedEvents = [...events].sort((a, b) => {
+              if (a.isMultiDay && !b.isMultiDay) return -1;
+              if (!a.isMultiDay && b.isMultiDay) return 1;
+              return 0; // Keep original order within same type
+            });
             
-            return (
-              <View 
-                key={index}
-                style={[
-                  styles.eventWidePill,
-                  { backgroundColor: event.color || '#60a5fa' }
-                ]}
-              >
-                <Text style={styles.eventWidePillText}>
-                  {abbreviation}
-                </Text>
-              </View>
-            );
-          })}
+            return sortedEvents.slice(0, 2).map((event, index) => {
+              // Create abbreviation from event title (first letter of each word)
+              const abbreviation = event.title
+                .split(' ')
+                .map((word: string) => word.charAt(0).toUpperCase())
+                .join('')
+                .substring(0, 3); // Limit to 3 characters for wide pills
+              
+              return (
+                <View 
+                  key={index}
+                  style={[
+                    styles.eventWidePill,
+                    { backgroundColor: event.color || '#60a5fa' }
+                  ]}
+                >
+                  <Text style={styles.eventWidePillText}>
+                    {abbreviation}
+                  </Text>
+                </View>
+              );
+            });
+          })()}
           {events.length > 2 && (
             <View style={[styles.eventWidePill, { backgroundColor: '#666' }]}>
               <Text style={styles.eventWidePillText}>
@@ -144,6 +153,8 @@ interface CalendarEvent {
   color: string;
   icon?: string;
   participants?: number;
+  isMultiDay?: boolean;
+  originalTitle?: string;
 }
 
 export default function CalendarScreen() {
@@ -224,22 +235,54 @@ export default function CalendarScreen() {
       const eventsData = await ApiService.getGroupEvents(groupId as string);
       
       // Convert group events to calendar events format
-      const calendarEvents: CalendarEvent[] = (eventsData.events || []).map((event: any) => {
+      const calendarEvents: CalendarEvent[] = [];
+      
+      (eventsData.events || []).forEach((event: any) => {
         const title = event.custom_name || event.original_event_data?.name || 'Untitled Event';
         const startDate = formatEventDate(event.original_event_data?.date) || '';
         const creatorColor = event.created_by_color || '#D4A574'; // Use creator's color or default
+        const description = event.original_event_data?.description || '';
         
-        console.log('Event:', title, 'Original date:', event.original_event_data?.date, 'Formatted date:', startDate);
+        // Check if this is a multi-day event
+        const multiDayMatch = description.match(/📅 Multi-day event: (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/);
         
-        return {
-          id: String(event.id || ''),
-          title: String(title),
-          startDate: String(startDate),
-          color: creatorColor,
-          icon: 'calendar',
-          participants: 0
-        };
-      }).filter((event: CalendarEvent) => event.startDate); // Only include events with valid dates
+        if (multiDayMatch && startDate) {
+          const [, rangeStartDate, rangeEndDate] = multiDayMatch;
+          
+          // Generate events for each day in the range
+          const start = new Date(rangeStartDate);
+          const end = new Date(rangeEndDate);
+          
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dayDateString = d.toISOString().split('T')[0];
+            
+            calendarEvents.push({
+              id: `${event.id}_${dayDateString}`, // Unique ID for each day
+              title: String(title),
+              originalTitle: String(title),
+              startDate: dayDateString,
+              endDate: rangeEndDate,
+              color: creatorColor,
+              icon: 'calendar',
+              participants: 0,
+              isMultiDay: true
+            });
+          }
+        } else if (startDate) {
+          // Regular single-day event
+          calendarEvents.push({
+            id: String(event.id || ''),
+            title: String(title),
+            startDate: String(startDate),
+            color: creatorColor,
+            icon: 'calendar',
+            participants: 0,
+            isMultiDay: false
+          });
+        }
+      });
+      
+      console.log('Processed calendar events:', calendarEvents);
       
       setEvents(calendarEvents);
     } catch (error) {
@@ -440,6 +483,7 @@ export default function CalendarScreen() {
       }
     });
 
+
     return (
       <View key={`${year}-${month}`} style={styles.monthContainer}>
         {/* Month Header */}
@@ -459,7 +503,7 @@ export default function CalendarScreen() {
         {/* Calendar Grid */}
         <View style={[styles.calendarGrid, { height: rowsNeeded * 70 + 5 }]}>
           {/* Date Numbers */}
-          {dates.map((date, index) => {
+          {dates.map((date: number | null, index: number) => {
             const row = Math.floor(index / 7);
             const col = index % 7;
             const isSelected = selectedDate?.day === date && selectedDate?.month === month && selectedDate?.year === year;
@@ -517,6 +561,7 @@ export default function CalendarScreen() {
               />
             );
           })}
+          
         </View>
         
         {/* Month separator line */}
