@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { GroupsProvider } from '@/contexts/GroupsContext';
@@ -30,9 +30,10 @@ export default function RootLayout() {
   }
 
   return (
-    <GroupsProvider>
-      <NewsletterProvider>
-        <ThemeProvider value={DarkTheme}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <GroupsProvider>
+        <NewsletterProvider>
+          <ThemeProvider value={DarkTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen 
@@ -110,5 +111,6 @@ export default function RootLayout() {
       </ThemeProvider>
       </NewsletterProvider>
     </GroupsProvider>
+    </GestureHandlerRootView>
   );
 }
