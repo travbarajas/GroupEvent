@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   ScrollView,
   Alert,
   SafeAreaView,
+} from 'react-native';
+import {
   PanGestureHandler,
   PanGestureHandlerGestureEvent,
   State,
-} from 'react-native';
+} from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useAnimatedGestureHandler,
@@ -31,13 +33,7 @@ import {
   ImageBlock,
   ButtonBlock,
 } from '@/types/blocks';
-import {
-  HeadingBlockComponent,
-  ParagraphBlockComponent,
-  ContentBreakBlockComponent,
-  ImageBlockComponent,
-  ButtonBlockComponent,
-} from './blocks/BlockComponents';
+import DraggableBlock from './blocks/DraggableBlock';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 
 interface BlockBasedNewsletterEditorProps {
@@ -53,18 +49,21 @@ export default function BlockBasedNewsletterEditor({
 }: BlockBasedNewsletterEditorProps) {
   const { createNewsletter, updateNewsletter } = useNewsletter();
   
-  // Convert existing newsletter content to blocks if needed
-  const initializeBlocks = (): NewsletterBlock[] => {
+  // Convert existing newsletter content to blocks if needed (memoized)
+  const initialBlocks = useMemo((): NewsletterBlock[] => {
     if (newsletter?.content) {
       // Simple conversion from existing content to paragraph blocks
       const paragraphs = newsletter.content.split('\n\n').filter(p => p.trim());
       return paragraphs.map((paragraph, index) => {
         if (paragraph.startsWith('# ')) {
-          return createBlock('heading-1', index) as HeadingBlock;
+          const block = createBlock('heading-1', index) as HeadingBlock;
+          return { ...block, content: paragraph.substring(2) };
         } else if (paragraph.startsWith('## ')) {
-          return createBlock('heading-2', index) as HeadingBlock;
+          const block = createBlock('heading-2', index) as HeadingBlock;
+          return { ...block, content: paragraph.substring(3) };
         } else if (paragraph.startsWith('### ')) {
-          return createBlock('heading-3', index) as HeadingBlock;
+          const block = createBlock('heading-3', index) as HeadingBlock;
+          return { ...block, content: paragraph.substring(4) };
         } else {
           const block = createBlock('paragraph', index) as ParagraphBlock;
           return { ...block, content: paragraph };
@@ -72,7 +71,7 @@ export default function BlockBasedNewsletterEditor({
       });
     }
     return [];
-  };
+  }, [newsletter?.content]);
 
   // State
   const [title, setTitle] = useState(newsletter?.title || '');
@@ -83,7 +82,7 @@ export default function BlockBasedNewsletterEditor({
     day: 'numeric' 
   }));
   const [readOnlineUrl, setReadOnlineUrl] = useState(newsletter?.readOnlineUrl || '');
-  const [blocks, setBlocks] = useState<NewsletterBlock[]>(initializeBlocks());
+  const [blocks, setBlocks] = useState<NewsletterBlock[]>(initialBlocks);
   const [events, setEvents] = useState<NewsletterEvent[]>(newsletter?.events || []);
   
   // UI state
@@ -95,6 +94,11 @@ export default function BlockBasedNewsletterEditor({
   const dragY = useSharedValue(0);
   const draggedBlockIndex = useSharedValue(-1);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Update blocks when newsletter changes
+  useEffect(() => {
+    setBlocks(initialBlocks);
+  }, [initialBlocks]);
 
   const addBlock = (type: BlockType) => {
     const newBlock = createBlock(type, blocks.length);
@@ -164,69 +168,28 @@ export default function BlockBasedNewsletterEditor({
   const renderBlock = (block: NewsletterBlock, index: number) => {
     const isSelected = selectedBlockId === block.id;
     const isEditing = editingBlockId === block.id;
-    const isDraggedBlock = draggedBlockIndex.value === index && isDragging;
-
-    const animatedStyle = useAnimatedStyle(() => {
-      const isBeingDragged = draggedBlockIndex.value === index;
-      return {
-        transform: [
-          { translateY: isBeingDragged ? dragY.value : 0 },
-          { scale: isBeingDragged ? 1.02 : 1 }
-        ],
-        zIndex: isBeingDragged ? 1000 : 1,
-        opacity: isBeingDragged ? 0.9 : 1,
-      };
-    });
-
-    const blockProps = {
-      block,
-      isSelected,
-      isEditing,
-      onUpdate: updateBlock,
-      onDelete: () => deleteBlock(block.id),
-      onDragStart: () => handleDragStart(block.id),
-      onEdit: () => {
-        setEditingBlockId(block.id);
-        setSelectedBlockId(block.id);
-      },
-      onStopEditing: () => setEditingBlockId(null),
-    };
-
-    let BlockComponent;
-    switch (block.type) {
-      case 'heading-1':
-      case 'heading-2':
-      case 'heading-3':
-      case 'heading-4':
-        BlockComponent = HeadingBlockComponent;
-        break;
-      case 'paragraph':
-        BlockComponent = ParagraphBlockComponent;
-        break;
-      case 'content-break':
-        BlockComponent = ContentBreakBlockComponent;
-        break;
-      case 'image':
-        BlockComponent = ImageBlockComponent;
-        break;
-      case 'button':
-        BlockComponent = ButtonBlockComponent;
-        break;
-      default:
-        return null;
-    }
 
     return (
-      <PanGestureHandler key={block.id} onGestureEvent={gestureHandler}>
-        <Animated.View style={animatedStyle}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setSelectedBlockId(block.id)}
-          >
-            <BlockComponent {...blockProps} />
-          </TouchableOpacity>
-        </Animated.View>
-      </PanGestureHandler>
+      <DraggableBlock
+        key={block.id}
+        block={block}
+        index={index}
+        isSelected={isSelected}
+        isEditing={isEditing}
+        isDragging={isDragging}
+        dragY={dragY}
+        draggedBlockIndex={draggedBlockIndex}
+        onUpdate={updateBlock}
+        onDelete={() => deleteBlock(block.id)}
+        onDragStart={() => handleDragStart(block.id)}
+        onEdit={() => {
+          setEditingBlockId(block.id);
+          setSelectedBlockId(block.id);
+        }}
+        onStopEditing={() => setEditingBlockId(null)}
+        onSelect={() => setSelectedBlockId(block.id)}
+        gestureHandler={gestureHandler}
+      />
     );
   };
 
