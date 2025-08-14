@@ -1,0 +1,449 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Newsletter, NewsletterEvent } from '@/types/newsletter';
+import { useGroups } from '@/contexts/GroupsContext';
+
+interface NewsletterRendererProps {
+  newsletter: Newsletter;
+}
+
+export default function NewsletterRenderer({ newsletter }: NewsletterRendererProps) {
+  const { savedEvents, toggleSaveEvent, isEventSaved } = useGroups();
+
+  const handleEventPress = (event: NewsletterEvent) => {
+    if (event.originalEventId) {
+      // Navigate to the expanded event view
+      console.log('Navigate to event:', event.originalEventId);
+      // In real app: router.push(`/event/${event.originalEventId}`);
+    }
+  };
+
+  const handleHeartEvent = (event: NewsletterEvent) => {
+    if (event.originalEventId) {
+      // Create a mock Event object from NewsletterEvent
+      const mockEvent = {
+        id: event.originalEventId,
+        name: event.title,
+        date: event.date,
+        description: event.description,
+        time: event.time,
+        price: 'Free', // Default
+        distance: event.location,
+        type: 'event' as const,
+        tags: [],
+      };
+      toggleSaveEvent(mockEvent);
+    }
+  };
+
+  const handleShareEvent = async (event: NewsletterEvent) => {
+    try {
+      const shareContent = {
+        message: `Check out this event: ${event.title}\n\n${event.description}\n\nTime: ${event.time}\nLocation: ${event.location}`,
+        title: event.title,
+      };
+      await Share.share(shareContent);
+    } catch (error) {
+      console.error('Error sharing event:', error);
+    }
+  };
+
+  const renderEventBlock = (event: NewsletterEvent) => {
+    const isEventSavedState = event.originalEventId ? isEventSaved(event.originalEventId) : false;
+    
+    return (
+      <View key={event.id} style={styles.eventBlock}>
+        <Text style={styles.eventDate}>{event.date}</Text>
+        
+        <View style={styles.eventContent}>
+          <View style={styles.eventHeader}>
+            <TouchableOpacity 
+              style={styles.eventTitleContainer}
+              onPress={() => handleEventPress(event)}
+              disabled={!event.originalEventId}
+            >
+              <Text style={styles.eventTitle}>{event.title}</Text>
+              {event.originalEventId && (
+                <Ionicons name="arrow-forward" size={16} color="#60a5fa" />
+              )}
+            </TouchableOpacity>
+            
+            <View style={styles.eventActions}>
+              {event.originalEventId && (
+                <>
+                  <TouchableOpacity 
+                    style={styles.eventActionButton}
+                    onPress={() => handleHeartEvent(event)}
+                  >
+                    <Ionicons 
+                      name={isEventSavedState ? "heart" : "heart-outline"} 
+                      size={18} 
+                      color={isEventSavedState ? "#ef4444" : "#9ca3af"} 
+                    />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.eventActionButton}
+                    onPress={() => handleShareEvent(event)}
+                  >
+                    <Ionicons name="share-outline" size={18} color="#9ca3af" />
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+          
+          <Text style={styles.eventDescription}>{event.description}</Text>
+          <Text style={styles.eventDetails}>
+            {event.time}{event.location ? ` @ ${event.location}` : ''}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+  
+  const renderContent = (content: string) => {
+    if (!content || typeof content !== 'string') return null;
+
+    // Split content into lines for processing
+    const lines = content.split('\n');
+    const elements: JSX.Element[] = [];
+
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine === '') {
+        // Empty line - add spacing
+        elements.push(
+          <View key={`space-${index}`} style={styles.spacer} />
+        );
+      } else if (trimmedLine.startsWith('# ')) {
+        // H1 Heading
+        elements.push(
+          <Text key={index} style={styles.heading1}>
+            {trimmedLine.substring(2)}
+          </Text>
+        );
+      } else if (trimmedLine.startsWith('## ')) {
+        // H2 Heading
+        elements.push(
+          <Text key={index} style={styles.heading2}>
+            {trimmedLine.substring(3)}
+          </Text>
+        );
+      } else if (trimmedLine.startsWith('### ')) {
+        // H3 Heading
+        elements.push(
+          <Text key={index} style={styles.heading3}>
+            {trimmedLine.substring(4)}
+          </Text>
+        );
+      } else if (trimmedLine.startsWith('• ')) {
+        // Bullet point
+        elements.push(
+          <Text key={index} style={styles.bulletPoint}>
+            {trimmedLine}
+          </Text>
+        );
+      } else {
+        // Regular text with potential formatting
+        elements.push(
+          <Text key={index} style={styles.paragraph}>
+            {renderFormattedText(trimmedLine)}
+          </Text>
+        );
+      }
+    });
+
+    return elements;
+  };
+
+  const renderFormattedText = (text: string) => {
+    const elements: (string | JSX.Element)[] = [];
+    let currentIndex = 0;
+    
+    // Handle bold text **text**
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        elements.push(text.substring(lastIndex, match.index));
+      }
+      
+      // Add bold text
+      elements.push(
+        <Text key={`bold-${match.index}`} style={styles.boldText}>
+          {match[1]}
+        </Text>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      let remainingText = text.substring(lastIndex);
+      
+      // Handle italic text *text*
+      const italicRegex = /\*(.*?)\*/g;
+      let italicLastIndex = 0;
+      let italicMatch;
+      const italicElements: (string | JSX.Element)[] = [];
+      
+      while ((italicMatch = italicRegex.exec(remainingText)) !== null) {
+        if (italicMatch.index > italicLastIndex) {
+          italicElements.push(remainingText.substring(italicLastIndex, italicMatch.index));
+        }
+        
+        italicElements.push(
+          <Text key={`italic-${italicMatch.index}`} style={styles.italicText}>
+            {italicMatch[1]}
+          </Text>
+        );
+        
+        italicLastIndex = italicMatch.index + italicMatch[0].length;
+      }
+      
+      if (italicLastIndex < remainingText.length) {
+        let finalText = remainingText.substring(italicLastIndex);
+        
+        // Handle links [text](url)
+        const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+        let linkLastIndex = 0;
+        let linkMatch;
+        const linkElements: (string | JSX.Element)[] = [];
+        
+        while ((linkMatch = linkRegex.exec(finalText)) !== null) {
+          if (linkMatch.index > linkLastIndex) {
+            linkElements.push(finalText.substring(linkLastIndex, linkMatch.index));
+          }
+          
+          linkElements.push(
+            <TouchableOpacity 
+              key={`link-${linkMatch.index}`} 
+              onPress={() => Linking.openURL(linkMatch[2])}
+            >
+              <Text style={styles.linkText}>{linkMatch[1]}</Text>
+            </TouchableOpacity>
+          );
+          
+          linkLastIndex = linkMatch.index + linkMatch[0].length;
+        }
+        
+        if (linkLastIndex < finalText.length) {
+          linkElements.push(finalText.substring(linkLastIndex));
+        }
+        
+        elements.push(...linkElements);
+      } else {
+        elements.push(...italicElements);
+      }
+    }
+    
+    return elements.length > 0 ? elements : text;
+  };
+
+  const handleReadOnlinePress = () => {
+    if (newsletter.readOnlineUrl) {
+      Linking.openURL(newsletter.readOnlineUrl);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>{newsletter.title}</Text>
+        {newsletter.subtitle && (
+          <Text style={styles.subtitle}>{newsletter.subtitle}</Text>
+        )}
+        
+        <View style={styles.metaRow}>
+          <Text style={styles.date}>{newsletter.date}</Text>
+          {newsletter.readOnlineUrl && (
+            <>
+              <Text style={styles.separator}>   |   </Text>
+              <TouchableOpacity onPress={handleReadOnlinePress}>
+                <Text style={styles.readOnline}>Read Online</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Events Section */}
+      {newsletter.events && newsletter.events.length > 0 && (
+        <View style={styles.eventsSection}>
+          <Text style={styles.eventsSectionTitle}>Events</Text>
+          {newsletter.events.map(renderEventBlock)}
+        </View>
+      )}
+
+      {/* Content */}
+      <View style={styles.content}>
+        {renderContent(newsletter.content)}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  date: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  separator: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  readOnline: {
+    fontSize: 14,
+    color: '#60a5fa',
+    textDecorationLine: 'underline',
+  },
+  eventsSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  eventsSectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  eventBlock: {
+    marginBottom: 20,
+  },
+  eventDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  eventContent: {
+    marginLeft: 0,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  eventTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    flex: 1,
+  },
+  eventActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  eventActionButton: {
+    padding: 4,
+  },
+  eventDescription: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+  eventDetails: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    lineHeight: 24,
+  },
+  content: {
+    gap: 12,
+  },
+  heading1: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  heading2: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  heading3: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#ffffff',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  paragraph: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  bulletPoint: {
+    fontSize: 16,
+    color: '#e5e7eb',
+    lineHeight: 24,
+    paddingLeft: 16,
+    marginBottom: 4,
+  },
+  boldText: {
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  italicText: {
+    fontStyle: 'italic',
+    color: '#e5e7eb',
+  },
+  linkText: {
+    color: '#60a5fa',
+    textDecorationLine: 'underline',
+  },
+  spacer: {
+    height: 8,
+  },
+});

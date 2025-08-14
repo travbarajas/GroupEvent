@@ -21,9 +21,7 @@ import InviteModal from '@/components/InviteModal';
 import ProfileSetupModal from '@/components/ProfileSetupModal';
 import GroupMembersModal from '@/components/GroupMembersModal';
 import EventCustomizationModal from '@/components/EventCustomizationModal';
-import ExpenseTracker from '@/components/ExpenseTracker';
-import ExpenseScreen from '@/components/ExpenseScreen';
-import GroupExpenseIndicator from '@/components/GroupExpenseIndicator';
+import ExpenseBlock from '@/components/ExpenseBlock';
 import { calendarCache } from '@/utils/calendarCache';
 import { useRealtimeChat } from '@/hooks/useRealtimeChat';
 
@@ -65,7 +63,6 @@ export default function GroupDetailScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
-  const [showExpenseTracker, setShowExpenseTracker] = useState(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [permissions, setPermissions] = useState<GroupPermissions | null>(null);
   const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
@@ -1250,13 +1247,10 @@ export default function GroupDetailScreen() {
         
         {/* Group Expenses Block - Full Width */}
         <View style={styles.fullWidthContainer}>
-          <GroupExpenseIndicator 
+          <ExpenseBlock 
             groupId={id as string}
-            currentUserId={currentDeviceId}
-            events={groupEvents}
             members={members}
-            groupName={group?.name || ''}
-            onExpensePress={() => setShowExpenseTracker(true)}
+            currentDeviceId={currentDeviceId}
           />
         </View>
         
@@ -1335,33 +1329,6 @@ export default function GroupDetailScreen() {
           onSave={handleEventSave}
         />
       )}
-
-      {/* Advanced Expense Management Modal */}
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={showExpenseTracker}
-        onRequestClose={() => setShowExpenseTracker(false)}
-      >
-        <SafeAreaView style={styles.expenseModalContainer}>
-          <View style={styles.expenseModalHeader}>
-            <TouchableOpacity 
-              onPress={() => setShowExpenseTracker(false)} 
-              style={styles.expenseModalBackButton}
-            >
-              <Ionicons name="chevron-back" size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <Text style={styles.expenseModalTitle}>Expenses - {group?.name}</Text>
-            <View style={styles.expenseModalSpacer} />
-          </View>
-          <ExpenseScreen 
-            groupId={id as string}
-            currentUserId={currentDeviceId}
-            groupMembers={members}
-          />
-        </SafeAreaView>
-      </Modal>
-
 
       {/* Leave Group Modal */}
       <Modal

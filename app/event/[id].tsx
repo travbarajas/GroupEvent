@@ -797,12 +797,14 @@ export default function EventDetailScreen() {
         </View>
         
         {/* Expenses Block - Full Width */}
-        <ExpenseBlock 
-          groupId={groupId as string}
-          eventId={id as string}
-          members={members}
-          currentDeviceId={currentDeviceId}
-        />
+        <View style={styles.fullWidthContainer}>
+          <ExpenseBlock 
+            groupId={groupId as string}
+            eventId={id as string}
+            members={members}
+            currentDeviceId={currentDeviceId}
+          />
+        </View>
         
         {/* Checklist Block - Full Width */}
         <ChecklistBlock 

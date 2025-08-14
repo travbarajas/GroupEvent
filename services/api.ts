@@ -559,6 +559,68 @@ export class ApiService {
     });
   }
 
+  // Newsletter endpoints
+  static async getAllNewsletters(): Promise<{ newsletters: any[] }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/newsletters?device_id=${device_id}`);
+  }
+
+  static async createNewsletter(newsletterData: {
+    title: string;
+    subtitle?: string;
+    date: string;
+    readOnlineUrl?: string;
+    content: string;
+    events?: any[];
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request('/newsletters', {
+      method: 'POST',
+      body: JSON.stringify({
+        device_id,
+        ...newsletterData
+      })
+    });
+  }
+
+  static async updateNewsletter(newsletterId: string, newsletterData: Partial<{
+    title: string;
+    subtitle: string;
+    date: string;
+    readOnlineUrl: string;
+    content: string;
+    events: any[];
+    startDate: string;
+    endDate: string;
+  }>): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/newsletters/${newsletterId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_id,
+        ...newsletterData
+      })
+    });
+  }
+
+  static async publishNewsletter(newsletterId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/newsletters/${newsletterId}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({ device_id })
+    });
+  }
+
+  static async deleteNewsletter(newsletterId: string): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/newsletters/${newsletterId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ device_id })
+    });
+  }
+
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');

@@ -346,6 +346,15 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="newsletter"
+          options={{
+            title: 'Newsletter',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'newspaper' : 'newspaper-outline'} size={24} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="events"
           options={{
             title: 'Events',

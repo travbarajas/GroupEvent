@@ -34,6 +34,7 @@ interface ExpenseItem {
   addedBy: string;
   participants: ExpenseParticipant[];
   createdAt: string;
+  eventName?: string;
 }
 
 interface GroupMember {
@@ -88,6 +89,99 @@ export default function ExpenseBlock({
   const [editingLockedPayersPercentages, setEditingLockedPayersPercentages] = useState<Set<string>>(new Set());
 
   const validMembers = members.filter(member => member.has_username && member.username);
+
+  // Calculate user's net total across all expenses
+  const calculateUserNetTotal = () => {
+    let totalOwed = 0; // Money user is owed
+    let totalOwes = 0; // Money user owes
+
+    expenseItems.forEach(expense => {
+      const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+      const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+
+      if (userAsPayer) {
+        totalOwed += userAsPayer.payer_amount;
+      }
+      if (userAsOwer) {
+        totalOwes += userAsOwer.ower_amount;
+      }
+    });
+
+    return totalOwed - totalOwes; // Positive = user is owed money, Negative = user owes money
+  };
+
+  const userNetTotal = calculateUserNetTotal();
+
+  // Calculate who specifically owes the user and who the user owes
+  const calculateSpecificDebts = () => {
+    const peopleWhoOweUser: {[name: string]: number} = {};
+    const peopleUserOwes: {[name: string]: number} = {};
+
+    expenseItems.forEach(expense => {
+      const userAsPayer = expense.participants.find(p => p.device_id === currentDeviceId && p.payer_amount !== undefined && p.payer_amount > 0);
+      const userAsOwer = expense.participants.find(p => p.device_id === currentDeviceId && p.ower_amount !== undefined && p.ower_amount > 0);
+
+      // If user paid for this expense, others owe them
+      if (userAsPayer) {
+        expense.participants
+          .filter(p => p.ower_amount !== undefined && p.ower_amount > 0 && p.device_id !== currentDeviceId)
+          .forEach(p => {
+            const member = validMembers.find(m => m.device_id === p.device_id);
+            if (member?.username) {
+              peopleWhoOweUser[member.username] = (peopleWhoOweUser[member.username] || 0) + (p.ower_amount || 0);
+            }
+          });
+      }
+
+      // If user owes for this expense, they owe the payers (excluding themselves)
+      if (userAsOwer) {
+        expense.participants
+          .filter(p => p.payer_amount !== undefined && p.payer_amount > 0 && p.device_id !== currentDeviceId)
+          .forEach(p => {
+            const member = validMembers.find(m => m.device_id === p.device_id);
+            if (member?.username) {
+              // Calculate what portion of the user's debt goes to this payer
+              const totalPaid = expense.participants
+                .filter(x => x.payer_amount !== undefined && x.payer_amount > 0 && x.device_id !== currentDeviceId)
+                .reduce((sum, x) => sum + (x.payer_amount || 0), 0);
+              
+              if (totalPaid > 0) {
+                const payerShare = (p.payer_amount || 0) / totalPaid;
+                const userOwesToThisPayer = (userAsOwer.ower_amount || 0) * payerShare;
+                
+                peopleUserOwes[member.username] = (peopleUserOwes[member.username] || 0) + userOwesToThisPayer;
+              }
+            }
+          });
+      }
+    });
+
+    return { peopleWhoOweUser, peopleUserOwes };
+  };
+
+  const { peopleWhoOweUser, peopleUserOwes } = calculateSpecificDebts();
+
+  // Generate header text - simple totals without names
+  const getNetTotalHeaderText = () => {
+    if (Math.abs(userNetTotal) < 0.01) {
+      return "All settled";
+    } else if (userNetTotal > 0) {
+      return `You are owed $${userNetTotal.toFixed(2)}`;
+    } else {
+      return `You owe $${Math.abs(userNetTotal).toFixed(2)}`;
+    }
+  };
+
+  // Filter and limit to top 3 most expensive expenses user is involved in
+  const userInvolvedExpenses = expenseItems.filter(expense => 
+    expense.participants.some(p => p.device_id === currentDeviceId)
+  );
+  
+  const displayExpenses = userInvolvedExpenses
+    .sort((a, b) => b.total_amount - a.total_amount)
+    .slice(0, 3);
+  
+  const hasMoreExpenses = userInvolvedExpenses.length > 3;
 
   // Load percentage data from AsyncStorage on component mount
   useEffect(() => {
@@ -247,6 +341,7 @@ export default function ExpenseBlock({
           addedBy: expense.created_by_device_id,
           participants: participants,
           createdAt: expense.created_at,
+          eventName: expense.event_name || undefined,
         };
       });
       
@@ -910,7 +1005,7 @@ export default function ExpenseBlock({
           {/* Title Row */}
           <View style={styles.titleRow}>
             <Text style={styles.expenseName}>
-              {expense.name}
+              {expense.name.length > 24 ? `${expense.name.substring(0, 24)}...` : expense.name}
             </Text>
             
             <View style={styles.titleRightSection}>
@@ -934,6 +1029,15 @@ export default function ExpenseBlock({
               )}
             </View>
           </View>
+
+          {/* Event Name Row - Only show if expense is from an event */}
+          {expense.eventName && (
+            <View style={styles.eventNameRow}>
+              <Text style={styles.eventNameText}>
+                from {expense.eventName}
+              </Text>
+            </View>
+          )}
 
           {/* Content Break */}
           <View style={styles.contentBreak} />
@@ -961,28 +1065,56 @@ export default function ExpenseBlock({
                 }
                 
                 if (netAmount > 0) {
-                  // User is owed money
-                  return <Text style={styles.userOwedText}>You are owed ${netAmount.toFixed(2)}</Text>;
+                  // User is owed money - show who owes them
+                  const owers = expense.participants
+                    .filter(p => p.ower_amount !== undefined && p.ower_amount > 0 && p.device_id !== currentDeviceId)
+                    .map(p => validMembers.find(m => m.device_id === p.device_id)?.username || 'Unknown')
+                    .filter(name => name !== 'Unknown');
+                  
+                  if (owers.length === 0) {
+                    return <Text style={styles.userOwedText}>You are owed ${netAmount.toFixed(2)}</Text>;
+                  }
+                  
+                  let owersText = '';
+                  if (owers.length === 1) {
+                    owersText = `${owers[0]} owes you ${netAmount.toFixed(2)}`;
+                  } else if (owers.length === 2) {
+                    owersText = `${owers[0]} and ${owers[1]} owe you a total of ${netAmount.toFixed(2)}`;
+                  } else {
+                    owersText = `${owers.slice(0, -1).join(', ')}, and ${owers[owers.length - 1]} owe you a total of ${netAmount.toFixed(2)}`;
+                  }
+                  
+                  return <Text style={styles.userOwedText}>{owersText}</Text>;
                 }
                 
-                // User owes money - show who they owe to
+                // User owes money - show who they owe to (excluding themselves)
                 const payers = expense.participants
-                  .filter(p => p.payer_amount !== undefined && p.payer_amount > 0)
+                  .filter(p => p.payer_amount !== undefined && p.payer_amount > 0 && p.device_id !== currentDeviceId)
                   .map(p => validMembers.find(m => m.device_id === p.device_id)?.username || 'Unknown')
                   .filter(name => name !== 'Unknown');
                 
+                if (payers.length === 0) {
+                  // User owes but paid for themselves - should show as settled
+                  return <Text style={styles.userDebtText}>All settled up</Text>;
+                }
+                
                 let payersText = '';
+                let preposition = 'to';
+                
                 if (payers.length === 1) {
                   payersText = payers[0];
+                  preposition = 'to';
                 } else if (payers.length === 2) {
                   payersText = `${payers[0]} and ${payers[1]}`;
+                  preposition = 'between';
                 } else if (payers.length > 2) {
                   payersText = `${payers.slice(0, -1).join(', ')}, and ${payers[payers.length - 1]}`;
+                  preposition = 'between';
                 }
                 
                 return (
                   <Text style={styles.userOwesText}>
-                    You owe ${Math.abs(netAmount).toFixed(2)} to {payersText}
+                    You owe ${Math.abs(netAmount).toFixed(2)} {preposition} {payersText}
                   </Text>
                 );
               })()}
@@ -1000,27 +1132,24 @@ export default function ExpenseBlock({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Ionicons name="wallet" size={20} color="#60a5fa" />
-            <Text style={styles.title}>Group Expenses</Text>
+            <Text style={styles.title}>Expenses</Text>
           </View>
           
           <View style={styles.headerRight}>
             <TouchableOpacity 
-              style={styles.addExpenseHeaderButton}
-              onPress={() => setShowAddExpenseModal(true)}
-            >
-              <Ionicons name="add" size={16} color="#ffffff" />
-              <Text style={styles.addExpenseHeaderButtonText}>Add</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.expandButton}
+              style={styles.netTotalButton}
               onPress={() => {
                 setSelectedExpense(null);
                 setShowExpenseModal(true);
               }}
             >
-              <Ionicons name="expand" size={16} color="#10b981" />
-              <Text style={styles.expandButtonText}>View All</Text>
+              <Text style={
+                Math.abs(userNetTotal) < 0.01 ? styles.netTotalTextSettled :
+                userNetTotal > 0 ? styles.netTotalTextOwed :
+                styles.netTotalTextOwes
+              }>
+                {getNetTotalHeaderText()}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1030,7 +1159,7 @@ export default function ExpenseBlock({
         )}
 
         <View style={styles.expenseContent}>
-          {expenseItems.length === 0 ? (
+          {displayExpenses.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="wallet-outline" size={48} color="#6b7280" />
               <Text style={styles.emptyStateText}>No expenses yet</Text>
@@ -1038,7 +1167,21 @@ export default function ExpenseBlock({
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
-              {expenseItems.map(renderExpenseItem)}
+              {displayExpenses.map(renderExpenseItem)}
+              
+              {/* View All Button - Show if there are more than 3 user-involved expenses OR for testing */}
+              {(hasMoreExpenses || userInvolvedExpenses.length > 0) && (
+                <TouchableOpacity 
+                  style={styles.viewAllButton}
+                  onPress={() => {
+                    setSelectedExpense(null);
+                    setShowExpenseModal(true);
+                  }}
+                >
+                  <Ionicons name="list-outline" size={18} color="#60a5fa" />
+                  <Text style={styles.viewAllButtonText}>View All Expenses</Text>
+                </TouchableOpacity>
+              )}
               
               {/* Add Expense Button at bottom */}
               <TouchableOpacity 
@@ -1799,7 +1942,6 @@ function AddExpenseModal({
 // Styles copied and adapted from ChecklistBlock
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
     paddingBottom: 16,
   },
   expenseBlock: {
@@ -1818,11 +1960,13 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   title: {
     fontSize: 14,
@@ -1860,20 +2004,26 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
   },
-  expandButton: {
+  netTotalButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: '#10b981',
-    borderRadius: 6,
     paddingVertical: 6,
-    paddingHorizontal: 8,
-    gap: 4,
+    paddingHorizontal: 4,
+    justifyContent: 'flex-end',
   },
-  expandButtonText: {
-    fontSize: 12,
+  netTotalTextOwed: {
+    fontSize: 16,
     color: '#10b981',
+    fontWeight: '600',
+  },
+  netTotalTextOwes: {
+    fontSize: 16,
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  netTotalTextSettled: {
+    fontSize: 16,
+    color: '#9ca3af',
     fontWeight: '500',
   },
   separator: {
@@ -2321,6 +2471,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+  },
+  viewAllButtonText: {
+    fontSize: 14,
+    color: '#60a5fa',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   addExpenseButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2460,6 +2628,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  eventNameRow: {
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  eventNameText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '400',
   },
   titleRightSection: {
     flexDirection: 'row',

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Text, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ExpenseCard from './ExpenseCard';
-import AddExpenseModal from './AddExpenseModal';
 import { Expense } from '../utils/expenseCalculations';
 import { ApiService } from '../services/api';
 
@@ -24,8 +23,6 @@ export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMe
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [checkedExpenses, setCheckedExpenses] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
@@ -36,7 +33,13 @@ export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMe
     try {
       setLoading(true);
       const { expenses: expenseData } = await ApiService.getGroupExpenses(groupId, eventId);
-      setExpenses(expenseData);
+      
+      // Show ALL group expenses, sorted by total amount (highest first)
+      const sortedExpenses = expenseData.sort((a: any, b: any) => 
+        b.total_amount - a.total_amount
+      );
+      
+      setExpenses(sortedExpenses);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       Alert.alert('Error', 'Failed to load expenses. Please try again.');
@@ -51,83 +54,6 @@ export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMe
     setRefreshing(false);
   };
 
-  const handleAddExpense = async (expenseData: {
-    description: string;
-    total_amount: number;
-    participants: any[];
-  }) => {
-    try {
-      console.log('👤 Current User ID:', currentUserId);
-      console.log('🏷️  Event ID:', eventId);
-      console.log('🏢 Group ID:', groupId);
-      
-      if (!currentUserId) {
-        Alert.alert('Error', 'User ID not found. Please try refreshing the page.');
-        return;
-      }
-      
-      const requestData = {
-        ...expenseData,
-        created_by_device_id: currentUserId,
-        ...(eventId && { event_id: eventId })
-      };
-      
-      console.log('🚀 Creating expense with data:', JSON.stringify(requestData, null, 2));
-      
-      const response = await fetch(`https://group-event.vercel.app/api/groups/${groupId}/expenses`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      });
-      
-      console.log('📡 Response status:', response.status);
-      
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log('✅ Expense created successfully:', responseData);
-        await fetchExpenses();
-        setShowAddModal(false);
-        Alert.alert('Success', 'Expense added successfully!');
-      } else {
-        const errorData = await response.text();
-        console.error('❌ Failed to add expense:', response.status, errorData);
-        throw new Error(`Server error: ${errorData}`);
-      }
-    } catch (error: any) {
-      console.error('Error adding expense:', error);
-      Alert.alert('Error', error.message || 'Failed to add expense. Please try again.');
-    }
-  };
-
-  const handleEditExpense = async (expenseId: string, expenseData: {
-    description: string;
-    total_amount: number;
-    participants: any[];
-  }) => {
-    try {
-      const response = await fetch(`https://group-event.vercel.app/api/expenses/${expenseId}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(expenseData)
-      });
-      
-      if (response.ok) {
-        await fetchExpenses();
-        setEditingExpense(null);
-        Alert.alert('Success', 'Expense updated successfully!');
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update expense');
-      }
-    } catch (error: any) {
-      console.error('Error updating expense:', error);
-      Alert.alert('Error', error.message || 'Failed to update expense. Please try again.');
-    }
-  };
 
   const handleDeleteExpense = async (expenseId: string) => {
     Alert.alert(
@@ -210,43 +136,16 @@ export default function ExpenseScreen({ groupId, eventId, currentUserId, groupMe
               isCreator={expense.created_by_device_id === currentUserId}
               isChecked={checkedExpenses[expense.id] || false}
               onToggleCheck={() => toggleCheck(expense.id)}
-              onEdit={() => setEditingExpense(expense)}
+              onEdit={() => {}} // No edit functionality - handled by ExpenseBlock
               onDelete={() => handleDeleteExpense(expense.id)}
               members={groupMembers}
             />
           ))
         )}
         
-        {/* Add some bottom padding for the floating button */}
-        <View style={{ height: 100 }} />
+        {/* Add some bottom padding */}
+        <View style={{ height: 20 }} />
       </ScrollView>
-
-      {/* Floating Add Button */}
-      <TouchableOpacity 
-        style={styles.addButton} 
-        onPress={() => setShowAddModal(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={24} color="#ffffff" />
-        <Text style={styles.addButtonText}>Add Expense</Text>
-      </TouchableOpacity>
-
-      {/* Add/Edit Modal */}
-      {(showAddModal || editingExpense) && (
-        <AddExpenseModal
-          visible={showAddModal || !!editingExpense}
-          expense={editingExpense}
-          groupMembers={groupMembers}
-          onSave={editingExpense 
-            ? (data) => handleEditExpense(editingExpense.id, data)
-            : handleAddExpense
-          }
-          onCancel={() => {
-            setShowAddModal(false);
-            setEditingExpense(null);
-          }}
-        />
-      )}
     </View>
   );
 }

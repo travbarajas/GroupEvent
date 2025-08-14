@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { GroupsProvider } from '@/contexts/GroupsContext';
+import { NewsletterProvider } from '@/contexts/NewsletterContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -30,9 +31,10 @@ export default function RootLayout() {
 
   return (
     <GroupsProvider>
-      <ThemeProvider value={DarkTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <NewsletterProvider>
+        <ThemeProvider value={DarkTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen 
             name="group/[id]" 
             options={{ 
@@ -96,9 +98,17 @@ export default function RootLayout() {
               presentation: 'card'
             }} 
           />
+          <Stack.Screen 
+            name="newsletter-admin" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card'
+            }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider>
+      </NewsletterProvider>
     </GroupsProvider>
   );
 }
