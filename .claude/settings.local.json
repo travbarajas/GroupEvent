@@ -38,6 +38,7 @@
       "Bash(git config:*)",
       "Bash(timeout 30 npx expo start --port 8083)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

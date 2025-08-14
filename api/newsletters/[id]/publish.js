@@ -1,15 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+const { neon } = require('@neondatabase/serverless');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing required Supabase environment variables');
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const sql = neon(process.env.DATABASE_URL);
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   console.log(`📧 Newsletter Publish API: ${req.method} ${req.url}`);
   
   // CORS headers
@@ -38,16 +35,17 @@ export default async function handler(req, res) {
 
   try {
     // Check if newsletter exists
-    const { data: existingNewsletter, error: fetchError } = await supabase
-      .from('newsletters')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const existingNewsletters = await sql`
+      SELECT * FROM newsletters 
+      WHERE id = ${id}
+    `;
 
-    if (fetchError || !existingNewsletter) {
+    if (!existingNewsletters || existingNewsletters.length === 0) {
       return res.status(404).json({ error: 'Newsletter not found' });
     }
 
+    const existingNewsletter = existingNewsletters[0];
+    
     if (existingNewsletter.is_published) {
       return res.status(400).json({ error: 'Newsletter is already published' });
     }
@@ -58,21 +56,22 @@ export default async function handler(req, res) {
     // }
 
     // Update newsletter to published status
-    const { data: newsletter, error } = await supabase
-      .from('newsletters')
-      .update({
-        is_published: true,
-        published_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const newsletters = await sql`
+      UPDATE newsletters 
+      SET 
+        is_published = true,
+        published_at = ${new Date().toISOString()},
+        updated_at = ${new Date().toISOString()}
+      WHERE id = ${id}
+      RETURNING *
+    `;
 
-    if (error) {
-      console.error('Error publishing newsletter:', error);
+    if (!newsletters || newsletters.length === 0) {
+      console.error('Error publishing newsletter - no rows returned');
       return res.status(500).json({ error: 'Failed to publish newsletter' });
     }
+
+    const newsletter = newsletters[0];
 
     console.log('✅ Newsletter published:', id);
 

@@ -1,15 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+const { neon } = require('@neondatabase/serverless');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing required Supabase environment variables');
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const sql = neon(process.env.DATABASE_URL);
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   console.log(`📧 Newsletter [ID] API: ${req.method} ${req.url}`);
   
   // CORS headers
@@ -50,16 +47,16 @@ export default async function handler(req, res) {
 // GET /api/newsletters/[id] - Get specific newsletter
 async function getNewsletter(req, res, newsletterId) {
   try {
-    const { data: newsletter, error } = await supabase
-      .from('newsletters')
-      .select('*')
-      .eq('id', newsletterId)
-      .single();
+    const newsletters = await sql`
+      SELECT * FROM newsletters 
+      WHERE id = ${newsletterId}
+    `;
 
-    if (error || !newsletter) {
+    if (!newsletters || newsletters.length === 0) {
       return res.status(404).json({ error: 'Newsletter not found' });
     }
 
+    const newsletter = newsletters[0];
     return res.status(200).json({
       id: newsletter.id,
       title: newsletter.title,
@@ -90,47 +87,43 @@ async function updateNewsletter(req, res, newsletterId) {
 
   try {
     // Check if newsletter exists and user has permission
-    const { data: existingNewsletter, error: fetchError } = await supabase
-      .from('newsletters')
-      .select('created_by_device_id')
-      .eq('id', newsletterId)
-      .single();
+    const existingNewsletters = await sql`
+      SELECT created_by_device_id FROM newsletters 
+      WHERE id = ${newsletterId}
+    `;
 
-    if (fetchError || !existingNewsletter) {
+    if (!existingNewsletters || existingNewsletters.length === 0) {
       return res.status(404).json({ error: 'Newsletter not found' });
     }
 
     // For now, allow all updates. In production, check device_id permissions
-    // if (existingNewsletter.created_by_device_id !== device_id) {
+    // if (existingNewsletters[0].created_by_device_id !== device_id) {
     //   return res.status(403).json({ error: 'Not authorized to update this newsletter' });
     // }
 
-    const updatePayload = {
-      updated_at: new Date().toISOString()
-    };
+    // Update newsletter with provided fields
+    const newsletters = await sql`
+      UPDATE newsletters 
+      SET 
+        title = COALESCE(${updateData.title}, title),
+        subtitle = COALESCE(${updateData.subtitle}, subtitle),
+        date = COALESCE(${updateData.date}, date),
+        read_online_url = COALESCE(${updateData.readOnlineUrl}, read_online_url),
+        content = COALESCE(${updateData.content}, content),
+        events = COALESCE(${updateData.events ? JSON.stringify(updateData.events) : null}, events),
+        start_date = COALESCE(${updateData.startDate}, start_date),
+        end_date = COALESCE(${updateData.endDate}, end_date),
+        updated_at = ${new Date().toISOString()}
+      WHERE id = ${newsletterId}
+      RETURNING *
+    `;
 
-    // Map frontend field names to database field names
-    if (updateData.title !== undefined) updatePayload.title = updateData.title;
-    if (updateData.subtitle !== undefined) updatePayload.subtitle = updateData.subtitle;
-    if (updateData.date !== undefined) updatePayload.date = updateData.date;
-    if (updateData.readOnlineUrl !== undefined) updatePayload.read_online_url = updateData.readOnlineUrl;
-    if (updateData.content !== undefined) updatePayload.content = updateData.content;
-    if (updateData.events !== undefined) updatePayload.events = updateData.events;
-    if (updateData.startDate !== undefined) updatePayload.start_date = updateData.startDate;
-    if (updateData.endDate !== undefined) updatePayload.end_date = updateData.endDate;
-
-    const { data: newsletter, error } = await supabase
-      .from('newsletters')
-      .update(updatePayload)
-      .eq('id', newsletterId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating newsletter:', error);
+    if (!newsletters || newsletters.length === 0) {
+      console.error('Error updating newsletter - no rows returned');
       return res.status(500).json({ error: 'Failed to update newsletter' });
     }
 
+    const newsletter = newsletters[0];
     console.log('✅ Newsletter updated:', newsletterId);
     return res.status(200).json({
       id: newsletter.id,
@@ -162,30 +155,24 @@ async function deleteNewsletter(req, res, newsletterId) {
 
   try {
     // Check if newsletter exists
-    const { data: existingNewsletter, error: fetchError } = await supabase
-      .from('newsletters')
-      .select('created_by_device_id')
-      .eq('id', newsletterId)
-      .single();
+    const existingNewsletters = await sql`
+      SELECT created_by_device_id FROM newsletters 
+      WHERE id = ${newsletterId}
+    `;
 
-    if (fetchError || !existingNewsletter) {
+    if (!existingNewsletters || existingNewsletters.length === 0) {
       return res.status(404).json({ error: 'Newsletter not found' });
     }
 
     // For now, allow all deletions. In production, check device_id permissions
-    // if (existingNewsletter.created_by_device_id !== device_id) {
+    // if (existingNewsletters[0].created_by_device_id !== device_id) {
     //   return res.status(403).json({ error: 'Not authorized to delete this newsletter' });
     // }
 
-    const { error } = await supabase
-      .from('newsletters')
-      .delete()
-      .eq('id', newsletterId);
-
-    if (error) {
-      console.error('Error deleting newsletter:', error);
-      return res.status(500).json({ error: 'Failed to delete newsletter' });
-    }
+    await sql`
+      DELETE FROM newsletters 
+      WHERE id = ${newsletterId}
+    `;
 
     console.log('✅ Newsletter deleted:', newsletterId);
     return res.status(200).json({ message: 'Newsletter deleted successfully' });
