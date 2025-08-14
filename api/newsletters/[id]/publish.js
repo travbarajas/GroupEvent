@@ -87,6 +87,7 @@ module.exports = async function handler(req, res) {
       readOnlineUrl: newsletter.read_online_url,
       content: newsletter.content,
       events: newsletter.events,
+      blocks: newsletter.blocks,
       startDate: newsletter.start_date,
       endDate: newsletter.end_date,
       created_at: newsletter.created_at,

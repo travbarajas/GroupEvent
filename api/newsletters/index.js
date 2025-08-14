@@ -72,7 +72,7 @@ async function createNewsletter(req, res) {
     // Create newsletter record
     const newsletter = await sql`
       INSERT INTO newsletters (
-        title, subtitle, date, read_online_url, content, events, 
+        title, subtitle, date, read_online_url, content, events, blocks,
         start_date, end_date, created_by_device_id, is_published, 
         created_at, updated_at
       ) VALUES (
@@ -82,6 +82,7 @@ async function createNewsletter(req, res) {
         ${newsletterData.readOnlineUrl || ''},
         ${newsletterData.content || ''},
         ${JSON.stringify(newsletterData.events || [])},
+        ${newsletterData.blocks || '[]'},
         ${newsletterData.startDate || ''},
         ${newsletterData.endDate || ''},
         ${device_id},
@@ -102,6 +103,7 @@ async function createNewsletter(req, res) {
       readOnlineUrl: createdNewsletter.read_online_url,
       content: createdNewsletter.content,
       events: createdNewsletter.events,
+      blocks: createdNewsletter.blocks,
       startDate: createdNewsletter.start_date,
       endDate: createdNewsletter.end_date,
       created_at: createdNewsletter.created_at,

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 import { Newsletter } from '@/types/newsletter';
 import GoogleDocsNewsletterEditor from '@/components/GoogleDocsNewsletterEditor';
+import BlockBasedNewsletterEditor from '@/components/BlockBasedNewsletterEditor';
 import EnhancedNewsletterCreationModal from '@/components/EnhancedNewsletterCreationModal';
 
 export default function NewsletterAdminScreen() {
@@ -31,6 +32,7 @@ export default function NewsletterAdminScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<Newsletter | null>(null);
+  const [useBlockEditor, setUseBlockEditor] = useState(true); // Default to new block editor
 
   useEffect(() => {
     if (!isAdmin) {
@@ -172,13 +174,23 @@ export default function NewsletterAdminScreen() {
   }
 
   if (showEditor) {
-    return (
-      <GoogleDocsNewsletterEditor
-        newsletter={editingNewsletter || undefined}
-        onSave={handleEditorSave}
-        onCancel={handleEditorCancel}
-      />
-    );
+    if (useBlockEditor) {
+      return (
+        <BlockBasedNewsletterEditor
+          newsletter={editingNewsletter || undefined}
+          onSave={handleEditorSave}
+          onCancel={handleEditorCancel}
+        />
+      );
+    } else {
+      return (
+        <GoogleDocsNewsletterEditor
+          newsletter={editingNewsletter || undefined}
+          onSave={handleEditorSave}
+          onCancel={handleEditorCancel}
+        />
+      );
+    }
   }
 
   return (
@@ -197,6 +209,27 @@ export default function NewsletterAdminScreen() {
           onPress={() => setShowCreateModal(true)}
         >
           <Ionicons name="add" size={24} color="#60a5fa" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Editor Toggle */}
+      <View style={styles.editorToggle}>
+        <Text style={styles.toggleLabel}>Editor:</Text>
+        <TouchableOpacity 
+          style={[styles.toggleButton, useBlockEditor && styles.activeToggle]}
+          onPress={() => setUseBlockEditor(true)}
+        >
+          <Text style={[styles.toggleText, useBlockEditor && styles.activeToggleText]}>
+            Block Editor
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.toggleButton, !useBlockEditor && styles.activeToggle]}
+          onPress={() => setUseBlockEditor(false)}
+        >
+          <Text style={[styles.toggleText, !useBlockEditor && styles.activeToggleText]}>
+            Text Editor
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -337,5 +370,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  editorToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#1f1f1f',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  toggleLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginRight: 12,
+  },
+  toggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#2a2a2a',
+    marginRight: 8,
+  },
+  activeToggle: {
+    backgroundColor: '#3b82f6',
+  },
+  toggleText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  activeToggleText: {
+    color: '#ffffff',
   },
 });

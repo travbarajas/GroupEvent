@@ -65,6 +65,7 @@ async function getNewsletter(req, res, newsletterId) {
       readOnlineUrl: newsletter.read_online_url,
       content: newsletter.content,
       events: newsletter.events,
+      blocks: newsletter.blocks,
       startDate: newsletter.start_date,
       endDate: newsletter.end_date,
       created_at: newsletter.created_at,
@@ -111,6 +112,7 @@ async function updateNewsletter(req, res, newsletterId) {
         read_online_url = COALESCE(${updateData.readOnlineUrl}, read_online_url),
         content = COALESCE(${updateData.content}, content),
         events = COALESCE(${updateData.events ? JSON.stringify(updateData.events) : null}, events),
+        blocks = COALESCE(${updateData.blocks || null}, blocks),
         start_date = COALESCE(${updateData.startDate}, start_date),
         end_date = COALESCE(${updateData.endDate}, end_date),
         updated_at = ${new Date().toISOString()}
@@ -133,6 +135,7 @@ async function updateNewsletter(req, res, newsletterId) {
       readOnlineUrl: newsletter.read_online_url,
       content: newsletter.content,
       events: newsletter.events,
+      blocks: newsletter.blocks,
       startDate: newsletter.start_date,
       endDate: newsletter.end_date,
       created_at: newsletter.created_at,
