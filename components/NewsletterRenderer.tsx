@@ -180,34 +180,74 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
         
         if (blockEvents.length === 0) return null;
 
+        // Group events by date
+        const eventsByDate = blockEvents.reduce((groups: any, event: any) => {
+          const eventDate = new Date(event.date);
+          const dateKey = eventDate.toDateString();
+          if (!groups[dateKey]) {
+            groups[dateKey] = [];
+          }
+          groups[dateKey].push(event);
+          return groups;
+        }, {});
+
+        // Sort dates
+        const sortedDates = Object.keys(eventsByDate).sort((a, b) => 
+          new Date(a).getTime() - new Date(b).getTime()
+        );
+
         return (
           <View key={`block-${index}`} style={styles.eventListContainer}>
             {eventBlock.title && (
               <Text style={styles.eventListTitle}>{eventBlock.title}</Text>
             )}
-            {blockEvents.map((event, eventIndex) => (
-              <View key={`event-${eventIndex}`} style={styles.eventCard}>
-                <Text style={styles.eventTitle}>{event.name}</Text>
-                
-                {(eventBlock.showDate !== false) && (
-                  <Text style={styles.eventDetail}>
-                    📅 {event.displayDate} {event.time && `at ${event.time}`}
-                  </Text>
-                )}
-                
-                {(eventBlock.showLocation !== false) && event.fullLocation && (
-                  <Text style={styles.eventDetail}>
-                    📍 {event.fullLocation}
-                  </Text>
-                )}
-                
-                {(eventBlock.showDescription !== false) && event.description && (
-                  <Text style={styles.eventDescription}>
-                    {event.description}
-                  </Text>
-                )}
-              </View>
-            ))}
+            
+            {sortedDates.map((dateKey, dateIndex) => {
+              const dayEvents = eventsByDate[dateKey];
+              const eventDate = new Date(dateKey);
+              const dayHeader = eventDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'numeric',
+                day: 'numeric'
+              }).replace(',', ' –');
+
+              return (
+                <View key={`day-${dateIndex}`} style={styles.daySection}>
+                  <Text style={styles.dayHeader}>{dayHeader}</Text>
+                  
+                  {dayEvents.map((event: any, eventIndex: number) => (
+                    <View key={`event-${eventIndex}`} style={styles.eventItem}>
+                      <TouchableOpacity 
+                        style={styles.eventTitleButton}
+                        onPress={() => {
+                          // Handle event press - could navigate to event details
+                          console.log('Event pressed:', event.name);
+                        }}
+                      >
+                        <Text style={styles.eventTitleText}>{event.name}</Text>
+                      </TouchableOpacity>
+                      
+                      {(eventBlock.showDescription !== false) && event.description && (
+                        <Text style={styles.eventDescription}>
+                          {event.description}
+                        </Text>
+                      )}
+                      
+                      <View style={styles.eventMetaContainer}>
+                        {event.time && (
+                          <Text style={styles.eventTime}>{event.time}</Text>
+                        )}
+                        {(eventBlock.showLocation !== false) && event.fullLocation && (
+                          <Text style={styles.eventLocation}>
+                            @ {event.fullLocation}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
           </View>
         );
 
@@ -593,32 +633,49 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  eventCard: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#3b82f6',
+  daySection: {
+    marginBottom: 20,
   },
-  eventTitle: {
-    fontSize: 18,
+  dayHeader: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 8,
   },
-  eventDetail: {
-    fontSize: 14,
-    color: '#d1d5db',
+  eventItem: {
+    marginBottom: 16,
+    paddingLeft: 0,
+  },
+  eventTitleButton: {
     marginBottom: 4,
+  },
+  eventTitleText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#60a5fa',
+    textDecorationLine: 'underline',
   },
   eventDescription: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#e5e7eb',
     lineHeight: 20,
-    marginTop: 8,
+    marginBottom: 4,
+  },
+  eventMetaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  eventTime: {
+    fontSize: 14,
+    color: '#d1d5db',
+    marginRight: 8,
+  },
+  eventLocation: {
+    fontSize: 14,
+    color: '#d1d5db',
   },
   heading3: {
     fontSize: 20,
