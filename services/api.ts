@@ -239,7 +239,7 @@ export class ApiService {
     description?: string;
     startDate: Date;
     endDate?: Date | null;
-    time?: Date;
+    time?: string; // Changed to string to allow any text input
     location?: string;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
@@ -249,9 +249,7 @@ export class ApiService {
     const formattedEndDate = eventData.endDate 
       ? eventData.endDate.toISOString().split('T')[0] 
       : null;
-    const formattedTime = eventData.time 
-      ? eventData.time.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
-      : null;
+    const formattedTime = eventData.time || null; // Use time string directly
     
     return this.request(`/groups/${groupId}/custom-events`, {
       method: 'POST',

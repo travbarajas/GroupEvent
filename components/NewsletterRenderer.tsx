@@ -638,10 +638,10 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   eventListTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   daySection: {
     marginBottom: 20,

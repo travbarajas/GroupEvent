@@ -21,7 +21,7 @@ interface CreateEventForm {
   description: string;
   startDate: Date;
   endDate: Date | null; // null means single day event
-  time: Date | null;
+  time: string; // Changed to string to allow any text input
   location: string;
 }
 
@@ -34,11 +34,10 @@ export default function CreateEventScreen() {
     description: '',
     startDate: new Date(),
     endDate: new Date(), // Initialize with today as end date too
-    time: null,
+    time: '',
     location: '',
   });
   
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleDateRangeChange = (startDate: Date, endDate: Date | null) => {
@@ -49,11 +48,6 @@ export default function CreateEventScreen() {
     }));
   };
 
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      setForm(prev => ({ ...prev, time: selectedTime }));
-    }
-  };
 
   const formatDateRange = (startDate: Date, endDate: Date | null) => {
     if (!endDate) {
@@ -70,13 +64,6 @@ export default function CreateEventScreen() {
     return `${start} - ${end}`;
   };
 
-  const formatTime = (time: Date) => {
-    return time.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
@@ -169,35 +156,14 @@ export default function CreateEventScreen() {
           {/* Time */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Time</Text>
-            <TouchableOpacity 
-              style={styles.dateTimeButton}
-              onPress={() => setShowTimePicker(!showTimePicker)}
-            >
-              <Ionicons name="time" size={20} color="#60a5fa" />
-              <Text style={styles.dateTimeText}>
-                {form.time ? formatTime(form.time) : 'No time set (all day)'}
-              </Text>
-              <Ionicons name={showTimePicker ? "chevron-up" : "chevron-down"} size={16} color="#666" />
-            </TouchableOpacity>
-            {showTimePicker && (
-              <View style={styles.inlinePicker}>
-                <DateTimePicker
-                  value={form.time || new Date()}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleTimeChange}
-                  textColor="#ffffff"
-                />
-              </View>
-            )}
-            {form.time && (
-              <TouchableOpacity 
-                style={styles.clearTimeButton}
-                onPress={() => setForm(prev => ({ ...prev, time: null }))}
-              >
-                <Text style={styles.clearTimeText}>Clear time (make all-day)</Text>
-              </TouchableOpacity>
-            )}
+            <TextInput
+              style={styles.textInput}
+              value={form.time}
+              onChangeText={(text) => setForm(prev => ({ ...prev, time: text }))}
+              placeholder="e.g., 8:30 AM - 1:00 PM, All Day, Evening, etc."
+              placeholderTextColor="#666"
+              maxLength={100}
+            />
           </View>
 
           {/* Location */}
