@@ -623,8 +623,13 @@ export class ApiService {
 
   // Events endpoints
   static async getAllEvents(): Promise<{ events: any[]; total: number }> {
+    return this.request('/events');
+  }
+
+  // Newsletter events - get global events for newsletter selection
+  static async getNewsletterEvents(): Promise<{ events: any[]; total: number }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/events/all?device_id=${device_id}`);
+    return this.request(`/events/newsletter?device_id=${device_id}`);
   }
 
   // Health check

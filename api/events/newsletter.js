@@ -27,42 +27,39 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'device_id is required' });
     }
 
-    console.log(`📅 Fetching all events for device: ${device_id}`);
+    console.log(`📅 Fetching global events for newsletter selection`);
 
-    // Get all groups the user is a member of, then get events from those groups
+    // Get all global events (business/venue events) that appear on the main events tab
     const allEvents = await sql`
-      SELECT DISTINCT
-        ge.id,
-        ge.group_id,
-        ge.name,
-        ge.description,
-        ge.date,
-        ge.time,
-        ge.location,
-        ge.venue_name,
-        ge.price,
-        ge.currency,
-        ge.is_free,
-        ge.category,
-        ge.custom_name,
-        ge.added_at,
-        g.name as group_name
-      FROM group_events ge
-      INNER JOIN groups g ON ge.group_id = g.id
-      INNER JOIN members m ON g.id = m.group_id
-      WHERE m.device_id = ${device_id}
-        AND ge.date >= CURRENT_DATE - INTERVAL '30 days'  -- Events from last 30 days to future
-      ORDER BY ge.date ASC, ge.time ASC
+      SELECT 
+        id,
+        name,
+        description,
+        date,
+        time,
+        location,
+        venue_name,
+        price,
+        currency,
+        is_free,
+        category,
+        tags,
+        max_attendees,
+        min_attendees,
+        attendance_required,
+        created_at,
+        updated_at
+      FROM events
+      WHERE date >= CURRENT_DATE - INTERVAL '30 days'  -- Events from last 30 days to future
+      ORDER BY date ASC, time ASC
     `;
 
-    console.log(`✅ Found ${allEvents.length} events across user's groups`);
+    console.log(`✅ Found ${allEvents.length} global events for newsletter`);
 
     // Format events for frontend
     const formattedEvents = allEvents.map(event => ({
       id: event.id,
-      groupId: event.group_id,
-      groupName: event.group_name,
-      name: event.name || event.custom_name || 'Untitled Event',
+      name: event.name || 'Untitled Event',
       description: event.description || '',
       date: event.date,
       time: event.time || '',
@@ -71,8 +68,13 @@ module.exports = async function handler(req, res) {
       price: event.price ? parseFloat(event.price) : null,
       currency: event.currency || 'USD',
       isFree: event.is_free,
-      category: event.category || 'custom',
-      addedAt: event.added_at,
+      category: event.category || 'general',
+      tags: event.tags || [],
+      maxAttendees: event.max_attendees,
+      minAttendees: event.min_attendees,
+      attendanceRequired: event.attendance_required,
+      createdAt: event.created_at,
+      updatedAt: event.updated_at,
       // Format date for display
       displayDate: event.date ? new Date(event.date).toLocaleDateString('en-US', {
         weekday: 'long',

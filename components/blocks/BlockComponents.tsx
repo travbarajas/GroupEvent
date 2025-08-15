@@ -464,12 +464,12 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
 
   const loadAvailableEvents = async () => {
     try {
-      console.log('Loading available events...');
-      const response = await ApiService.getAllEvents();
+      console.log('Loading available events for newsletter...');
+      const response = await ApiService.getNewsletterEvents();
       setAvailableEvents(response.events || []);
-      console.log(`✅ Loaded ${response.events?.length || 0} events`);
+      console.log(`✅ Loaded ${response.events?.length || 0} newsletter events`);
     } catch (error) {
-      console.error('Failed to load events:', error);
+      console.error('Failed to load newsletter events:', error);
       setAvailableEvents([]);
     }
   };
@@ -635,7 +635,7 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
                   <View style={styles.eventItemHeader}>
                     <View style={styles.eventItemInfo}>
                       <Text style={styles.eventItemTitle}>{event.name}</Text>
-                      <Text style={styles.eventItemGroup}>📍 {event.groupName}</Text>
+                      <Text style={styles.eventItemCategory}>🏷️ {event.category || 'General'}</Text>
                     </View>
                     <View style={styles.eventItemActions}>
                       <Ionicons 
@@ -1069,6 +1069,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   eventItemGroup: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  eventItemCategory: {
     fontSize: 12,
     color: '#6b7280',
   },
