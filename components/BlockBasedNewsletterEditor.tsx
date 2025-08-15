@@ -221,6 +221,9 @@ export default function BlockBasedNewsletterEditor({
           case 'button':
             const btnBlock = block as ButtonBlock;
             return `[${btnBlock.text}](${btnBlock.url})`;
+          case 'event-list':
+            const eventBlock = block as any; // EventListBlock
+            return `<!-- Event List: ${eventBlock.title || 'Events'} - ${eventBlock.events?.length || 0} events -->`;
           default:
             return '';
         }

@@ -621,6 +621,12 @@ export class ApiService {
     });
   }
 
+  // Events endpoints
+  static async getAllEvents(): Promise<{ events: any[]; total: number }> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request(`/events/all?device_id=${device_id}`);
+  }
+
   // Health check
   static async healthCheck(): Promise<{ status: string; timestamp: string; groups: number; members: number }> {
     return this.request('/health');

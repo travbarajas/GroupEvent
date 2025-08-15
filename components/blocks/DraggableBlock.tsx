@@ -2,19 +2,12 @@ import React from 'react';
 import { TouchableOpacity } from 'react-native';
 import {
   PanGestureHandler,
-  PanGestureHandlerGestureEvent,
 } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
-  useSharedValue,
 } from 'react-native-reanimated';
 import {
   NewsletterBlock,
-  HeadingBlock,
-  ParagraphBlock,
-  ContentBreakBlock,
-  ImageBlock,
-  ButtonBlock,
 } from '@/types/blocks';
 import {
   HeadingBlockComponent,

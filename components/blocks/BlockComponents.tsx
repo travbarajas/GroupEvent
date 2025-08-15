@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Modal,
   Image,
   Linking,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -434,23 +434,43 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
   const [availableEvents, setAvailableEvents] = useState<any[]>([]);
   const [selectedEvents, setSelectedEvents] = useState<string[]>(block.events || []);
   const [showEventPicker, setShowEventPicker] = useState(false);
+  const [selectedEventDetails, setSelectedEventDetails] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isEditing) {
-      // Load available events from all groups the user is part of
+    // Load available events when editing or when component mounts (for display)
+    if (isEditing || selectedEvents.length > 0) {
       loadAvailableEvents();
     }
-  }, [isEditing]);
+  }, [isEditing, selectedEvents.length]);
+
+  // Load events on component mount if there are selected events
+  useEffect(() => {
+    if (selectedEvents.length > 0 && availableEvents.length === 0) {
+      loadAvailableEvents();
+    }
+  }, [selectedEvents.length, availableEvents.length]);
+
+  // Load selected event details for display
+  useEffect(() => {
+    if (selectedEvents.length > 0 && availableEvents.length > 0) {
+      const eventDetails = selectedEvents.map(eventId => 
+        availableEvents.find(event => event.id === eventId)
+      ).filter(Boolean);
+      setSelectedEventDetails(eventDetails);
+    } else {
+      setSelectedEventDetails([]);
+    }
+  }, [selectedEvents, availableEvents]);
 
   const loadAvailableEvents = async () => {
     try {
-      // This is a simplified approach - you might want to load events from specific groups
-      // For now, let's assume we have a way to get events
-      // You'll need to implement an API endpoint to get events from all user's groups
       console.log('Loading available events...');
-      // setAvailableEvents(events);
+      const response = await ApiService.getAllEvents();
+      setAvailableEvents(response.events || []);
+      console.log(`✅ Loaded ${response.events?.length || 0} events`);
     } catch (error) {
       console.error('Failed to load events:', error);
+      setAvailableEvents([]);
     }
   };
 
@@ -551,16 +571,39 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
           <Text style={styles.eventsTitle}>
             {block.title || 'Events'}
           </Text>
-          <Text style={styles.eventsCount}>
-            {block.events?.length || 0} event(s) selected
-          </Text>
-          {(block.events?.length || 0) === 0 && (
+          
+          {selectedEventDetails.length > 0 ? (
+            <View style={styles.eventsListDisplay}>
+              {selectedEventDetails.map((event, index) => (
+                <View key={event.id} style={styles.eventDisplayItem}>
+                  <Text style={styles.eventDisplayTitle}>{event.name}</Text>
+                  <View style={styles.eventDisplayDetails}>
+                    {(block.showDate !== false) && (
+                      <Text style={styles.eventDisplayDate}>
+                        📅 {event.displayDate} {event.time && `at ${event.time}`}
+                      </Text>
+                    )}
+                    {(block.showLocation !== false) && event.fullLocation && (
+                      <Text style={styles.eventDisplayLocation}>
+                        📍 {event.fullLocation}
+                      </Text>
+                    )}
+                    {(block.showDescription !== false) && event.description && (
+                      <Text style={styles.eventDisplayDescription} numberOfLines={2}>
+                        {event.description}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
             <Text style={styles.placeholderText}>Tap to select events</Text>
           )}
         </TouchableOpacity>
       )}
 
-      {/* Event Picker Modal - Simplified for now */}
+      {/* Event Picker Modal */}
       <Modal visible={showEventPicker} animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -569,16 +612,69 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
               <Ionicons name="close" size={24} color="#9ca3af" />
             </TouchableOpacity>
           </View>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalMessage}>
-              Event selection will be implemented based on your events API.
-              {'\n\n'}Selected: {selectedEvents.length} events
+          
+          <ScrollView style={styles.modalScrollView}>
+            {availableEvents.length === 0 ? (
+              <View style={styles.emptyEventsContainer}>
+                <Ionicons name="calendar-outline" size={48} color="#9ca3af" />
+                <Text style={styles.emptyEventsText}>No events found</Text>
+                <Text style={styles.emptyEventsSubtext}>
+                  Join groups and add events to see them here
+                </Text>
+              </View>
+            ) : (
+              availableEvents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[
+                    styles.eventItem,
+                    selectedEvents.includes(event.id) && styles.selectedEventItem
+                  ]}
+                  onPress={() => toggleEventSelection(event.id)}
+                >
+                  <View style={styles.eventItemHeader}>
+                    <View style={styles.eventItemInfo}>
+                      <Text style={styles.eventItemTitle}>{event.name}</Text>
+                      <Text style={styles.eventItemGroup}>📍 {event.groupName}</Text>
+                    </View>
+                    <View style={styles.eventItemActions}>
+                      <Ionicons 
+                        name={selectedEvents.includes(event.id) ? "checkbox" : "square-outline"} 
+                        size={24} 
+                        color={selectedEvents.includes(event.id) ? "#10b981" : "#9ca3af"} 
+                      />
+                    </View>
+                  </View>
+                  
+                  <View style={styles.eventItemDetails}>
+                    <Text style={styles.eventItemDate}>
+                      📅 {event.displayDate} {event.time && `at ${event.time}`}
+                    </Text>
+                    {event.fullLocation && (
+                      <Text style={styles.eventItemLocation}>
+                        📍 {event.fullLocation}
+                      </Text>
+                    )}
+                    {event.description && (
+                      <Text style={styles.eventItemDescription} numberOfLines={2}>
+                        {event.description}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+          
+          <View style={styles.modalFooter}>
+            <Text style={styles.selectionSummary}>
+              {selectedEvents.length} event(s) selected
             </Text>
             <TouchableOpacity 
-              style={styles.modalButton}
+              style={styles.modalDoneButton}
               onPress={() => setShowEventPicker(false)}
             >
-              <Text style={styles.modalButtonText}>Close</Text>
+              <Text style={styles.modalDoneButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -846,6 +942,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
+  eventsListDisplay: {
+    marginTop: 12,
+    gap: 12,
+  },
+  eventDisplayItem: {
+    backgroundColor: '#f8faff',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3b82f6',
+  },
+  eventDisplayTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 6,
+  },
+  eventDisplayDetails: {
+    gap: 4,
+  },
+  eventDisplayDate: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  eventDisplayLocation: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  eventDisplayDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 18,
+    marginTop: 2,
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: '#ffffff',
@@ -885,6 +1016,107 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  modalScrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  emptyEventsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyEventsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyEventsSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  eventItem: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  selectedEventItem: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#10b981',
+  },
+  eventItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  eventItemInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  eventItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  eventItemGroup: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  eventItemActions: {
+    alignItems: 'center',
+  },
+  eventItemDetails: {
+    gap: 4,
+  },
+  eventItemDate: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  eventItemLocation: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  eventItemDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  selectionSummary: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  modalDoneButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  modalDoneButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });
