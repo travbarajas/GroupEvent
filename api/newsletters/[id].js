@@ -102,7 +102,7 @@ async function updateNewsletter(req, res, newsletterId) {
     //   return res.status(403).json({ error: 'Not authorized to update this newsletter' });
     // }
 
-    // Update newsletter with provided fields
+    // Update newsletter with provided fields (preserve published status)
     const newsletters = await sql`
       UPDATE newsletters 
       SET 
@@ -116,6 +116,8 @@ async function updateNewsletter(req, res, newsletterId) {
         start_date = COALESCE(${updateData.startDate}, start_date),
         end_date = COALESCE(${updateData.endDate}, end_date),
         updated_at = ${new Date().toISOString()}
+        -- Note: is_published and published_at are intentionally NOT updated here
+        -- They should only be changed via the publish endpoint
       WHERE id = ${newsletterId}
       RETURNING *
     `;

@@ -292,6 +292,10 @@ export default function BlockBasedNewsletterEditor({
             <Text style={styles.blockOptionIcon}>🔗</Text>
             <Text style={styles.blockOptionText}>Button</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.blockOption} onPress={() => addBlock('event-list')}>
+            <Text style={styles.blockOptionIcon}>📅</Text>
+            <Text style={styles.blockOptionText}>Events</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

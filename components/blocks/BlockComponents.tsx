@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   ButtonBlock,
   EventListBlock,
 } from '@/types/blocks';
+import { ApiService } from '@/services/api';
 
 interface BlockComponentProps {
   block: NewsletterBlock;
@@ -419,6 +420,173 @@ export const ButtonBlockComponent: React.FC<BlockComponentProps & { block: Butto
   );
 };
 
+// Event List Block Component
+export const EventListBlockComponent: React.FC<BlockComponentProps & { block: EventListBlock }> = ({
+  block,
+  isSelected,
+  isEditing,
+  onUpdate,
+  onDelete,
+  onDragStart,
+  onEdit,
+  onStopEditing,
+}) => {
+  const [availableEvents, setAvailableEvents] = useState<any[]>([]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(block.events || []);
+  const [showEventPicker, setShowEventPicker] = useState(false);
+
+  useEffect(() => {
+    if (isEditing) {
+      // Load available events from all groups the user is part of
+      loadAvailableEvents();
+    }
+  }, [isEditing]);
+
+  const loadAvailableEvents = async () => {
+    try {
+      // This is a simplified approach - you might want to load events from specific groups
+      // For now, let's assume we have a way to get events
+      // You'll need to implement an API endpoint to get events from all user's groups
+      console.log('Loading available events...');
+      // setAvailableEvents(events);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+    }
+  };
+
+  const toggleEventSelection = (eventId: string) => {
+    const newSelection = selectedEvents.includes(eventId)
+      ? selectedEvents.filter(id => id !== eventId)
+      : [...selectedEvents, eventId];
+    
+    setSelectedEvents(newSelection);
+    onUpdate({ ...block, events: newSelection });
+  };
+
+  return (
+    <View style={[styles.blockContainer, isSelected && styles.selectedBlock]}>
+      <View style={styles.blockHeader}>
+        <View style={styles.blockInfo}>
+          <Text style={styles.blockType}>📅</Text>
+          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
+            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.blockActions}>
+          <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
+            <Ionicons name="pencil" size={16} color="#60a5fa" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} style={styles.actionButton}>
+            <Ionicons name="trash" size={16} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {isEditing ? (
+        <View style={styles.editingContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={block.title || ''}
+            onChangeText={(title) => onUpdate({ ...block, title })}
+            placeholder="Events section title..."
+          />
+          
+          <Text style={styles.settingLabel}>Display Options:</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity 
+              style={styles.checkbox}
+              onPress={() => onUpdate({ ...block, showDate: !block.showDate })}
+            >
+              <Ionicons 
+                name={block.showDate ? "checkbox" : "square-outline"} 
+                size={20} 
+                color="#3b82f6" 
+              />
+              <Text style={styles.checkboxLabel}>Show Date</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity 
+              style={styles.checkbox}
+              onPress={() => onUpdate({ ...block, showLocation: !block.showLocation })}
+            >
+              <Ionicons 
+                name={block.showLocation ? "checkbox" : "square-outline"} 
+                size={20} 
+                color="#3b82f6" 
+              />
+              <Text style={styles.checkboxLabel}>Show Location</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity 
+              style={styles.checkbox}
+              onPress={() => onUpdate({ ...block, showDescription: !block.showDescription })}
+            >
+              <Ionicons 
+                name={block.showDescription ? "checkbox" : "square-outline"} 
+                size={20} 
+                color="#3b82f6" 
+              />
+              <Text style={styles.checkboxLabel}>Show Description</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.settingLabel}>Selected Events: {selectedEvents.length}</Text>
+          <TouchableOpacity 
+            style={styles.selectEventsButton}
+            onPress={() => setShowEventPicker(true)}
+          >
+            <Text style={styles.selectEventsButtonText}>Select Events</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.doneButton} onPress={onStopEditing}>
+            <Text style={styles.doneButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity onPress={onEdit} style={styles.eventsDisplayContainer}>
+          <Text style={styles.eventsTitle}>
+            {block.title || 'Events'}
+          </Text>
+          <Text style={styles.eventsCount}>
+            {block.events?.length || 0} event(s) selected
+          </Text>
+          {(block.events?.length || 0) === 0 && (
+            <Text style={styles.placeholderText}>Tap to select events</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* Event Picker Modal - Simplified for now */}
+      <Modal visible={showEventPicker} animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Events</Text>
+            <TouchableOpacity onPress={() => setShowEventPicker(false)}>
+              <Ionicons name="close" size={24} color="#9ca3af" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalMessage}>
+              Event selection will be implemented based on your events API.
+              {'\n\n'}Selected: {selectedEvents.length} events
+            </Text>
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={() => setShowEventPicker(false)}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   blockContainer: {
     marginVertical: 8,
@@ -638,6 +806,85 @@ const styles = StyleSheet.create({
   doneButtonText: {
     color: '#ffffff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  checkboxRow: {
+    marginBottom: 12,
+  },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  selectEventsButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  selectEventsButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  eventsDisplayContainer: {
+    padding: 16,
+  },
+  eventsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  eventsCount: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 6,
+  },
+  modalButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

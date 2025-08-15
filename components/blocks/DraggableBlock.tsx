@@ -22,6 +22,7 @@ import {
   ContentBreakBlockComponent,
   ImageBlockComponent,
   ButtonBlockComponent,
+  EventListBlockComponent,
 } from './BlockComponents';
 
 interface DraggableBlockProps {
@@ -96,6 +97,8 @@ export default function DraggableBlock({
         return ImageBlockComponent;
       case 'button':
         return ButtonBlockComponent;
+      case 'event-list':
+        return EventListBlockComponent;
       default:
         return ParagraphBlockComponent;
     }
