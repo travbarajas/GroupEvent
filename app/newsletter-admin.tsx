@@ -76,6 +76,7 @@ export default function NewsletterAdminScreen() {
           onPress: async () => {
             try {
               await publishNewsletter(newsletter.id);
+              await loadNewsletters(); // Refresh the newsletter list after publishing
               Alert.alert('Success', 'Newsletter published successfully!');
             } catch (error) {
               Alert.alert('Error', 'Failed to publish newsletter');

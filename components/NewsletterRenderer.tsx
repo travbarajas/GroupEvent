@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
 import { useGroups } from '@/contexts/GroupsContext';
+import { NewsletterBlock, EventListBlock } from '@/types/blocks';
+import { ApiService } from '@/services/api';
 
 interface NewsletterRendererProps {
   newsletter: Newsletter;
@@ -10,6 +12,38 @@ interface NewsletterRendererProps {
 
 export default function NewsletterRenderer({ newsletter }: NewsletterRendererProps) {
   const { savedEvents, toggleSaveEvent, isEventSaved } = useGroups();
+  const [eventDetails, setEventDetails] = useState<any[]>([]);
+
+  // Load event details for event blocks
+  useEffect(() => {
+    const loadEventDetails = async () => {
+      try {
+        if (newsletter.blocks) {
+          const blocks = typeof newsletter.blocks === 'string' 
+            ? JSON.parse(newsletter.blocks) 
+            : newsletter.blocks;
+          
+          // Find all event-list blocks
+          const eventBlocks = blocks.filter((block: NewsletterBlock) => block.type === 'event-list');
+          if (eventBlocks.length > 0) {
+            // Get all unique event IDs
+            const allEventIds = eventBlocks.flatMap((block: EventListBlock) => block.events || []);
+            
+            if (allEventIds.length > 0) {
+              // Load event details from the newsletter events API
+              const response = await ApiService.getNewsletterEvents();
+              const events = response.events.filter(event => allEventIds.includes(event.id));
+              setEventDetails(events);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load event details for newsletter:', error);
+      }
+    };
+
+    loadEventDetails();
+  }, [newsletter.blocks]);
 
   const handleEventPress = (event: NewsletterEvent) => {
     if (event.originalEventId) {
@@ -103,6 +137,105 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
     );
   };
   
+  // Render individual block
+  const renderBlock = (block: NewsletterBlock, index: number) => {
+    switch (block.type) {
+      case 'heading-1':
+      case 'heading-2':
+      case 'heading-3':
+      case 'heading-4':
+        const HeadingComponent = {
+          'heading-1': Text,
+          'heading-2': Text,
+          'heading-3': Text,
+          'heading-4': Text,
+        }[block.type];
+        const headingStyle = {
+          'heading-1': styles.heading1,
+          'heading-2': styles.heading2,
+          'heading-3': styles.heading3,
+          'heading-4': styles.heading4,
+        }[block.type];
+        return (
+          <HeadingComponent key={`block-${index}`} style={headingStyle}>
+            {(block as any).content || 'Untitled Heading'}
+          </HeadingComponent>
+        );
+
+      case 'paragraph':
+        return (
+          <Text key={`block-${index}`} style={styles.paragraph}>
+            {(block as any).content || ''}
+          </Text>
+        );
+
+      case 'content-break':
+        return <View key={`block-${index}`} style={styles.contentBreak} />;
+
+      case 'event-list':
+        const eventBlock = block as EventListBlock;
+        const blockEvents = eventDetails.filter(event => 
+          eventBlock.events?.includes(event.id)
+        );
+        
+        if (blockEvents.length === 0) return null;
+
+        return (
+          <View key={`block-${index}`} style={styles.eventListContainer}>
+            {eventBlock.title && (
+              <Text style={styles.eventListTitle}>{eventBlock.title}</Text>
+            )}
+            {blockEvents.map((event, eventIndex) => (
+              <View key={`event-${eventIndex}`} style={styles.eventCard}>
+                <Text style={styles.eventTitle}>{event.name}</Text>
+                
+                {(eventBlock.showDate !== false) && (
+                  <Text style={styles.eventDetail}>
+                    📅 {event.displayDate} {event.time && `at ${event.time}`}
+                  </Text>
+                )}
+                
+                {(eventBlock.showLocation !== false) && event.fullLocation && (
+                  <Text style={styles.eventDetail}>
+                    📍 {event.fullLocation}
+                  </Text>
+                )}
+                
+                {(eventBlock.showDescription !== false) && event.description && (
+                  <Text style={styles.eventDescription}>
+                    {event.description}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Render blocks if available, otherwise fall back to content
+  const renderBlocksOrContent = () => {
+    if (newsletter.blocks) {
+      try {
+        const blocks = typeof newsletter.blocks === 'string' 
+          ? JSON.parse(newsletter.blocks) 
+          : newsletter.blocks;
+        
+        if (Array.isArray(blocks) && blocks.length > 0) {
+          return blocks.map((block, index) => renderBlock(block, index));
+        }
+      } catch (error) {
+        console.error('Error parsing newsletter blocks:', error);
+      }
+    }
+    
+    // Fallback to content rendering
+    return renderContent(newsletter.content);
+  };
+
   const renderContent = (content: string) => {
     if (!content || typeof content !== 'string') return null;
 
@@ -285,7 +418,7 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
 
       {/* Content */}
       <View style={styles.content}>
-        {renderContent(newsletter.content)}
+        {renderBlocksOrContent()}
       </View>
     </View>
   );
@@ -445,5 +578,60 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 8,
+  },
+  contentBreak: {
+    height: 1,
+    backgroundColor: '#444',
+    marginVertical: 20,
+    alignSelf: 'center',
+    width: '60%',
+  },
+  eventListContainer: {
+    marginVertical: 16,
+  },
+  eventListTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 12,
+  },
+  eventCard: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3b82f6',
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  eventDetail: {
+    fontSize: 14,
+    color: '#d1d5db',
+    marginBottom: 4,
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: '#9ca3af',
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  heading3: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  heading4: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#ffffff',
+    marginBottom: 6,
+    marginTop: 12,
   },
 });

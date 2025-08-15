@@ -37,6 +37,7 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
         const { newsletters: serverNewsletters } = await ApiService.getAllNewsletters();
         const parsedNewsletters = serverNewsletters.map((newsletter: any) => ({
           ...newsletter,
+          isPublished: newsletter.is_published || newsletter.isPublished || false,
           createdAt: new Date(newsletter.created_at || newsletter.createdAt),
           publishedAt: newsletter.published_at ? new Date(newsletter.published_at) : null,
         }));
