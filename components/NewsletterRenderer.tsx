@@ -182,8 +182,12 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
 
         // Group events by date (using date string to avoid timezone issues)
         const eventsByDate = blockEvents.reduce((groups: any, event: any) => {
-          // Use the date string directly to avoid timezone conversion issues
-          const dateKey = event.date; // Keep as YYYY-MM-DD string
+          // Handle both ISO datetime strings and simple date strings
+          let dateKey = event.date;
+          if (typeof dateKey === 'string' && dateKey.includes('T')) {
+            // Extract just the date part from ISO datetime string
+            dateKey = dateKey.split('T')[0];
+          }
           console.log(`📅 Event: ${event.name}, Date: ${event.date}, DateKey: ${dateKey}`);
           if (!groups[dateKey]) {
             groups[dateKey] = [];
@@ -213,7 +217,7 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
                 month: 'numeric',
                 day: 'numeric'
               }).replace(',', ' –');
-              console.log(`📅 DateKey: ${dateKey}, Parsed: ${year}-${month}-${day}, EventDate: ${eventDate}, DayHeader: ${dayHeader}`);
+              console.log(`📅 DateKey: ${dateKey}, Parsed: ${year}-${month}-${day}, EventDate: ${eventDate.toDateString()}, DayHeader: ${dayHeader}`);
 
               return (
                 <View key={`day-${dateIndex}`} style={styles.daySection}>

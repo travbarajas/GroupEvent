@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
         id: event.id,
         name: event.name || 'Untitled Event',
         description: event.description || '',
-        date: event.date,
+        date: event.date ? event.date.toISOString().split('T')[0] : null, // Ensure YYYY-MM-DD format
         time: event.time || '',
         location: event.location || '',
         venueName: event.venue_name || '',
@@ -77,12 +77,17 @@ module.exports = async function handler(req, res) {
         attendanceRequired: event.attendance_required,
         createdAt: event.created_at,
         updatedAt: event.updated_at,
-        // Format date for display
-        displayDate: event.date ? new Date(event.date).toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'short',
-          day: 'numeric'
-        }) : '',
+        // Format date for display (use the corrected date)
+        displayDate: event.date ? (() => {
+          const dateStr = event.date.toISOString().split('T')[0];
+          const [year, month, day] = dateStr.split('-').map(Number);
+          const localDate = new Date(year, month - 1, day);
+          return localDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric'
+          });
+        })() : '',
         // Combine location fields for display
         fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - ')
       };
