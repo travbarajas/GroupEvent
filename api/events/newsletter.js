@@ -57,33 +57,36 @@ module.exports = async function handler(req, res) {
     console.log(`✅ Found ${allEvents.length} global events for newsletter`);
 
     // Format events for frontend
-    const formattedEvents = allEvents.map(event => ({
-      id: event.id,
-      name: event.name || 'Untitled Event',
-      description: event.description || '',
-      date: event.date,
-      time: event.time || '',
-      location: event.location || '',
-      venueName: event.venue_name || '',
-      price: event.price ? parseFloat(event.price) : null,
-      currency: event.currency || 'USD',
-      isFree: event.is_free,
-      category: event.category || 'general',
-      tags: event.tags || [],
-      maxAttendees: event.max_attendees,
-      minAttendees: event.min_attendees,
-      attendanceRequired: event.attendance_required,
-      createdAt: event.created_at,
-      updatedAt: event.updated_at,
-      // Format date for display
-      displayDate: event.date ? new Date(event.date).toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric'
-      }) : '',
-      // Combine location fields for display
-      fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - ')
-    }));
+    const formattedEvents = allEvents.map(event => {
+      console.log(`📅 API Event: ${event.name}, Raw Date: ${event.date}, Type: ${typeof event.date}`);
+      return {
+        id: event.id,
+        name: event.name || 'Untitled Event',
+        description: event.description || '',
+        date: event.date,
+        time: event.time || '',
+        location: event.location || '',
+        venueName: event.venue_name || '',
+        price: event.price ? parseFloat(event.price) : null,
+        currency: event.currency || 'USD',
+        isFree: event.is_free,
+        category: event.category || 'general',
+        tags: event.tags || [],
+        maxAttendees: event.max_attendees,
+        minAttendees: event.min_attendees,
+        attendanceRequired: event.attendance_required,
+        createdAt: event.created_at,
+        updatedAt: event.updated_at,
+        // Format date for display
+        displayDate: event.date ? new Date(event.date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric'
+        }) : '',
+        // Combine location fields for display
+        fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - ')
+      };
+    });
 
     return res.status(200).json({
       events: formattedEvents,

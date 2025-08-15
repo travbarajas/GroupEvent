@@ -180,10 +180,11 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
         
         if (blockEvents.length === 0) return null;
 
-        // Group events by date
+        // Group events by date (using date string to avoid timezone issues)
         const eventsByDate = blockEvents.reduce((groups: any, event: any) => {
-          const eventDate = new Date(event.date);
-          const dateKey = eventDate.toDateString();
+          // Use the date string directly to avoid timezone conversion issues
+          const dateKey = event.date; // Keep as YYYY-MM-DD string
+          console.log(`📅 Event: ${event.name}, Date: ${event.date}, DateKey: ${dateKey}`);
           if (!groups[dateKey]) {
             groups[dateKey] = [];
           }
@@ -191,9 +192,9 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
           return groups;
         }, {});
 
-        // Sort dates
+        // Sort dates (compare date strings directly)
         const sortedDates = Object.keys(eventsByDate).sort((a, b) => 
-          new Date(a).getTime() - new Date(b).getTime()
+          a.localeCompare(b) // YYYY-MM-DD strings sort correctly lexicographically
         );
 
         return (
@@ -204,12 +205,15 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
             
             {sortedDates.map((dateKey, dateIndex) => {
               const dayEvents = eventsByDate[dateKey];
-              const eventDate = new Date(dateKey);
+              // Parse date string as local date to avoid timezone shifts
+              const [year, month, day] = dateKey.split('-').map(Number);
+              const eventDate = new Date(year, month - 1, day); // month is 0-indexed
               const dayHeader = eventDate.toLocaleDateString('en-US', {
                 weekday: 'long',
                 month: 'numeric',
                 day: 'numeric'
               }).replace(',', ' –');
+              console.log(`📅 DateKey: ${dateKey}, Parsed: ${year}-${month}-${day}, EventDate: ${eventDate}, DayHeader: ${dayHeader}`);
 
               return (
                 <View key={`day-${dateIndex}`} style={styles.daySection}>
