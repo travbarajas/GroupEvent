@@ -47,7 +47,23 @@ module.exports = async function handler(req, res) {
     const existingNewsletter = existingNewsletters[0];
     
     if (existingNewsletter.is_published) {
-      return res.status(400).json({ error: 'Newsletter is already published' });
+      console.log('📧 Newsletter already published, returning current state');
+      return res.status(200).json({
+        id: existingNewsletter.id,
+        title: existingNewsletter.title,
+        subtitle: existingNewsletter.subtitle,
+        date: existingNewsletter.date,
+        readOnlineUrl: existingNewsletter.read_online_url,
+        content: existingNewsletter.content,
+        events: existingNewsletter.events,
+        blocks: existingNewsletter.blocks,
+        startDate: existingNewsletter.start_date,
+        endDate: existingNewsletter.end_date,
+        created_at: existingNewsletter.created_at,
+        published_at: existingNewsletter.published_at,
+        isPublished: existingNewsletter.is_published,
+        message: 'Newsletter was already published'
+      });
     }
 
     // For now, allow all publishing. In production, check device_id permissions
