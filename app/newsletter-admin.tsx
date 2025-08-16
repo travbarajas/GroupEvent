@@ -16,6 +16,7 @@ import { useNewsletter } from '@/contexts/NewsletterContext';
 import { Newsletter } from '@/types/newsletter';
 import GoogleDocsNewsletterEditor from '@/components/GoogleDocsNewsletterEditor';
 import BlockBasedNewsletterEditor from '@/components/BlockBasedNewsletterEditor';
+import StructuredNewsletterEditor from '@/components/StructuredNewsletterEditor';
 import EnhancedNewsletterCreationModal from '@/components/EnhancedNewsletterCreationModal';
 
 export default function NewsletterAdminScreen() {
@@ -32,7 +33,7 @@ export default function NewsletterAdminScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<Newsletter | null>(null);
-  const [useBlockEditor, setUseBlockEditor] = useState(true); // Default to new block editor
+  const [useBlockEditor, setUseBlockEditor] = useState(true); // Default to structured editor
 
   useEffect(() => {
     if (!isAdmin) {
@@ -177,7 +178,7 @@ export default function NewsletterAdminScreen() {
   if (showEditor) {
     if (useBlockEditor) {
       return (
-        <BlockBasedNewsletterEditor
+        <StructuredNewsletterEditor
           newsletter={editingNewsletter || undefined}
           onSave={handleEditorSave}
           onCancel={handleEditorCancel}
@@ -221,7 +222,7 @@ export default function NewsletterAdminScreen() {
           onPress={() => setUseBlockEditor(true)}
         >
           <Text style={[styles.toggleText, useBlockEditor && styles.activeToggleText]}>
-            Block Editor
+            Structured Editor
           </Text>
         </TouchableOpacity>
         <TouchableOpacity 
