@@ -8,6 +8,8 @@ export interface Newsletter {
   events: NewsletterEvent[]; // Embedded events for the newsletter
   startDate?: string; // Date range start for event generation
   endDate?: string; // Date range end for event generation
+  blocks?: string; // JSON string of blocks for block-based editing
+  sections?: string; // JSON string of structured sections
   createdAt: Date;
   publishedAt: Date | null;
   isPublished: boolean;

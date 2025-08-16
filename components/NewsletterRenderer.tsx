@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Share, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
@@ -15,6 +15,8 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
   const router = useRouter();
   const { savedEvents, toggleSaveEvent, isEventSaved } = useGroups();
   const [eventDetails, setEventDetails] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState('highlights');
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Load event details for event blocks
   useEffect(() => {
@@ -46,6 +48,29 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
 
     loadEventDetails();
   }, [newsletter.blocks]);
+
+  // Parse structured sections if available
+  const getStructuredSections = () => {
+    if (newsletter.sections) {
+      try {
+        const sections = typeof newsletter.sections === 'string' 
+          ? JSON.parse(newsletter.sections) 
+          : newsletter.sections;
+        return sections || [];
+      } catch (error) {
+        console.error('Error parsing newsletter sections:', error);
+      }
+    }
+    return [];
+  };
+
+  const structuredSections = getStructuredSections();
+  const isStructuredNewsletter = structuredSections.length > 0;
+
+  const scrollToSection = (sectionId: string) => {
+    setActiveTab(sectionId);
+    // TODO: Implement smooth scrolling to section when refs are set up
+  };
 
   // Handle event press to navigate to event detail page
   const handleNewsletterEventPress = (event: any) => {
@@ -284,8 +309,26 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
     }
   };
 
+  // Render structured sections
+  const renderStructuredSections = () => {
+    return structuredSections.map((section: any, sectionIndex: number) => (
+      <View key={section.id} style={styles.structuredSection}>
+        <Text style={styles.structuredSectionTitle}>{section.title}</Text>
+        {section.blocks && section.blocks.length > 0 ? (
+          section.blocks.map((block: any, blockIndex: number) => renderBlock(block, blockIndex))
+        ) : (
+          <Text style={styles.emptySectionText}>No content in this section yet.</Text>
+        )}
+      </View>
+    ));
+  };
+
   // Render blocks if available, otherwise fall back to content
   const renderBlocksOrContent = () => {
+    if (isStructuredNewsletter) {
+      return renderStructuredSections();
+    }
+    
     if (newsletter.blocks) {
       try {
         const blocks = typeof newsletter.blocks === 'string' 
@@ -476,18 +519,47 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
         </View>
       </View>
 
-      {/* Events Section */}
-      {newsletter.events && newsletter.events.length > 0 && (
-        <View style={styles.eventsSection}>
-          <Text style={styles.eventsSectionTitle}>Events</Text>
-          {newsletter.events.map(renderEventBlock)}
+      {/* Tab Navigation for Structured Newsletters */}
+      {isStructuredNewsletter && (
+        <View style={styles.tabBar}>
+          {structuredSections.map((section: any) => (
+            <TouchableOpacity
+              key={section.id}
+              style={[
+                styles.tab,
+                activeTab === section.id && styles.activeTab
+              ]}
+              onPress={() => scrollToSection(section.id)}
+            >
+              <Text style={[
+                styles.tabText,
+                activeTab === section.id && styles.activeTabText
+              ]}>
+                {section.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
 
-      {/* Content */}
-      <View style={styles.content}>
-        {renderBlocksOrContent()}
-      </View>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Events Section (legacy format) */}
+        {!isStructuredNewsletter && newsletter.events && newsletter.events.length > 0 && (
+          <View style={styles.eventsSection}>
+            <Text style={styles.eventsSectionTitle}>Events</Text>
+            {newsletter.events.map(renderEventBlock)}
+          </View>
+        )}
+
+        {/* Content */}
+        <View style={styles.content}>
+          {renderBlocksOrContent()}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -715,5 +787,53 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 6,
     marginTop: 12,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+    marginBottom: 0,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: '#60a5fa',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9ca3af',
+  },
+  activeTabText: {
+    color: '#60a5fa',
+    fontWeight: '600',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  structuredSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  structuredSectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 20,
+  },
+  emptySectionText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });
