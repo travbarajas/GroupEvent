@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
 import { useGroups } from '@/contexts/GroupsContext';
 import { NewsletterBlock, EventListBlock } from '@/types/blocks';
@@ -11,6 +12,7 @@ interface NewsletterRendererProps {
 }
 
 export default function NewsletterRenderer({ newsletter }: NewsletterRendererProps) {
+  const router = useRouter();
   const { savedEvents, toggleSaveEvent, isEventSaved } = useGroups();
   const [eventDetails, setEventDetails] = useState<any[]>([]);
 
@@ -44,6 +46,27 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
 
     loadEventDetails();
   }, [newsletter.blocks]);
+
+  // Handle event press to navigate to event detail page
+  const handleNewsletterEventPress = (event: any) => {
+    // Convert newsletter event to the format expected by event detail page
+    const eventForDetail = {
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      date: event.displayDate || event.date,
+      time: event.time || '',
+      price: event.isFree ? 'Free' : (event.price ? `$${event.price}` : 'TBD'),
+      distance: event.fullLocation || event.location || '',
+      type: event.category || 'general',
+      tags: event.tags || []
+    };
+    
+    router.push({
+      pathname: '/event-detail',
+      params: { event: JSON.stringify(eventForDetail) }
+    });
+  };
 
   const handleEventPress = (event: NewsletterEvent) => {
     if (event.originalEventId) {
@@ -224,16 +247,13 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
                   <Text style={styles.dayHeader}>{dayHeader}</Text>
                   
                   {dayEvents.map((event: any, eventIndex: number) => (
-                    <View key={`event-${eventIndex}`} style={styles.eventItem}>
-                      <TouchableOpacity 
-                        style={styles.eventTitleButton}
-                        onPress={() => {
-                          // Handle event press - could navigate to event details
-                          console.log('Event pressed:', event.name);
-                        }}
-                      >
-                        <Text style={styles.eventTitleText}>{event.name}</Text>
-                      </TouchableOpacity>
+                    <TouchableOpacity 
+                      key={`event-${eventIndex}`} 
+                      style={styles.eventItem}
+                      onPress={() => handleNewsletterEventPress(event)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.eventTitleText}>{event.name}</Text>
                       
                       {(eventBlock.showDescription !== false) && event.description && (
                         <Text style={styles.eventDescription}>
@@ -251,7 +271,7 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
                           </Text>
                         )}
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               );
@@ -656,14 +676,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingLeft: 0,
   },
-  eventTitleButton: {
-    marginBottom: 4,
-  },
   eventTitleText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#60a5fa',
-    textDecorationLine: 'underline',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 6,
   },
   eventDescription: {
     fontSize: 14,
