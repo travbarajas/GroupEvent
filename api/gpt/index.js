@@ -67,14 +67,46 @@ module.exports = async function handler(req, res) {
     console.log('Include events:', includeEvents);
 
     // Build the system message with context
-    let systemMessage = `You are a helpful AI assistant for the GroupEvent app, which helps users plan group events and social activities. You can help with event recommendations, restaurant suggestions, activity planning, and general questions about organizing group events.`;
+    let systemMessage = `You are LocalAI, a helpful AI assistant for the GroupEvent app, which helps users plan group events and social activities. You can help with event recommendations, restaurant suggestions, activity planning, and general questions about organizing group events.
+
+When displaying events, always format them in this structured newsletter style:
+
+📅 [Date]
+
+**[Event Name]**
+[Description]
+[Time] @ [Location]
+Price: [Price/Free]
+
+Group multiple events by date when possible. Use clear formatting with emojis and bold text for better readability.`;
     
     // If requested, include event data in context
     if (includeEvents) {
       const events = await getEventsFromDB();
       if (events.length > 0) {
-        systemMessage += `\n\nHere are the current events available in our database:\n${JSON.stringify(events, null, 2)}`;
-        systemMessage += `\n\nUse this event information to provide relevant recommendations and answers about available events, venues, and activities. When suggesting events, include details like date, time, location, and price when available.`;
+        // Group events by date for better organization
+        const eventsByDate = events.reduce((groups, event) => {
+          const dateKey = event.date || 'No Date';
+          if (!groups[dateKey]) groups[dateKey] = [];
+          groups[dateKey].push(event);
+          return groups;
+        }, {});
+
+        systemMessage += `\n\nHere are the current events available in our database, grouped by date:\n`;
+        
+        Object.entries(eventsByDate).forEach(([date, dateEvents]) => {
+          systemMessage += `\n📅 ${date}\n`;
+          dateEvents.forEach(event => {
+            systemMessage += `**${event.name || 'Untitled Event'}**\n`;
+            systemMessage += `${event.description || 'No description'}\n`;
+            systemMessage += `${event.time || 'Time TBD'}${event.venue_name ? ` @ ${event.venue_name}` : ''}${event.location ? ` (${event.location})` : ''}\n`;
+            systemMessage += `Price: ${event.is_free ? 'Free' : (event.price ? `$${event.price}` : 'TBD')}\n`;
+            if (event.category) systemMessage += `Category: ${event.category}\n`;
+            systemMessage += `\n`;
+          });
+        });
+
+        systemMessage += `\nWhen responding about events, use this exact formatting style with dates, bold titles, descriptions, and location details. Always group events by date and use emojis to make it visually appealing.`;
       } else {
         systemMessage += `\n\nNo events are currently available in the database, but you can still help with general event planning advice.`;
       }

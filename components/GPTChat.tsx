@@ -143,7 +143,7 @@ export default function GPTChat() {
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Ionicons name="sparkles" size={24} color={tintColor} />
-          <Text style={[styles.title, { color: textColor }]}>AI Assistant</Text>
+          <Text style={[styles.title, { color: textColor }]}>LocalAI</Text>
         </View>
         
         <View style={styles.headerControls}>
@@ -179,7 +179,7 @@ export default function GPTChat() {
           <View style={styles.emptyState}>
             <Ionicons name="chatbubble-outline" size={64} color="#ccc" />
             <Text style={styles.emptyStateText}>
-              Ask me anything about events, restaurants, or group planning!
+              Ask LocalAI about events, restaurants, or group planning!
             </Text>
             <Text style={styles.emptyStateSubtext}>
               Turn on "Events" to get recommendations from our database
@@ -214,7 +214,7 @@ export default function GPTChat() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={tintColor} />
             <Text style={[styles.loadingText, { color: textColor }]}>
-              AI is thinking...
+              LocalAI is thinking...
             </Text>
           </View>
         )}
