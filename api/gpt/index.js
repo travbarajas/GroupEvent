@@ -42,20 +42,35 @@ async function getEventsFromDB() {
 
 // Main API handler
 module.exports = async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    console.log('GPT API called with body:', req.body);
+    
     const { message, includeEvents = false } = req.body;
 
     if (!message) {
+      console.log('No message provided');
       return res.status(400).json({ 
         error: 'Message is required', 
         success: false 
       });
     }
+
+    console.log('Processing message:', message);
+    console.log('Include events:', includeEvents);
 
     // Build the system message with context
     let systemMessage = `You are a helpful AI assistant for the GroupEvent app, which helps users plan group events and social activities. You can help with event recommendations, restaurant suggestions, activity planning, and general questions about organizing group events.`;
@@ -90,6 +105,15 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('GPT API Error:', error);
+    
+    // Check if OpenAI API key is missing
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key is missing from environment variables');
+      return res.status(500).json({
+        error: 'OpenAI API key is not configured',
+        success: false
+      });
+    }
     
     // Handle specific OpenAI API errors
     if (error.status === 401) {

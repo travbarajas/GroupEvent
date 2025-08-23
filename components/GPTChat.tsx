@@ -58,7 +58,42 @@ export default function GPTChat() {
         }),
       });
 
-      const data = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      // Check if response is OK first
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        
+        const errorMessage: Message = {
+          role: 'assistant',
+          content: `API Error (${response.status}): ${errorText.includes('<!DOCTYPE') ? 'Server returned HTML error page' : errorText}`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        return;
+      }
+
+      // Try to parse JSON
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        console.error('Raw response that failed to parse:', responseText);
+        
+        const errorMessage: Message = {
+          role: 'assistant',
+          content: `Failed to parse response. Server returned: ${responseText.substring(0, 200)}...`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        return;
+      }
       
       if (data.success) {
         const assistantMessage: Message = {
@@ -79,7 +114,7 @@ export default function GPTChat() {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Failed to connect to AI assistant. Please check your connection and try again.',
+        content: `Network error: ${error.message}. Please check your connection and try again.`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
