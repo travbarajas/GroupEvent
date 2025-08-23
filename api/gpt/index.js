@@ -1,10 +1,4 @@
-const OpenAI = require('openai');
 const { neon } = require('@neondatabase/serverless');
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Initialize database connection
 const sql = neon(process.env.DATABASE_URL);
@@ -86,16 +80,32 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Call GPT-4o-mini
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: message }
-      ],
-      temperature: 0.7,
-      max_tokens: 800, // Adjust based on your needs
+    // Call OpenAI API directly using fetch
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: message }
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      }),
     });
+
+    if (!openaiResponse.ok) {
+      const errorData = await openaiResponse.json().catch(() => ({}));
+      console.error('OpenAI API Error:', errorData);
+      throw new Error(`OpenAI API error: ${openaiResponse.status} - ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const completion = await openaiResponse.json();
+    console.log('OpenAI response received successfully');
 
     return res.status(200).json({
       response: completion.choices[0].message.content,
