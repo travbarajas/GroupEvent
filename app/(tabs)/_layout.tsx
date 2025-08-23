@@ -372,6 +372,15 @@ export default function TabLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="ai"
+          options={{
+            title: 'AI',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'sparkles' : 'sparkles-outline'} size={24} color={color} />
+            ),
+          }}
+        />
       </Tabs>
       
       <ExpandedEventModal 
