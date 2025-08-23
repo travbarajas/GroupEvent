@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#666',
     textAlign: 'center',
     marginTop: 16,
@@ -286,6 +286,7 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginTop: 8,
+    fontWeight: '500',
   },
   messageBubble: {
     maxWidth: '85%',
@@ -306,9 +307,11 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     lineHeight: 20,
+    fontWeight: '500',
   },
   userMessageText: {
     color: 'white',
+    fontWeight: '500',
   },
   timestamp: {
     fontSize: 11,
@@ -331,6 +334,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     fontStyle: 'italic',
+    fontWeight: '500',
   },
   inputContainer: {
     borderTopWidth: 1,

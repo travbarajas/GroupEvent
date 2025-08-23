@@ -1,5 +1,5 @@
-import OpenAI from 'openai';
-import { neon } from '@neondatabase/serverless';
+const OpenAI = require('openai');
+const { neon } = require('@neondatabase/serverless');
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -41,7 +41,7 @@ async function getEventsFromDB() {
 }
 
 // Main API handler
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
