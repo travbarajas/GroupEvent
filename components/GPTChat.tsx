@@ -197,7 +197,7 @@ export default function GPTChat() {
           >
             <Text style={[
               styles.messageText,
-              msg.role === 'user' ? styles.userMessageText : { color: textColor }
+              msg.role === 'user' ? styles.userMessageText : { color: '#1a1a1a' }
             ]}>
               {msg.content}
             </Text>
