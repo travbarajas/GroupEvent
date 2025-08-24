@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import * as Location from 'expo-location';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -21,14 +22,53 @@ interface Message {
   timestamp: Date;
 }
 
+interface LocationData {
+  latitude: number;
+  longitude: number;
+}
+
 export default function GPTChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState<LocationData | null>(null);
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
 
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
+
+  // Get user location on component mount
+  useEffect(() => {
+    (async () => {
+      try {
+        // Request location permissions
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Permission to access location was denied');
+          setLocationPermission(false);
+          return;
+        }
+
+        setLocationPermission(true);
+
+        // Get current location
+        let location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        console.log('Location obtained:', location.coords.latitude, location.coords.longitude);
+      } catch (error) {
+        console.error('Error getting location:', error);
+        setLocationPermission(false);
+      }
+    })();
+  }, []);
 
   const sendMessage = async () => {
     if (!inputText.trim()) return;
@@ -54,6 +94,8 @@ export default function GPTChat() {
         body: JSON.stringify({
           message: userMessage,
           includeEvents: true,
+          location: userLocation,
+          enablePlaces: true,
         }),
       });
 
@@ -146,6 +188,19 @@ export default function GPTChat() {
         </View>
         
         <View style={styles.headerControls}>
+          <View style={styles.locationStatus}>
+            <Ionicons 
+              name={userLocation ? "location" : "location-outline"} 
+              size={16} 
+              color={userLocation ? "#10b981" : "#6b7280"} 
+            />
+            <Text style={[
+              styles.locationText,
+              { color: userLocation ? "#10b981" : "#6b7280" }
+            ]}>
+              {userLocation ? "Location enabled" : "No location"}
+            </Text>
+          </View>
           {messages.length > 0 && (
             <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
               <Ionicons name="trash-outline" size={20} color={tintColor} />
@@ -165,7 +220,7 @@ export default function GPTChat() {
               Ask LocalAI about events, restaurants, or group planning!
             </Text>
             <Text style={styles.emptyStateSubtext}>
-              I have access to all local business events and venues
+              I have access to local events and nearby places via Google Places
             </Text>
           </View>
         )}
@@ -265,6 +320,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  locationStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   clearButton: {
     padding: 4,

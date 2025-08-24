@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const axios = require('axios');
 
 // Initialize database connection
 const sql = neon(process.env.DATABASE_URL);
@@ -34,6 +35,85 @@ async function getEventsFromDB() {
   }
 }
 
+// Google Places API functions
+async function searchNearbyPlaces(location, query, radius = 5000) {
+  try {
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      console.log('Google Places API key not configured');
+      return [];
+    }
+
+    const response = await axios.get(
+      'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+      {
+        params: {
+          location: `${location.latitude},${location.longitude}`,
+          radius: radius,
+          keyword: query,
+          key: process.env.GOOGLE_PLACES_API_KEY,
+        },
+        timeout: 5000
+      }
+    );
+    
+    return response.data.results.slice(0, 5); // Return top 5 results to manage tokens
+  } catch (error) {
+    console.error('Error fetching places:', error);
+    return [];
+  }
+}
+
+async function searchPlacesByText(query, location) {
+  try {
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      console.log('Google Places API key not configured');
+      return [];
+    }
+
+    let params = {
+      query: query,
+      key: process.env.GOOGLE_PLACES_API_KEY,
+    };
+    
+    if (location) {
+      params.location = `${location.latitude},${location.longitude}`;
+      params.radius = 10000; // 10km radius for text search
+    }
+    
+    const response = await axios.get(
+      'https://maps.googleapis.com/maps/api/place/textsearch/json',
+      { params, timeout: 5000 }
+    );
+    
+    return response.data.results.slice(0, 5);
+  } catch (error) {
+    console.error('Error searching places by text:', error);
+    return [];
+  }
+}
+
+function determinePlaceType(query) {
+  const queryLower = query.toLowerCase();
+  
+  const placeTypeMap = {
+    restaurant: ['restaurant', 'food'],
+    cafe: ['cafe', 'coffee_shop'],
+    bar: ['bar', 'night_club'],
+    shopping: ['shopping_mall', 'store'],
+    entertainment: ['movie_theater', 'amusement_park', 'bowling_alley'],
+    gym: ['gym', 'fitness_center'],
+    park: ['park', 'playground'],
+  };
+  
+  for (const [key, types] of Object.entries(placeTypeMap)) {
+    if (queryLower.includes(key)) {
+      return types;
+    }
+  }
+  
+  return ['establishment']; // Default fallback
+}
+
 // Main API handler
 module.exports = async function handler(req, res) {
   // Set CORS headers
@@ -53,7 +133,12 @@ module.exports = async function handler(req, res) {
   try {
     console.log('GPT API called with body:', req.body);
     
-    const { message, includeEvents = false } = req.body;
+    const { 
+      message, 
+      includeEvents = true, // Always true now as per previous changes
+      location,
+      enablePlaces = true 
+    } = req.body;
 
     if (!message) {
       console.log('No message provided');
@@ -78,7 +163,24 @@ When displaying events, always format them in this clean, readable style:
 [Friendly Time - e.g., "7:00 PM", "2:30 PM"] @ [Venue Name]
 Price: [Price/Free]
 
+When displaying places/restaurants, use this format:
+
+🍽️ [Place Name]
+⭐ [Rating]/5 stars
+📍 [Address]
+💰 [Price Level: $ to $$$$]
+🕐 [Open/Closed status if available]
+
 Group multiple events by date. Use emojis but NO markdown formatting (no ** or other symbols). Make dates and times very user-friendly.`;
+
+    // Add Places API instructions if location is available
+    if (enablePlaces && location) {
+      systemMessage += `\n\nYou have access to Google Places data to help users find nearby restaurants, venues, and other locations. When users ask about places, restaurants, or venues, you should:
+1. Identify what type of place they're looking for
+2. Use the available place data to provide recommendations
+3. Include relevant details like ratings, address, and pricing level
+4. Suggest places that would be good for group events when relevant`;
+    }
     
     // If requested, include event data in context
     if (includeEvents) {
@@ -158,6 +260,41 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
       }
     }
 
+    // Handle Google Places API requests
+    let placesData = [];
+    const isAskingAboutPlaces = /restaurant|food|eat|cafe|coffee|bar|venue|place|nearby|around here|close by|dining|lunch|dinner|brunch/i.test(message);
+    
+    if (isAskingAboutPlaces && enablePlaces && location) {
+      console.log('User is asking about places, searching Google Places API...');
+      
+      // Extract the type of place from the message
+      const placeQuery = message.toLowerCase()
+        .replace(/where|what|find|show|recommend|suggest|good|best|near|nearby|close/gi, '')
+        .replace(/\?|!|\.|,/g, '')
+        .trim();
+      
+      // Search for places using text search (more flexible than nearby search)
+      placesData = await searchPlacesByText(placeQuery, location);
+      
+      if (placesData.length > 0) {
+        // Format places data for GPT
+        const formattedPlaces = placesData.map((place) => ({
+          name: place.name,
+          rating: place.rating || 'No rating',
+          address: place.formatted_address || place.vicinity || 'Address not available',
+          priceLevel: place.price_level ? '$'.repeat(place.price_level) : 'Price not available',
+          isOpen: place.opening_hours?.open_now !== undefined ? 
+            (place.opening_hours.open_now ? 'Open now' : 'Closed now') : 'Hours unknown',
+          types: place.types?.slice(0, 3).join(', ') || 'General establishment',
+        }));
+        
+        systemMessage += `\n\nNearby places matching "${placeQuery}":\n${JSON.stringify(formattedPlaces, null, 2)}`;
+        systemMessage += `\n\nUse this information to provide specific recommendations with names, ratings, addresses, and why each place would be good for their needs. Format them using the place format specified above.`;
+        
+        console.log(`Found ${placesData.length} places for query: ${placeQuery}`);
+      }
+    }
+
     // Call OpenAI API directly using fetch
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -188,7 +325,9 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
     return res.status(200).json({
       response: completion.choices[0].message.content,
       success: true,
-      eventsIncluded: includeEvents
+      eventsIncluded: includeEvents,
+      placesIncluded: placesData.length > 0,
+      placesCount: placesData.length
     });
 
   } catch (error) {
