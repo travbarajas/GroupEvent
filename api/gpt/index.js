@@ -35,6 +35,45 @@ async function getEventsFromDB() {
   }
 }
 
+// Function to test Google Places API key status
+async function testGooglePlacesAPI() {
+  try {
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      return { valid: false, error: 'API key not configured' };
+    }
+
+    // Simple test request
+    const response = await axios.get(
+      'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+      {
+        params: {
+          location: '40.7589,-73.9851', // NYC coordinates for test
+          radius: 1000,
+          type: 'restaurant',
+          key: process.env.GOOGLE_PLACES_API_KEY,
+        },
+        timeout: 3000
+      }
+    );
+
+    if (response.data.status === 'OK') {
+      return { valid: true };
+    } else {
+      return { 
+        valid: false, 
+        error: response.data.status,
+        message: response.data.error_message 
+      };
+    }
+  } catch (error) {
+    return { 
+      valid: false, 
+      error: 'API request failed',
+      details: error.message 
+    };
+  }
+}
+
 // Google Places API functions
 async function searchNearbyPlaces(location, query, radius = 5000, placeType = null) {
   try {
@@ -185,7 +224,14 @@ async function searchBrandedRestaurant(location, brandName, radius = 3000) {
         timeout: 5000
       });
 
+      console.log(`Google Places API response for ${brandName}:`, JSON.stringify(response.data, null, 2));
+
       if (response.data.results && response.data.results.length > 0) {
+        console.log(`Raw results for ${brandName}:`, response.data.results.map(r => ({
+          name: r.name,
+          address: r.formatted_address || r.vicinity,
+          place_id: r.place_id
+        })));
         // Apply strict filtering for branded restaurants
         const validResults = response.data.results.filter(place => {
           const address = place.formatted_address || place.vicinity || '';
@@ -205,6 +251,9 @@ async function searchBrandedRestaurant(location, brandName, radius = 3000) {
         if (validResults.length > 0) {
           console.log(`Found ${validResults.length} valid ${brandName} locations`);
           return validResults.slice(0, 3); // Return fewer results for branded searches
+        } else {
+          console.log(`All ${brandName} results were filtered out as fake addresses`);
+          console.log('Fake addresses detected:', response.data.results.map(r => r.formatted_address || r.vicinity));
         }
       }
     }
@@ -451,6 +500,14 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
     if (isAskingAboutPlaces && enablePlaces && location && location.latitude && location.longitude) {
       console.log('User is asking about places, searching Google Places API...');
       
+      // Test API key status for debugging
+      const apiStatus = await testGooglePlacesAPI();
+      console.log('Google Places API status:', apiStatus);
+      
+      if (!apiStatus.valid) {
+        systemMessage += `\n\nNote: Google Places API issue detected: ${apiStatus.error}. ${apiStatus.message || ''}. Unable to provide location-specific recommendations.`;
+      }
+      
       // Extract the type of place from the message
       const placeQuery = message.toLowerCase()
         .replace(/where|what|find|show|recommend|suggest|good|best|near|nearby|close|the|a|an/gi, '')
@@ -467,6 +524,11 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
         // Use specialized branded search for fast food chains
         placesData = await searchBrandedRestaurant(location, fastFoodBrand);
         console.log(`Branded search for ${fastFoodBrand} returned ${placesData.length} results`);
+        
+        // If no valid results for fast food brand, add explanation to AI context
+        if (placesData.length === 0) {
+          systemMessage += `\n\nNote: User searched for "${fastFoodBrand}" but Google Places API returned only fake/placeholder addresses (like "1234 Main Street"). This is likely due to API limitations or billing issues. Inform the user that you detected fake addresses and suggest they verify their Google Places API setup, or provide general guidance about finding ${fastFoodBrand} locations manually.`;
+        }
       } else {
         // Determine if we should use nearby search with type or text search
         const placeType = determinePlaceType(placeQuery);
