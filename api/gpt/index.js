@@ -69,44 +69,90 @@ module.exports = async function handler(req, res) {
     // Build the system message with context
     let systemMessage = `You are LocalAI, a helpful AI assistant for the GroupEvent app, which helps users plan group events and social activities. You can help with event recommendations, restaurant suggestions, activity planning, and general questions about organizing group events.
 
-When displaying events, always format them in this structured newsletter style:
+When displaying events, always format them in this clean, readable style:
 
-📅 [Date]
+📅 [Friendly Date Format - e.g., "Today", "Tomorrow", "Friday, Jan 15"]
 
-**[Event Name]**
+[Event Name]
 [Description]
-[Time] @ [Location]
+[Friendly Time - e.g., "7:00 PM", "2:30 PM"] @ [Venue Name]
 Price: [Price/Free]
 
-Group multiple events by date when possible. Use clear formatting with emojis and bold text for better readability.`;
+Group multiple events by date. Use emojis but NO markdown formatting (no ** or other symbols). Make dates and times very user-friendly.`;
     
     // If requested, include event data in context
     if (includeEvents) {
       const events = await getEventsFromDB();
       if (events.length > 0) {
+        // Helper function to format date in friendly way
+        const formatFriendlyDate = (dateString) => {
+          if (!dateString) return 'No Date';
+          try {
+            const date = new Date(dateString);
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            
+            // Reset time for comparison
+            today.setHours(0, 0, 0, 0);
+            tomorrow.setHours(0, 0, 0, 0);
+            date.setHours(0, 0, 0, 0);
+            
+            if (date.getTime() === today.getTime()) {
+              return 'Today';
+            } else if (date.getTime() === tomorrow.getTime()) {
+              return 'Tomorrow';
+            } else {
+              return date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'short', 
+                day: 'numeric' 
+              });
+            }
+          } catch {
+            return dateString;
+          }
+        };
+
+        // Helper function to format time in friendly way
+        const formatFriendlyTime = (timeString) => {
+          if (!timeString) return 'Time TBD';
+          try {
+            // Handle various time formats
+            const time = new Date(`2000-01-01 ${timeString}`);
+            return time.toLocaleTimeString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              hour12: true 
+            });
+          } catch {
+            return timeString;
+          }
+        };
+
         // Group events by date for better organization
         const eventsByDate = events.reduce((groups, event) => {
-          const dateKey = event.date || 'No Date';
-          if (!groups[dateKey]) groups[dateKey] = [];
-          groups[dateKey].push(event);
+          const friendlyDate = formatFriendlyDate(event.date);
+          if (!groups[friendlyDate]) groups[friendlyDate] = [];
+          groups[friendlyDate].push(event);
           return groups;
         }, {});
 
-        systemMessage += `\n\nHere are the current events available in our database, grouped by date:\n`;
+        systemMessage += `\n\nHere are the current events available in our database:\n`;
         
-        Object.entries(eventsByDate).forEach(([date, dateEvents]) => {
-          systemMessage += `\n📅 ${date}\n`;
+        Object.entries(eventsByDate).forEach(([friendlyDate, dateEvents]) => {
+          systemMessage += `\n📅 ${friendlyDate}\n\n`;
           dateEvents.forEach(event => {
-            systemMessage += `**${event.name || 'Untitled Event'}**\n`;
+            systemMessage += `${event.name || 'Untitled Event'}\n`;
             systemMessage += `${event.description || 'No description'}\n`;
-            systemMessage += `${event.time || 'Time TBD'}${event.venue_name ? ` @ ${event.venue_name}` : ''}${event.location ? ` (${event.location})` : ''}\n`;
+            systemMessage += `${formatFriendlyTime(event.time)}${event.venue_name ? ` @ ${event.venue_name}` : ''}${event.location ? ` (${event.location})` : ''}\n`;
             systemMessage += `Price: ${event.is_free ? 'Free' : (event.price ? `$${event.price}` : 'TBD')}\n`;
             if (event.category) systemMessage += `Category: ${event.category}\n`;
             systemMessage += `\n`;
           });
         });
 
-        systemMessage += `\nWhen responding about events, use this exact formatting style with dates, bold titles, descriptions, and location details. Always group events by date and use emojis to make it visually appealing.`;
+        systemMessage += `\nWhen responding about events, use this exact clean formatting style - NO markdown symbols like ** or __, just clean text with friendly dates and times. Always group events by date and use emojis to make it visually appealing.`;
       } else {
         systemMessage += `\n\nNo events are currently available in the database, but you can still help with general event planning advice.`;
       }

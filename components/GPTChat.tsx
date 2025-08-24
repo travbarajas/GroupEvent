@@ -25,7 +25,6 @@ export default function GPTChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [includeEventData, setIncludeEventData] = useState(false);
 
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
@@ -54,7 +53,7 @@ export default function GPTChat() {
         },
         body: JSON.stringify({
           message: userMessage,
-          includeEvents: includeEventData,
+          includeEvents: true,
         }),
       });
 
@@ -147,22 +146,6 @@ export default function GPTChat() {
         </View>
         
         <View style={styles.headerControls}>
-          <TouchableOpacity 
-            style={[
-              styles.toggleButton, 
-              { borderColor: tintColor },
-              includeEventData && { backgroundColor: tintColor }
-            ]}
-            onPress={() => setIncludeEventData(!includeEventData)}
-          >
-            <Text style={[
-              styles.toggleText,
-              { color: includeEventData ? 'white' : tintColor }
-            ]}>
-              Events {includeEventData ? 'ON' : 'OFF'}
-            </Text>
-          </TouchableOpacity>
-          
           {messages.length > 0 && (
             <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
               <Ionicons name="trash-outline" size={20} color={tintColor} />
@@ -182,7 +165,7 @@ export default function GPTChat() {
               Ask LocalAI about events, restaurants, or group planning!
             </Text>
             <Text style={styles.emptyStateSubtext}>
-              Turn on "Events" to get recommendations from our database
+              I have access to all local business events and venues
             </Text>
           </View>
         )}
@@ -282,16 +265,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  toggleButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   clearButton: {
     padding: 4,
