@@ -131,7 +131,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    console.log('GPT API called with body:', req.body);
+    console.log('GPT API called with body:', JSON.stringify(req.body, null, 2));
     
     const { 
       message, 
@@ -139,6 +139,9 @@ module.exports = async function handler(req, res) {
       location,
       enablePlaces = true 
     } = req.body;
+    
+    console.log('Location data received:', location);
+    console.log('Enable places:', enablePlaces);
 
     if (!message) {
       console.log('No message provided');
@@ -173,13 +176,18 @@ When displaying places/restaurants, use this format:
 
 Group multiple events by date. Use emojis but NO markdown formatting (no ** or other symbols). Make dates and times very user-friendly.`;
 
-    // Add Places API instructions if location is available
-    if (enablePlaces && location) {
-      systemMessage += `\n\nYou have access to Google Places data to help users find nearby restaurants, venues, and other locations. When users ask about places, restaurants, or venues, you should:
+    // Add Places API instructions based on location availability
+    if (enablePlaces) {
+      if (location && location.latitude && location.longitude) {
+        systemMessage += `\n\nYou have access to Google Places data and the user's current location (${location.latitude}, ${location.longitude}). When users ask about places, restaurants, or venues, you should:
 1. Identify what type of place they're looking for
 2. Use the available place data to provide recommendations
 3. Include relevant details like ratings, address, and pricing level
-4. Suggest places that would be good for group events when relevant`;
+4. Suggest places that would be good for group events when relevant
+5. Mention that these are nearby recommendations based on their location`;
+      } else {
+        systemMessage += `\n\nYou have Google Places API access but no location data from the user. If they ask about nearby places, let them know you need their location permission to provide personalized recommendations, but you can still help with general place suggestions.`;
+      }
     }
     
     // If requested, include event data in context
@@ -264,7 +272,12 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
     let placesData = [];
     const isAskingAboutPlaces = /restaurant|food|eat|cafe|coffee|bar|venue|place|nearby|around here|close by|dining|lunch|dinner|brunch/i.test(message);
     
-    if (isAskingAboutPlaces && enablePlaces && location) {
+    console.log('Place query analysis:');
+    console.log('- Is asking about places:', isAskingAboutPlaces);
+    console.log('- Places enabled:', enablePlaces);
+    console.log('- Has location:', !!(location && location.latitude && location.longitude));
+    
+    if (isAskingAboutPlaces && enablePlaces && location && location.latitude && location.longitude) {
       console.log('User is asking about places, searching Google Places API...');
       
       // Extract the type of place from the message
@@ -292,7 +305,12 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
         systemMessage += `\n\nUse this information to provide specific recommendations with names, ratings, addresses, and why each place would be good for their needs. Format them using the place format specified above.`;
         
         console.log(`Found ${placesData.length} places for query: ${placeQuery}`);
+      } else {
+        console.log('No places found or API error - user has location but no results');
+        systemMessage += `\n\nNote: User asked about places and has location enabled, but no place data was retrieved. This might be due to API key issues or no results for their query.`;
       }
+    } else if (isAskingAboutPlaces && enablePlaces) {
+      console.log('User asking about places but location not available');
     }
 
     // Call OpenAI API directly using fetch

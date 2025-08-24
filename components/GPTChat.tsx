@@ -76,6 +76,8 @@ export default function GPTChat() {
     const userMessage = inputText.trim();
     setInputText('');
     
+    console.log('Sending message with location:', userLocation);
+    
     // Add user message immediately
     const newUserMessage: Message = {
       role: 'user',
@@ -198,7 +200,7 @@ export default function GPTChat() {
               styles.locationText,
               { color: userLocation ? "#10b981" : "#6b7280" }
             ]}>
-              {userLocation ? "Location enabled" : "No location"}
+              {userLocation ? "Location ON" : "Location OFF"}
             </Text>
           </View>
           {messages.length > 0 && (
