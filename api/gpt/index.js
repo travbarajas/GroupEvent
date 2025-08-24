@@ -71,7 +71,22 @@ async function searchNearbyPlaces(location, query, radius = 5000, placeType = nu
     );
     
     console.log('Google Places nearby response:', response.data);
-    return response.data.results.slice(0, 5);
+    
+    // Filter out results with placeholder addresses (same as text search)
+    const filteredResults = response.data.results.filter(place => {
+      const address = place.formatted_address || place.vicinity || '';
+      const hasFakeNumbers = address.includes('1234') || 
+                           address.includes('5678') || 
+                           address.includes('9999') ||
+                           address.match(/\b(1234|5678|9999|0000)\b/);
+      const isGenericAddress = address.match(/^(Road|Street|Avenue|Drive|Main Street|Park Ave)$/i) ||
+                              address.match(/^\d+ (Main Street|Park Ave|First Street|Second Street)$/i);
+      const isTooShort = address.length < 15;
+      
+      return !hasFakeNumbers && !isGenericAddress && !isTooShort;
+    });
+    
+    return filteredResults.slice(0, 5);
   } catch (error) {
     console.error('Error fetching places:', error);
     return [];
@@ -113,15 +128,90 @@ async function searchPlacesByText(query, location) {
     // Filter out results with placeholder addresses
     const filteredResults = response.data.results.filter(place => {
       const address = place.formatted_address || place.vicinity || '';
-      // Filter out obviously fake addresses
-      return !address.includes('1234') && 
-             address.length > 10 && 
-             !address.match(/^(Road|Street|Avenue|Drive)$/i);
+      // Filter out obviously fake addresses and sequential patterns
+      const hasFakeNumbers = address.includes('1234') || 
+                           address.includes('5678') || 
+                           address.includes('9999') ||
+                           address.match(/\b(1234|5678|9999|0000)\b/);
+      const isGenericAddress = address.match(/^(Road|Street|Avenue|Drive|Main Street|Park Ave)$/i) ||
+                              address.match(/^\d+ (Main Street|Park Ave|First Street|Second Street)$/i);
+      const isTooShort = address.length < 15; // Real addresses are usually longer
+      
+      return !hasFakeNumbers && !isGenericAddress && !isTooShort;
     });
     
     return filteredResults.slice(0, 5);
   } catch (error) {
     console.error('Error searching places by text:', error);
+    return [];
+  }
+}
+
+// Special search for branded fast food chains
+async function searchBrandedRestaurant(location, brandName, radius = 3000) {
+  try {
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      return [];
+    }
+
+    // Try multiple search approaches for branded restaurants
+    const searchApproaches = [
+      // Approach 1: Nearby search with name
+      {
+        url: 'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+        params: {
+          location: `${location.latitude},${location.longitude}`,
+          radius: radius,
+          name: brandName,
+          type: 'restaurant',
+          key: process.env.GOOGLE_PLACES_API_KEY,
+        }
+      },
+      // Approach 2: Text search with location
+      {
+        url: 'https://maps.googleapis.com/maps/api/place/textsearch/json',
+        params: {
+          query: `${brandName} restaurant near ${location.latitude},${location.longitude}`,
+          key: process.env.GOOGLE_PLACES_API_KEY,
+        }
+      }
+    ];
+
+    for (const approach of searchApproaches) {
+      console.log(`Trying branded search approach for ${brandName}:`, approach.params);
+      
+      const response = await axios.get(approach.url, {
+        params: approach.params,
+        timeout: 5000
+      });
+
+      if (response.data.results && response.data.results.length > 0) {
+        // Apply strict filtering for branded restaurants
+        const validResults = response.data.results.filter(place => {
+          const address = place.formatted_address || place.vicinity || '';
+          const name = place.name || '';
+          
+          // Must have the brand name in the result
+          const hasBrandName = name.toLowerCase().includes(brandName.toLowerCase());
+          
+          // More strict filtering for addresses
+          const hasFakeNumbers = address.match(/\b(1234|5678|9999|0000|1111|2222|3333)\b/);
+          const hasRealAddressComponents = address.includes(',') && address.length > 20;
+          const hasState = address.match(/[A-Z]{2}\s+\d{5}/); // State + ZIP pattern
+          
+          return hasBrandName && !hasFakeNumbers && (hasRealAddressComponents || hasState);
+        });
+
+        if (validResults.length > 0) {
+          console.log(`Found ${validResults.length} valid ${brandName} locations`);
+          return validResults.slice(0, 3); // Return fewer results for branded searches
+        }
+      }
+    }
+
+    return [];
+  } catch (error) {
+    console.error(`Error searching for branded restaurant ${brandName}:`, error);
     return [];
   }
 }
@@ -172,6 +262,27 @@ function determinePlaceType(query) {
   }
   
   return null; // No specific type, use text search
+}
+
+function detectFastFoodBrand(query) {
+  const queryLower = query.toLowerCase();
+  
+  // Common fast food chains
+  const brands = [
+    'mcdonalds', "mcdonald's", 'burger king', 'subway', 'kfc', 'taco bell',
+    'pizza hut', 'dominos', "domino's", 'wendys', "wendy's", 'chick-fil-a',
+    'chipotle', 'five guys', 'in-n-out', 'white castle', 'arbys', "arby's",
+    'popeyes', 'sonic', 'dairy queen', 'jack in the box', 'del taco'
+  ];
+  
+  for (const brand of brands) {
+    if (queryLower.includes(brand)) {
+      // Return standardized brand name
+      return brand.replace("'s", "").replace("-", " ");
+    }
+  }
+  
+  return null;
 }
 
 // Main API handler
@@ -348,22 +459,32 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
       
       console.log('Extracted place query:', placeQuery);
       
-      // Determine if we should use nearby search with type or text search
-      const placeType = determinePlaceType(placeQuery);
-      console.log('Determined place type:', placeType);
+      // Check if this is a fast food brand search first
+      const fastFoodBrand = detectFastFoodBrand(placeQuery);
+      console.log('Detected fast food brand:', fastFoodBrand);
       
-      if (placeType) {
-        // Use nearby search with specific type for better accuracy
-        placesData = await searchNearbyPlaces(location, placeQuery, 5000, placeType);
+      if (fastFoodBrand) {
+        // Use specialized branded search for fast food chains
+        placesData = await searchBrandedRestaurant(location, fastFoodBrand);
+        console.log(`Branded search for ${fastFoodBrand} returned ${placesData.length} results`);
+      } else {
+        // Determine if we should use nearby search with type or text search
+        const placeType = determinePlaceType(placeQuery);
+        console.log('Determined place type:', placeType);
         
-        // If nearby search doesn't return good results, try text search as fallback
-        if (placesData.length === 0) {
-          console.log('No nearby results, trying text search...');
+        if (placeType) {
+          // Use nearby search with specific type for better accuracy
+          placesData = await searchNearbyPlaces(location, placeQuery, 5000, placeType);
+          
+          // If nearby search doesn't return good results, try text search as fallback
+          if (placesData.length === 0) {
+            console.log('No nearby results, trying text search...');
+            placesData = await searchPlacesByText(placeQuery, location);
+          }
+        } else {
+          // Use text search for more complex queries
           placesData = await searchPlacesByText(placeQuery, location);
         }
-      } else {
-        // Use text search for more complex queries
-        placesData = await searchPlacesByText(placeQuery, location);
       }
       
       if (placesData.length > 0) {
