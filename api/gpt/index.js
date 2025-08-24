@@ -36,27 +36,42 @@ async function getEventsFromDB() {
 }
 
 // Google Places API functions
-async function searchNearbyPlaces(location, query, radius = 5000) {
+async function searchNearbyPlaces(location, query, radius = 5000, placeType = null) {
   try {
     if (!process.env.GOOGLE_PLACES_API_KEY) {
       console.log('Google Places API key not configured');
       return [];
     }
 
+    let params = {
+      location: `${location.latitude},${location.longitude}`,
+      radius: radius,
+      key: process.env.GOOGLE_PLACES_API_KEY,
+    };
+
+    // Use type instead of keyword for better restaurant results
+    if (placeType) {
+      params.type = placeType;
+      // Only add keyword if we have a specific brand/name
+      if (query && !['restaurant', 'food', 'cafe', 'bar'].includes(query.toLowerCase())) {
+        params.keyword = query;
+      }
+    } else {
+      params.keyword = query;
+    }
+
+    console.log('Nearby search params:', params);
+
     const response = await axios.get(
       'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
       {
-        params: {
-          location: `${location.latitude},${location.longitude}`,
-          radius: radius,
-          keyword: query,
-          key: process.env.GOOGLE_PLACES_API_KEY,
-        },
+        params,
         timeout: 5000
       }
     );
     
-    return response.data.results.slice(0, 5); // Return top 5 results to manage tokens
+    console.log('Google Places nearby response:', response.data);
+    return response.data.results.slice(0, 5);
   } catch (error) {
     console.error('Error fetching places:', error);
     return [];
@@ -70,22 +85,41 @@ async function searchPlacesByText(query, location) {
       return [];
     }
 
+    // Enhance query with location context for better results
+    let searchQuery = query;
+    if (location) {
+      searchQuery = `${query} near me`;
+    }
+
     let params = {
-      query: query,
+      query: searchQuery,
       key: process.env.GOOGLE_PLACES_API_KEY,
     };
     
     if (location) {
       params.location = `${location.latitude},${location.longitude}`;
-      params.radius = 10000; // 10km radius for text search
+      params.radius = 5000; // 5km radius for more precise results
     }
     
+    console.log('Text search params:', params);
+
     const response = await axios.get(
       'https://maps.googleapis.com/maps/api/place/textsearch/json',
       { params, timeout: 5000 }
     );
     
-    return response.data.results.slice(0, 5);
+    console.log('Google Places text search response:', response.data);
+    
+    // Filter out results with placeholder addresses
+    const filteredResults = response.data.results.filter(place => {
+      const address = place.formatted_address || place.vicinity || '';
+      // Filter out obviously fake addresses
+      return !address.includes('1234') && 
+             address.length > 10 && 
+             !address.match(/^(Road|Street|Avenue|Drive)$/i);
+    });
+    
+    return filteredResults.slice(0, 5);
   } catch (error) {
     console.error('Error searching places by text:', error);
     return [];
@@ -95,23 +129,49 @@ async function searchPlacesByText(query, location) {
 function determinePlaceType(query) {
   const queryLower = query.toLowerCase();
   
-  const placeTypeMap = {
-    restaurant: ['restaurant', 'food'],
-    cafe: ['cafe', 'coffee_shop'],
-    bar: ['bar', 'night_club'],
-    shopping: ['shopping_mall', 'store'],
-    entertainment: ['movie_theater', 'amusement_park', 'bowling_alley'],
-    gym: ['gym', 'fitness_center'],
-    park: ['park', 'playground'],
-  };
-  
-  for (const [key, types] of Object.entries(placeTypeMap)) {
-    if (queryLower.includes(key)) {
-      return types;
-    }
+  // Map common search terms to Google Places API types
+  if (queryLower.includes('restaurant') || queryLower.includes('food') || queryLower.includes('dining')) {
+    return 'restaurant';
+  }
+  if (queryLower.includes('cafe') || queryLower.includes('coffee')) {
+    return 'cafe';
+  }
+  if (queryLower.includes('bar') || queryLower.includes('pub') || queryLower.includes('drink')) {
+    return 'bar';
+  }
+  if (queryLower.includes('gas') || queryLower.includes('station') || queryLower.includes('fuel')) {
+    return 'gas_station';
+  }
+  if (queryLower.includes('bank') || queryLower.includes('atm')) {
+    return 'bank';
+  }
+  if (queryLower.includes('hospital') || queryLower.includes('medical')) {
+    return 'hospital';
+  }
+  if (queryLower.includes('pharmacy') || queryLower.includes('drug')) {
+    return 'pharmacy';
+  }
+  if (queryLower.includes('gym') || queryLower.includes('fitness')) {
+    return 'gym';
+  }
+  if (queryLower.includes('school') || queryLower.includes('university') || queryLower.includes('college')) {
+    return 'university';
+  }
+  if (queryLower.includes('mall') || queryLower.includes('shopping')) {
+    return 'shopping_mall';
+  }
+  if (queryLower.includes('hotel') || queryLower.includes('lodge')) {
+    return 'lodging';
   }
   
-  return ['establishment']; // Default fallback
+  // Fast food chains - use restaurant type but keep keyword
+  if (queryLower.includes('mcdonald') || queryLower.includes('burger') || 
+      queryLower.includes('pizza') || queryLower.includes('subway') ||
+      queryLower.includes('kfc') || queryLower.includes('taco')) {
+    return 'restaurant';
+  }
+  
+  return null; // No specific type, use text search
 }
 
 // Main API handler
@@ -282,12 +342,29 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
       
       // Extract the type of place from the message
       const placeQuery = message.toLowerCase()
-        .replace(/where|what|find|show|recommend|suggest|good|best|near|nearby|close/gi, '')
+        .replace(/where|what|find|show|recommend|suggest|good|best|near|nearby|close|the|a|an/gi, '')
         .replace(/\?|!|\.|,/g, '')
         .trim();
       
-      // Search for places using text search (more flexible than nearby search)
-      placesData = await searchPlacesByText(placeQuery, location);
+      console.log('Extracted place query:', placeQuery);
+      
+      // Determine if we should use nearby search with type or text search
+      const placeType = determinePlaceType(placeQuery);
+      console.log('Determined place type:', placeType);
+      
+      if (placeType) {
+        // Use nearby search with specific type for better accuracy
+        placesData = await searchNearbyPlaces(location, placeQuery, 5000, placeType);
+        
+        // If nearby search doesn't return good results, try text search as fallback
+        if (placesData.length === 0) {
+          console.log('No nearby results, trying text search...');
+          placesData = await searchPlacesByText(placeQuery, location);
+        }
+      } else {
+        // Use text search for more complex queries
+        placesData = await searchPlacesByText(placeQuery, location);
+      }
       
       if (placesData.length > 0) {
         // Format places data for GPT
