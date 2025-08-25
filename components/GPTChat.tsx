@@ -25,6 +25,8 @@ interface Message {
 interface LocationData {
   latitude: number;
   longitude: number;
+  accuracy?: number;
+  timestamp?: number;
 }
 
 export default function GPTChat() {
@@ -52,23 +54,65 @@ export default function GPTChat() {
 
         setLocationPermission(true);
 
-        // Get current location
+        // Get current location with high accuracy
         let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.High,
+          maximumAge: 10000, // Accept location up to 10 seconds old
+          timeout: 15000, // Wait up to 15 seconds for location
         });
         
         setUserLocation({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          timestamp: location.timestamp,
         });
 
-        console.log('Location obtained:', location.coords.latitude, location.coords.longitude);
+        console.log('Location obtained:');
+        console.log('- Latitude:', location.coords.latitude);
+        console.log('- Longitude:', location.coords.longitude);
+        console.log('- Accuracy:', location.coords.accuracy, 'meters');
+        console.log('- Altitude:', location.coords.altitude);
+        console.log('- Speed:', location.coords.speed);
+        console.log('- Timestamp:', new Date(location.timestamp));
       } catch (error) {
         console.error('Error getting location:', error);
         setLocationPermission(false);
       }
     })();
   }, []);
+
+  // Function to refresh location manually
+  const refreshLocation = async () => {
+    try {
+      console.log('Refreshing location...');
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        maximumAge: 0, // Force fresh location
+        timeout: 20000, // Wait up to 20 seconds
+      });
+      
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        timestamp: location.timestamp,
+      });
+
+      console.log('Location refreshed:');
+      console.log('- Latitude:', location.coords.latitude);
+      console.log('- Longitude:', location.coords.longitude);
+      console.log('- Accuracy:', location.coords.accuracy, 'meters');
+      
+      Alert.alert(
+        'Location Updated', 
+        `New location accuracy: ±${Math.round(location.coords.accuracy || 0)} meters`
+      );
+    } catch (error) {
+      console.error('Error refreshing location:', error);
+      Alert.alert('Location Error', 'Could not refresh location. Please check your location settings.');
+    }
+  };
 
   const sendMessage = async () => {
     if (!inputText.trim()) return;
@@ -200,8 +244,16 @@ export default function GPTChat() {
               styles.locationText,
               { color: userLocation ? "#10b981" : "#6b7280" }
             ]}>
-              {userLocation ? "Location ON" : "Location OFF"}
+              {userLocation ? 
+                `Location ON (±${Math.round(userLocation.accuracy || 0)}m)` : 
+                "Location OFF"
+              }
             </Text>
+            {userLocation && userLocation.accuracy && userLocation.accuracy > 1000 && (
+              <TouchableOpacity onPress={refreshLocation} style={styles.refreshLocationButton}>
+                <Ionicons name="refresh" size={14} color="#f59e0b" />
+              </TouchableOpacity>
+            )}
           </View>
           {messages.length > 0 && (
             <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
@@ -335,6 +387,10 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  refreshLocationButton: {
+    marginLeft: 4,
+    padding: 2,
   },
   clearButton: {
     padding: 4,
