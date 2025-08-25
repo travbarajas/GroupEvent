@@ -100,20 +100,27 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         return;
       }
 
-      // Pick image
+      console.log('Opening image picker...');
+      
+      // Pick image - using the working deprecated API for now
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: [ImagePicker.MediaType.Images],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      console.log('Image picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        console.log('Selected image URI:', result.assets[0].uri);
         setSelectedImage(result.assets[0].uri);
+      } else {
+        console.log('Image selection was canceled or failed');
       }
     } catch (error) {
       console.error('Error selecting image:', error);
-      Alert.alert('Error', 'Failed to select image');
+      Alert.alert('Error', `Failed to select image: ${error.message}`);
     }
   };
 
