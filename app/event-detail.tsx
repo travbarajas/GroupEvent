@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,22 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
+import { ApiService } from '../services/api';
 
 export default function EventDetailScreen() {
   const { toggleSaveEvent, isEventSaved } = useGroups();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Parse the event data from params
   const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
+
+  // Check if user is admin (you can implement your own admin logic)
+  useEffect(() => {
+    // For now, set to true for testing. Replace with actual admin check
+    setIsAdmin(true);
+  }, []);
 
   if (!event) {
     return (
@@ -58,6 +66,14 @@ export default function EventDetailScreen() {
   const handleAddToGroup = () => {
     router.push({
       pathname: '/group-selection',
+      params: { event: JSON.stringify(event) }
+    });
+  };
+
+  const handleEditEvent = () => {
+    // Navigate to edit event modal with event data
+    router.push({
+      pathname: '/edit-event',
       params: { event: JSON.stringify(event) }
     });
   };
@@ -104,6 +120,11 @@ export default function EventDetailScreen() {
             <Text style={styles.eventName}>{event.name}</Text>
             <Text style={styles.eventDate}>{event.date}</Text>
           </View>
+          {isAdmin && (
+            <TouchableOpacity onPress={handleEditEvent} style={styles.editButton}>
+              <Ionicons name="create-outline" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Event Details Grid */}
@@ -232,6 +253,10 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     marginRight: 12,
+  },
+  editButton: {
+    padding: 8,
+    marginLeft: 12,
   },
   scrollContainer: {
     flex: 1,

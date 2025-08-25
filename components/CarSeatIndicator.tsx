@@ -27,6 +27,7 @@ interface CarSeatIndicatorProps {
   currentUserId?: string;
   userColor?: string;
   members: any[];
+  compact?: boolean;
 }
 
 export default function CarSeatIndicator({ 
@@ -34,7 +35,8 @@ export default function CarSeatIndicator({
   eventId,
   currentUserId, 
   userColor,
-  members 
+  members,
+  compact = false
 }: CarSeatIndicatorProps) {
   const [cars, setCars] = useState<Car[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -480,11 +482,13 @@ export default function CarSeatIndicator({
         activeOpacity={0.8}
         onPress={() => setShowModal(true)}
       >
-        <View style={styles.carSeatHeader}>
-          <Ionicons name="car-sport" size={20} color="#60a5fa" />
-          <Text style={styles.carSeatTitle}>Transportation</Text>
-          <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
-        </View>
+        {!compact && (
+          <View style={styles.carSeatHeader}>
+            <Ionicons name="car-sport" size={20} color="#60a5fa" />
+            <Text style={styles.carSeatTitle}>Transportation</Text>
+            <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
+          </View>
+        )}
         
         <View style={styles.carListPreview} pointerEvents="box-none">
           {cars.length === 0 ? (

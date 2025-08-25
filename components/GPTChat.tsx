@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import EventBlock from './EventBlock';
 
 interface EventData {
@@ -70,22 +71,23 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { eve
   }
   
   // Parse events from the response text using various patterns
+  // Order patterns by specificity - most specific first to avoid conflicts
   const patterns = [
-    // Pattern 1: "Event: Name\nDate: ...\nTime: ..." format
+    // Pattern 1: Calendar emoji format - enhanced to capture multiple events separated by double newlines
+    /📅\s*([^\n]+)\n\n([\s\S]*?)(?=\n\n📅|\n\n$|$)/gi,
+    
+    // Pattern 2: "Event: Name\nDate: ...\nTime: ..." format
     /(?:Event|EVENT):\s*([^\n]+)(?:\n.*?(?:Date|DATE):\s*([^\n]+))?(?:\n.*?(?:Time|TIME):\s*([^\n]+))?(?:\n.*?(?:Location|LOCATION):\s*([^\n]+))?(?:\n.*?(?:Price|PRICE):\s*([^\n]+))?/gi,
     
-    // Pattern 2: "**Event Name**\n- Date: ...\n- Time: ..." format
+    // Pattern 3: "**Event Name**\n- Date: ...\n- Time: ..." format
     /\*\*([^*\n]+)\*\*\s*(?:\n[-•]\s*(?:Date|When):\s*([^\n]+))?(?:\n[-•]\s*(?:Time):\s*([^\n]+))?(?:\n[-•]\s*(?:Location|Where):\s*([^\n]+))?(?:\n[-•]\s*(?:Price|Cost):\s*([^\n]+))?/gi,
     
-    // Pattern 3: "1. Event Name - Date, Time, Location" format
+    // Pattern 4: "1. Event Name - Date, Time, Location" format
     /\d+\.\s*([^-\n]+)\s*-\s*([^,\n]+)(?:,\s*([^,\n]+))?(?:,\s*([^,\n]+))?(?:,\s*([^\n]+))?/gi,
-    
-    // Pattern 4: Event blocks with multiple lines (emoji followed by content)
-    /(?:🎵|🎭|🎪|📅|🎯|🏆|🎨|🎤|🍽️|🍻|⚽|🏀|🎾|🎳|🎲|🎮)[\s\S]*?(?=\n\n|$)/gi,
-    
-    // Pattern 5: Calendar emoji format - more flexible
-    /📅\s*([^\n]+)\n\n([\s\S]+)/gi
   ];
+  
+  // Keep track of processed text regions to avoid duplicates
+  const processedRegions: string[] = [];
   
   patterns.forEach(pattern => {
     let match;
@@ -93,44 +95,12 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { eve
       const fullMatch = match[0];
       let name, date, time, location, price, description = '';
       
-      if (pattern === patterns[0]) { // Event: format
-        [, name, date, time, location, price] = match;
-      } else if (pattern === patterns[1]) { // **Event** format
-        [, name, date, time, location, price] = match;
-      } else if (pattern === patterns[2]) { // numbered list format
-        [, name, date, time, location, price] = match;
-      } else if (pattern === patterns[3]) { // emoji block format
-        // Extract event info from emoji blocks
-        const lines = fullMatch.split('\n');
-        name = lines[0]?.replace(/[🎵🎭🎪📅🎯🏆🎨🎤🍽️🍻⚽🏀🎾🎳🎲🎮]/g, '').trim();
-        
-        // Also try to extract description from first few lines after the title
-        const descriptionLines = lines.slice(1).filter(line => 
-          !line.toLowerCase().includes('date:') && 
-          !line.toLowerCase().includes('time:') &&
-          !line.toLowerCase().includes('location:') &&
-          !line.toLowerCase().includes('price:') &&
-          !line.toLowerCase().includes('when:') &&
-          !line.toLowerCase().includes('where:') &&
-          !line.toLowerCase().includes('cost:') &&
-          line.trim().length > 0
-        );
-        
-        description = descriptionLines.slice(0, 2).join(' ').trim();
-        
-        lines.forEach(line => {
-          const lowerLine = line.toLowerCase();
-          if (lowerLine.includes('date:') || lowerLine.includes('when:')) {
-            date = line.split(':')[1]?.trim();
-          } else if (lowerLine.includes('time:')) {
-            time = line.split(':')[1]?.trim();
-          } else if (lowerLine.includes('location:') || lowerLine.includes('where:')) {
-            location = line.split(':')[1]?.trim();
-          } else if (lowerLine.includes('price:') || lowerLine.includes('cost:')) {
-            price = line.split(':')[1]?.trim();
-          }
-        });
-      } else if (pattern === patterns[4]) { // Calendar emoji format: 📅 Date\n\nContent
+      // Skip if we've already processed this text region
+      if (processedRegions.some(region => fullMatch.includes(region) || region.includes(fullMatch))) {
+        continue;
+      }
+      
+      if (pattern === patterns[0]) { // Calendar emoji format: 📅 Date\n\nContent
         const [, eventDate, content] = match;
         const lines = content.split('\n').map(line => line.trim()).filter(line => line);
         
@@ -157,6 +127,12 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { eve
         if (priceLine) {
           price = priceLine.replace(/price:\s*/i, '').trim();
         }
+      } else if (pattern === patterns[1]) { // Event: format
+        [, name, date, time, location, price] = match;
+      } else if (pattern === patterns[2]) { // **Event** format
+        [, name, date, time, location, price] = match;
+      } else if (pattern === patterns[3]) { // numbered list format
+        [, name, date, time, location, price] = match;
       }
       
       if (name && name.trim()) {
@@ -173,10 +149,25 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { eve
           image_url: '',
         };
         
-        // Debug log to see what data we're extracting
-        console.log('Extracted event data:', eventData);
+        // Only add events that have meaningful data (not just a date as name)
+        const hasValidData = eventData.name && (
+          eventData.description || 
+          eventData.time || 
+          eventData.location || 
+          eventData.price ||
+          !eventData.name.match(/^\w+,?\s+\w+\s+\d+$/) // Don't treat "Saturday, Jul 25" as an event name
+        );
         
-        events.push(eventData);
+        if (hasValidData) {
+          // Debug log to see what data we're extracting
+          console.log('Extracted valid event data:', eventData);
+          events.push(eventData);
+          
+          // Mark this region as processed
+          processedRegions.push(fullMatch);
+        } else {
+          console.log('Skipping invalid event data:', eventData);
+        }
         
         // Remove the event information from the text
         cleanedText = cleanedText.replace(fullMatch, '').trim();
@@ -191,10 +182,13 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { eve
     .replace(/^[-•]\s*$/gm, '') // Remove empty bullet points
     .replace(/\n\n+/g, '\n\n'); // Clean up spacing
   
-  // If we found events, add a note about them being displayed below
+  // If we found events, replace the cleaned text with a simple message
   if (events.length > 0) {
-    const eventCountText = events.length === 1 ? 'event' : 'events';
-    cleanedText += `\n\nI found ${events.length} ${eventCountText} for you:`;
+    if (events.length === 1) {
+      cleanedText = `I found 1 event for you:`;
+    } else {
+      cleanedText = `I found ${events.length} events for you:`;
+    }
   }
   
   return { events, cleanedText };
@@ -211,6 +205,7 @@ export default function GPTChat() {
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
+  const iconColor = useThemeColor({}, 'icon');
 
   // Get user location on component mount
   useEffect(() => {
@@ -379,6 +374,13 @@ export default function GPTChat() {
     setLoading(true);
 
     try {
+      console.log('Sending request with data:', {
+        message: userMessage,
+        includeEvents: true,
+        location: userLocation,
+        enablePlaces: true,
+      });
+
       const response = await fetch('https://group-event.vercel.app/api/gpt', {
         method: 'POST',
         headers: {
@@ -567,14 +569,35 @@ export default function GPTChat() {
             {msg.events && msg.events.length > 0 && (
               <View style={styles.eventBlocksContainer}>
                 {msg.events.map((event, eventIndex) => (
-                  <EventBlock 
-                    key={eventIndex} 
-                    event={event}
-                    onPress={() => {
-                      // Handle event block press - could navigate to event details
-                      console.log('Event pressed:', event.name);
-                    }}
-                  />
+                  <View key={eventIndex}>
+                    <EventBlock 
+                      event={event}
+                      onPress={() => {
+                        // Handle event block press - could navigate to event details
+                        console.log('Event pressed:', event.name);
+                      }}
+                    />
+                    {/* Content break between events (except after the last one) */}
+                    {eventIndex < msg.events.length - 1 && (
+                      <View style={styles.eventSeparator}>
+                        <View style={styles.separatorContainer}>
+                          <LinearGradient
+                            colors={[backgroundColor, iconColor + '4D']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.separatorFadeLeft}
+                          />
+                          <View style={[styles.separatorLine, { backgroundColor: iconColor }]} />
+                          <LinearGradient
+                            colors={[iconColor + '4D', backgroundColor]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.separatorFadeRight}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
                 ))}
               </View>
             )}
@@ -785,5 +808,27 @@ const styles = StyleSheet.create({
   eventBlocksContainer: {
     marginTop: 8,
     marginBottom: 4,
+  },
+  eventSeparator: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  separatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '80%',
+  },
+  separatorFadeLeft: {
+    flex: 1,
+    height: 1,
+  },
+  separatorLine: {
+    flex: 2,
+    height: 1,
+    opacity: 0.4,
+  },
+  separatorFadeRight: {
+    flex: 1,
+    height: 1,
   },
 });

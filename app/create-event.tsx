@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { ApiService } from '@/services/api';
 import DateRangePicker from '@/components/DateRangePicker';
 
@@ -39,6 +41,7 @@ export default function CreateEventScreen() {
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const handleDateRangeChange = (startDate: Date, endDate: Date | null) => {
     setForm(prev => ({ 
@@ -62,6 +65,36 @@ export default function CreateEventScreen() {
     const start = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const end = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return `${start} - ${end}`;
+  };
+
+  const selectImage = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photo library to select an image.');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
   };
 
 
@@ -103,7 +136,7 @@ export default function CreateEventScreen() {
       <StatusBar style="light" />
       
       {/* Header */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#ffffff" />
@@ -141,6 +174,25 @@ export default function CreateEventScreen() {
               numberOfLines={3}
               maxLength={500}
             />
+          </View>
+
+          {/* Event Image */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Event Image</Text>
+            {selectedImage ? (
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
+                <TouchableOpacity style={styles.removeImageButton} onPress={removeImage}>
+                  <Ionicons name="close-circle" size={24} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
+                <Ionicons name="image-outline" size={32} color="#666" />
+                <Text style={styles.imagePickerText}>Tap to add event image</Text>
+                <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Date Range */}
@@ -301,5 +353,43 @@ const styles = StyleSheet.create({
     borderColor: '#2a2a2a',
     marginTop: 8,
     paddingVertical: 8,
+  },
+  imageContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  selectedImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+  },
+  imagePickerButton: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 2,
+    borderColor: '#2a2a2a',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickerText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  imagePickerSubtext: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 4,
   },
 });

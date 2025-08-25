@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ export default function NewsletterScreen() {
   } = useNewsletter();
 
   const [showPastNewsletters, setShowPastNewsletters] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadNewsletters();
@@ -42,7 +43,7 @@ export default function NewsletterScreen() {
   };
 
   const renderNewsletterContent = (newsletter: Newsletter) => {
-    return <NewsletterRenderer newsletter={newsletter} />;
+    return <NewsletterRenderer newsletter={newsletter} scrollViewRef={scrollViewRef} />;
   };
 
   const renderPastNewsletterItem = ({ item }: { item: Newsletter }) => (
@@ -84,7 +85,7 @@ export default function NewsletterScreen() {
       </View>
 
       {/* Main Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
         {currentNewsletter ? (
           renderNewsletterContent(currentNewsletter)
         ) : latestNewsletter ? (

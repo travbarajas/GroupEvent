@@ -24,6 +24,7 @@ import EventCustomizationModal from '@/components/EventCustomizationModal';
 import ExpenseBlock from '@/components/ExpenseBlock';
 import { calendarCache } from '@/utils/calendarCache';
 import { useRealtimeChat } from '@/hooks/useRealtimeChat';
+import { isFeatureEnabled } from '@/config/features';
 
 interface GroupPermissions {
   is_member: boolean;
@@ -56,7 +57,7 @@ const squareSize = (width - 48) / 2; // Account for padding and gap
 
 export default function GroupDetailScreen() {
   const { id, pendingEvent } = useLocalSearchParams();
-  const { getGroup, loadGroups } = useGroups();
+  const { getGroup, loadGroups, updateGroupAccess } = useGroups();
   const insets = useSafeAreaInsets();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -77,11 +78,13 @@ export default function GroupDetailScreen() {
   const group = getGroup(id as string);
   
   // Chat notifications - only track messages for notification badge
-  const { messages: chatMessages, isConnected, isLoading, error } = useRealtimeChat({
-    roomType: 'group',
-    roomId: id as string,
-    enabled: true,
-  });
+  const { messages: chatMessages, isConnected, isLoading, error } = isFeatureEnabled('REALTIME_CHAT') 
+    ? useRealtimeChat({
+        roomType: 'group',
+        roomId: id as string,
+        enabled: true,
+      })
+    : { messages: [], isConnected: false, isLoading: false, error: null };
 
   const appStateRef = useRef(AppState.currentState);
   const backgroundTimeRef = useRef<number | null>(null);
@@ -139,6 +142,9 @@ export default function GroupDetailScreen() {
   
   useEffect(() => {
     if (id) {
+      // Update group access time when opening
+      updateGroupAccess(id as string);
+      
       fetchInviteCode();
       fetchPermissions();
       fetchGroupProfile();
@@ -149,7 +155,7 @@ export default function GroupDetailScreen() {
       // Preload calendar data for faster calendar loading
       calendarCache.preloadCalendarData(new Date());
     }
-  }, [id]);
+  }, [id, updateGroupAccess]);
 
   useEffect(() => {
     // Handle pending event from navigation
@@ -1185,42 +1191,44 @@ export default function GroupDetailScreen() {
         </View>
       </View>
       
-      {/* Secondary Header Bar */}
-      <View style={styles.secondaryHeaderContainer}>
-        <View style={styles.secondaryHeader}>
-          <View style={styles.messagePreviewSection}>
-            {latestMessage ? (
-              <View style={styles.recentMessageContainer} key={latestMessage.id}>
-                <Text style={styles.recentMessageSender}>
-                  {latestMessage.username}:
-                </Text>
-                <Text style={styles.recentMessageText} numberOfLines={1}>
-                  {latestMessage.message}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.noMessagesText}>No messages yet</Text>
-            )}
-          </View>
-          <TouchableOpacity 
-            style={styles.chatButton} 
-            onPress={handleChatPress}
-          >
-            <View style={[styles.chatButtonContent, unreadCount === 0 && styles.chatButtonContentCentered]}>
-              {unreadCount > 0 ? (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationText}>
-                    {unreadCount > 99 ? '99+' : unreadCount.toString()}
+      {/* Secondary Header Bar - Chat Feature */}
+      {isFeatureEnabled('REALTIME_CHAT') && (
+        <View style={styles.secondaryHeaderContainer}>
+          <View style={styles.secondaryHeader}>
+            <View style={styles.messagePreviewSection}>
+              {latestMessage ? (
+                <View style={styles.recentMessageContainer} key={latestMessage.id}>
+                  <Text style={styles.recentMessageSender}>
+                    {latestMessage.username}:
+                  </Text>
+                  <Text style={styles.recentMessageText} numberOfLines={1}>
+                    {latestMessage.message}
                   </Text>
                 </View>
               ) : (
-                <Ionicons name="chatbubbles" size={16} color="#ffffff" />
+                <Text style={styles.noMessagesText}>No messages yet</Text>
               )}
-              <Text style={styles.chatButtonText}>Chat</Text>
             </View>
-          </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.chatButton} 
+              onPress={handleChatPress}
+            >
+              <View style={[styles.chatButtonContent, unreadCount === 0 && styles.chatButtonContentCentered]}>
+                {unreadCount > 0 ? (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationText}>
+                      {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                    </Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chatbubbles" size={16} color="#ffffff" />
+                )}
+                <Text style={styles.chatButtonText}>Chat</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
       
       <ScrollView 
         style={styles.scrollContainer} 

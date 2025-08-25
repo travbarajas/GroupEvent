@@ -9,8 +9,13 @@ import {
   ScrollView,
   Switch,
   Alert,
+  Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { ApiService } from '@/services/api';
 
 interface AdminEventModalProps {
@@ -20,6 +25,8 @@ interface AdminEventModalProps {
 }
 
 export default function AdminEventModal({ visible, onClose, onEventCreated }: AdminEventModalProps) {
+  const insets = useSafeAreaInsets();
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -34,6 +41,11 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     tags: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(new Date());
+  const [tempTime, setTempTime] = useState(new Date());
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const categories = [
     { value: 'music', label: 'Music' },
@@ -51,6 +63,64 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     'food', 'exercise', 'arts', 'educational', 'social', 'entertainment'
   ];
 
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      setTempDate(selectedDate);
+      if (Platform.OS === 'android' || event.type === 'set') {
+        const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        setFormData(prev => ({ ...prev, date: formattedDate }));
+      }
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (selectedTime) {
+      setTempTime(selectedTime);
+      if (Platform.OS === 'android' || event.type === 'set') {
+        const hours = selectedTime.getHours().toString().padStart(2, '0');
+        const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+        const formattedTime = `${hours}:${minutes}`;
+        setFormData(prev => ({ ...prev, time: formattedTime }));
+      }
+    }
+  };
+
+  const selectImage = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photo library to select an image.');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -65,6 +135,9 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       category: 'music',
       tags: [],
     });
+    setTempDate(new Date());
+    setTempTime(new Date());
+    setSelectedImage(null);
   };
 
   const handleClose = () => {
@@ -140,7 +213,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     >
       <View style={styles.container}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
@@ -184,27 +257,50 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
               />
             </View>
 
+            {/* Event Image */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Event Image</Text>
+              {selectedImage ? (
+                <View style={styles.imageContainer}>
+                  <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
+                  <TouchableOpacity style={styles.removeImageButton} onPress={removeImage}>
+                    <Ionicons name="close-circle" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
+                  <Ionicons name="image-outline" size={32} color="#6b7280" />
+                  <Text style={styles.imagePickerText}>Tap to add event image</Text>
+                  <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             {/* Date and Time */}
             <View style={styles.row}>
               <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
                 <Text style={styles.label}>Date</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.date}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, date: text }))}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#6b7280"
-                />
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+                  <Text style={styles.dateTimeText}>
+                    {formData.date || 'Select Date'}
+                  </Text>
+                </TouchableOpacity>
               </View>
               <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
                 <Text style={styles.label}>Time</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.time}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, time: text }))}
-                  placeholder="HH:MM"
-                  placeholderTextColor="#6b7280"
-                />
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <Ionicons name="time-outline" size={20} color="#6b7280" />
+                  <Text style={styles.dateTimeText}>
+                    {formData.time || 'Select Time'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -328,6 +424,60 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             )}
           </View>
         </ScrollView>
+
+        {/* Date Picker */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            style={Platform.OS === 'ios' ? styles.iosPicker : undefined}
+          />
+        )}
+
+        {/* Time Picker */}
+        {showTimePicker && (
+          <DateTimePicker
+            value={tempTime}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleTimeChange}
+            style={Platform.OS === 'ios' ? styles.iosPicker : undefined}
+          />
+        )}
+
+        {/* iOS Picker Overlay */}
+        {(showDatePicker || showTimePicker) && Platform.OS === 'ios' && (
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerContainer}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => {
+                  setShowDatePicker(false);
+                  setShowTimePicker(false);
+                }}>
+                  <Text style={styles.pickerButton}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {
+                  if (showDatePicker) {
+                    const formattedDate = tempDate.toISOString().split('T')[0];
+                    setFormData(prev => ({ ...prev, date: formattedDate }));
+                    setShowDatePicker(false);
+                  }
+                  if (showTimePicker) {
+                    const hours = tempTime.getHours().toString().padStart(2, '0');
+                    const minutes = tempTime.getMinutes().toString().padStart(2, '0');
+                    const formattedTime = `${hours}:${minutes}`;
+                    setFormData(prev => ({ ...prev, time: formattedTime }));
+                    setShowTimePicker(false);
+                  }
+                }}>
+                  <Text style={[styles.pickerButton, styles.pickerButtonDone]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -456,5 +606,92 @@ const styles = StyleSheet.create({
   tagSelectionChipTextSelected: {
     color: '#ffffff',
     fontWeight: '600',
+  },
+  dateTimeButton: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateTimeText: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginLeft: 8,
+    flex: 1,
+  },
+  iosPicker: {
+    backgroundColor: '#1a1a1a',
+  },
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerContainer: {
+    backgroundColor: '#1a1a1a',
+    paddingBottom: 30,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  pickerButton: {
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  pickerButtonDone: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  imageContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  selectedImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+  },
+  imagePickerButton: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 2,
+    borderColor: '#2a2a2a',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickerText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  imagePickerSubtext: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginTop: 4,
   },
 });

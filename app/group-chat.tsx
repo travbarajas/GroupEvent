@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GroupChat from '@/components/GroupChat';
+import { isFeatureEnabled } from '@/config/features';
 
 export default function GroupChatScreen() {
   const { groupId, groupName, currentUsername } = useLocalSearchParams();
@@ -36,12 +37,22 @@ export default function GroupChatScreen() {
       </View>
       
       {/* Chat Component */}
-      <GroupChat 
-        groupId={groupId as string}
-        currentUsername={currentUsername as string}
-        modalVisible={true}
-        standalone={true}
-      />
+      {isFeatureEnabled('REALTIME_CHAT') ? (
+        <GroupChat 
+          groupId={groupId as string}
+          currentUsername={currentUsername as string}
+          modalVisible={true}
+          standalone={true}
+        />
+      ) : (
+        <View style={styles.disabledContainer}>
+          <Ionicons name="chatbubbles-outline" size={64} color="#6b7280" />
+          <Text style={styles.disabledTitle}>Chat Temporarily Disabled</Text>
+          <Text style={styles.disabledMessage}>
+            The chat feature is currently disabled. Check back later!
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -90,5 +101,25 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 32, // Same width as back button to center title
+  },
+  disabledContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  disabledTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  disabledMessage: {
+    fontSize: 16,
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

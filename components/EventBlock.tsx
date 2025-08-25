@@ -62,18 +62,16 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
 
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor: '#2a2a2a', borderColor: '#3a3a3a' }]}
+      style={styles.container}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {/* Placeholder Image */}
-      <View style={styles.imageContainer}>
+      {/* Image Bubble */}
+      <View style={[styles.imageBubble, { backgroundColor: '#2a2a2a' }]}>
         {event.image_url ? (
           <Image source={{ uri: event.image_url }} style={styles.image} />
         ) : (
-          <View style={[styles.placeholderImage, { backgroundColor: '#1a1a1a' }]}>
-            <Ionicons name="calendar-outline" size={32} color={iconColor} />
-          </View>
+          <View style={styles.placeholderImage} />
         )}
       </View>
 
@@ -123,11 +121,19 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
 
 const styles = StyleSheet.create({
   container: {
-    borderWidth: 1,
-    borderRadius: 12,
+    alignSelf: 'flex-start',
     marginVertical: 8,
-    marginHorizontal: 16,
-    overflow: 'hidden',
+    marginLeft: 16,
+    marginRight: 'auto',
+    maxWidth: '85%',
+  },
+  imageBubble: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -135,25 +141,22 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 5,
-  },
-  imageContainer: {
-    width: '100%',
-    height: 120,
+    elevation: 3,
   },
   image: {
-    width: '100%',
-    height: '100%',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     resizeMode: 'cover',
   },
   placeholderImage: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#404040',
   },
   content: {
-    padding: 12,
+    paddingLeft: 0,
   },
   title: {
     fontSize: 18,

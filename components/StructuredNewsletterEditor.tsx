@@ -48,107 +48,76 @@ export default function StructuredNewsletterEditor({
     day: 'numeric' 
   }));
 
-  // Newsletter sections
-  const [sections, setSections] = useState<NewsletterSection[]>(() => [
-    {
-      id: 'highlights',
-      title: 'Highlights',
-      blocks: []
-    },
-    {
-      id: 'local-news',
-      title: 'Local News',
-      blocks: []
-    },
-    {
-      id: 'events',
-      title: 'Events',
-      blocks: []
-    },
-    {
-      id: 'live-music',
-      title: 'Live Music',
-      blocks: []
-    }
-  ]);
+  // Newsletter blocks (simplified - no preset sections)
+  const [blocks, setBlocks] = useState<NewsletterBlock[]>([]);
 
   // UI state
-  const [activeTab, setActiveTab] = useState('highlights');
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
-  const [currentSectionId, setCurrentSectionId] = useState('highlights');
 
   // Section refs for scrolling
   const sectionRefs = useRef<{[key: string]: View}>({});
 
   // Load existing newsletter data
   useEffect(() => {
-    if (newsletter?.blocks) {
-      try {
-        const blocks = typeof newsletter.blocks === 'string' 
-          ? JSON.parse(newsletter.blocks) 
-          : newsletter.blocks;
-        
-        // Distribute blocks to sections (for now, put all in highlights)
-        // TODO: Enhance this to parse section-specific blocks
-        setSections(prev => prev.map(section => 
-          section.id === 'highlights' 
-            ? { ...section, blocks: blocks || [] }
-            : section
-        ));
-      } catch (error) {
-        console.error('Error parsing newsletter blocks:', error);
+    if (newsletter) {
+      // Try to load from blocks first
+      if (newsletter.blocks) {
+        try {
+          const existingBlocks = typeof newsletter.blocks === 'string' 
+            ? JSON.parse(newsletter.blocks) 
+            : newsletter.blocks;
+          
+          if (Array.isArray(existingBlocks)) {
+            setBlocks(existingBlocks);
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing newsletter blocks:', error);
+        }
+      }
+      
+      // Try to load from sections (legacy structured format)
+      if (newsletter.sections) {
+        try {
+          const existingSections = typeof newsletter.sections === 'string' 
+            ? JSON.parse(newsletter.sections) 
+            : newsletter.sections;
+          
+          if (Array.isArray(existingSections)) {
+            // Flatten all blocks from all sections
+            const allBlocks = existingSections.flatMap((section: any) => section.blocks || []);
+            setBlocks(allBlocks);
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing newsletter sections:', error);
+        }
       }
     }
   }, [newsletter]);
 
-  const scrollToSection = (sectionId: string) => {
-    setActiveTab(sectionId);
-    // TODO: Implement smooth scrolling to section
-  };
-
-  const addBlockToCurrentSection = (type: BlockType) => {
-    const section = sections.find(s => s.id === currentSectionId);
-    if (!section) return;
-
-    // Special handling for Events and Live Music sections
-    if ((currentSectionId === 'events' || currentSectionId === 'live-music') && type !== 'event-list') {
-      Alert.alert('Note', 'Events and Live Music sections primarily use event blocks. Consider adding an Events block instead.');
-      return;
+  const addBlock = (type: BlockType) => {
+    const newBlock = createBlock(type, blocks.length);
+    
+    // Auto-configure event blocks with default title
+    if (type === 'event-list') {
+      (newBlock as EventListBlock).title = 'Events';
     }
 
-    const newBlock = createBlock(type, section.blocks.length);
-    
-    // Auto-configure event blocks for Live Music section
-    if (type === 'event-list' && currentSectionId === 'live-music') {
-      (newBlock as EventListBlock).title = 'Live Music';
-    }
-
-    setSections(prev => prev.map(s => 
-      s.id === currentSectionId 
-        ? { ...s, blocks: [...s.blocks, newBlock] }
-        : s
-    ));
-    
+    setBlocks(prev => [...prev, newBlock]);
     setEditingBlockId(newBlock.id);
     setShowBlockMenu(false);
   };
 
-  const updateBlockInSection = (sectionId: string, updatedBlock: NewsletterBlock) => {
-    setSections(prev => prev.map(section => 
-      section.id === sectionId
-        ? {
-            ...section,
-            blocks: section.blocks.map(block => 
-              block.id === updatedBlock.id ? updatedBlock : block
-            )
-          }
-        : section
+  const updateBlock = (updatedBlock: NewsletterBlock) => {
+    setBlocks(prev => prev.map(block => 
+      block.id === updatedBlock.id ? updatedBlock : block
     ));
   };
 
-  const deleteBlockFromSection = (sectionId: string, blockId: string) => {
+  const deleteBlock = (blockId: string) => {
     Alert.alert(
       'Delete Block',
       'Are you sure you want to delete this block?',
@@ -158,14 +127,7 @@ export default function StructuredNewsletterEditor({
           text: 'Delete', 
           style: 'destructive',
           onPress: () => {
-            setSections(prev => prev.map(section => 
-              section.id === sectionId
-                ? {
-                    ...section,
-                    blocks: section.blocks.filter(block => block.id !== blockId)
-                  }
-                : section
-            ));
+            setBlocks(prev => prev.filter(block => block.id !== blockId));
             setSelectedBlockId(null);
             setEditingBlockId(null);
           }
@@ -181,11 +143,8 @@ export default function StructuredNewsletterEditor({
     }
 
     try {
-      // Combine all blocks from all sections
-      const allBlocks = sections.flatMap(section => section.blocks);
-      
       // Convert blocks to content for backward compatibility
-      const content = allBlocks.map(block => {
+      const content = blocks.map(block => {
         switch (block.type) {
           case 'heading-1':
             return `# ${(block as any).content}`;
@@ -213,9 +172,8 @@ export default function StructuredNewsletterEditor({
         date: date.trim(),
         content,
         events: [],
-        // Store structured data
-        blocks: JSON.stringify(allBlocks),
-        sections: JSON.stringify(sections),
+        // Store blocks data
+        blocks: JSON.stringify(blocks),
       };
 
       if (newsletter) {
@@ -234,30 +192,30 @@ export default function StructuredNewsletterEditor({
   const renderBlockMenu = () => (
     <View style={styles.blockMenu}>
       <View style={styles.blockMenuHeader}>
-        <Text style={styles.blockMenuTitle}>Add Block to {sections.find(s => s.id === currentSectionId)?.title}</Text>
+        <Text style={styles.blockMenuTitle}>Add Block</Text>
         <TouchableOpacity onPress={() => setShowBlockMenu(false)}>
           <Ionicons name="close" size={24} color="#9ca3af" />
         </TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.blockMenuOptions}>
-          <TouchableOpacity style={styles.blockOption} onPress={() => addBlockToCurrentSection('heading-1')}>
+          <TouchableOpacity style={styles.blockOption} onPress={() => addBlock('heading-1')}>
             <Text style={styles.blockOptionIcon}>H1</Text>
             <Text style={styles.blockOptionText}>Heading 1</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.blockOption} onPress={() => addBlockToCurrentSection('heading-2')}>
+          <TouchableOpacity style={styles.blockOption} onPress={() => addBlock('heading-2')}>
             <Text style={styles.blockOptionIcon}>H2</Text>
             <Text style={styles.blockOptionText}>Heading 2</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.blockOption} onPress={() => addBlockToCurrentSection('paragraph')}>
+          <TouchableOpacity style={styles.blockOption} onPress={() => addBlock('paragraph')}>
             <Text style={styles.blockOptionIcon}>¶</Text>
             <Text style={styles.blockOptionText}>Paragraph</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.blockOption} onPress={() => addBlockToCurrentSection('event-list')}>
+          <TouchableOpacity style={styles.blockOption} onPress={() => addBlock('event-list')}>
             <Text style={styles.blockOptionIcon}>📅</Text>
             <Text style={styles.blockOptionText}>Events</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.blockOption} onPress={() => addBlockToCurrentSection('content-break')}>
+          <TouchableOpacity style={styles.blockOption} onPress={() => addBlock('content-break')}>
             <Text style={styles.blockOptionIcon}>---</Text>
             <Text style={styles.blockOptionText}>Break</Text>
           </TouchableOpacity>
@@ -266,51 +224,27 @@ export default function StructuredNewsletterEditor({
     </View>
   );
 
-  const renderSection = (section: NewsletterSection) => (
-    <View key={section.id} style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{section.title}</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => {
-            setCurrentSectionId(section.id);
-            setShowBlockMenu(true);
-          }}
-        >
-          <Ionicons name="add" size={20} color="#60a5fa" />
-          <Text style={styles.addButtonText}>Add Block</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {section.blocks.map((block, index) => (
-        <DraggableBlock
-          key={block.id}
-          block={block}
-          index={index}
-          isSelected={selectedBlockId === block.id}
-          isEditing={editingBlockId === block.id}
-          isDragging={false}
-          dragY={{ value: 0 } as any}
-          draggedBlockIndex={{ value: -1 } as any}
-          onUpdate={(updatedBlock) => updateBlockInSection(section.id, updatedBlock)}
-          onDelete={() => deleteBlockFromSection(section.id, block.id)}
-          onDragStart={() => {}}
-          onEdit={() => {
-            setEditingBlockId(block.id);
-            setSelectedBlockId(block.id);
-          }}
-          onStopEditing={() => setEditingBlockId(null)}
-          onSelect={() => setSelectedBlockId(block.id)}
-          gestureHandler={() => {}}
-        />
-      ))}
-      
-      {section.blocks.length === 0 && (
-        <View style={styles.emptySection}>
-          <Text style={styles.emptySectionText}>No content yet. Add blocks to get started.</Text>
-        </View>
-      )}
-    </View>
+  const renderBlock = (block: NewsletterBlock, index: number) => (
+    <DraggableBlock
+      key={block.id}
+      block={block}
+      index={index}
+      isSelected={selectedBlockId === block.id}
+      isEditing={editingBlockId === block.id}
+      isDragging={false}
+      dragY={{ value: 0 } as any}
+      draggedBlockIndex={{ value: -1 } as any}
+      onUpdate={updateBlock}
+      onDelete={() => deleteBlock(block.id)}
+      onDragStart={() => {}}
+      onEdit={() => {
+        setEditingBlockId(block.id);
+        setSelectedBlockId(block.id);
+      }}
+      onStopEditing={() => setEditingBlockId(null)}
+      onSelect={() => setSelectedBlockId(block.id)}
+      gestureHandler={() => {}}
+    />
   );
 
   return (
@@ -333,26 +267,6 @@ export default function StructuredNewsletterEditor({
         </TouchableOpacity>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabBar}>
-        {sections.map((section) => (
-          <TouchableOpacity
-            key={section.id}
-            style={[
-              styles.tab,
-              activeTab === section.id && styles.activeTab
-            ]}
-            onPress={() => scrollToSection(section.id)}
-          >
-            <Text style={[
-              styles.tabText,
-              activeTab === section.id && styles.activeTabText
-            ]}>
-              {section.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
       {/* Block Menu */}
       {showBlockMenu && renderBlockMenu()}
@@ -371,8 +285,25 @@ export default function StructuredNewsletterEditor({
             <Text style={styles.dateText}>{date}</Text>
           </View>
 
-          {/* Sections */}
-          {sections.map(renderSection)}
+          {/* Blocks */}
+          <View style={styles.blocksSection}>
+            {blocks.map((block, index) => renderBlock(block, index))}
+            
+            {blocks.length === 0 && (
+              <View style={styles.emptySection}>
+                <Text style={styles.emptySectionText}>No content yet. Add blocks to get started.</Text>
+              </View>
+            )}
+            
+            {/* Add Block Button */}
+            <TouchableOpacity 
+              style={styles.addBlockButton} 
+              onPress={() => setShowBlockMenu(true)}
+            >
+              <Ionicons name="add" size={24} color="#60a5fa" />
+              <Text style={styles.addBlockButtonText}>Add Block</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -569,5 +500,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     fontStyle: 'italic',
+  },
+  blocksSection: {
+    padding: 16,
+  },
+  addBlockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 20,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#60a5fa',
+    borderStyle: 'dashed',
+    backgroundColor: '#f8faff',
+  },
+  addBlockButtonText: {
+    fontSize: 16,
+    color: '#60a5fa',
+    fontWeight: '500',
   },
 });

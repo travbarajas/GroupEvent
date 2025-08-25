@@ -9,14 +9,17 @@ import { ApiService } from '@/services/api';
 
 interface NewsletterRendererProps {
   newsletter: Newsletter;
+  scrollViewRef?: React.RefObject<ScrollView | null>;
 }
 
-export default function NewsletterRenderer({ newsletter }: NewsletterRendererProps) {
+export default function NewsletterRenderer({ newsletter, scrollViewRef: externalScrollViewRef }: NewsletterRendererProps) {
   const router = useRouter();
   const { savedEvents, toggleSaveEvent, isEventSaved } = useGroups();
   const [eventDetails, setEventDetails] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState('highlights');
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [activeTab, setActiveTab] = useState('');
+  const internalScrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = externalScrollViewRef || internalScrollViewRef;
+  const [eventListPositions, setEventListPositions] = useState<{[key: string]: number}>({});
 
   // Load event details for event blocks
   useEffect(() => {
@@ -49,27 +52,106 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
     loadEventDetails();
   }, [newsletter.blocks]);
 
-  // Parse structured sections if available
-  const getStructuredSections = () => {
+  // Get event list blocks and their titles for dynamic tab creation
+  const getEventListTabs = () => {
+    const tabs = [];
+    
+    if (newsletter.blocks) {
+      try {
+        const blocks = typeof newsletter.blocks === 'string' 
+          ? JSON.parse(newsletter.blocks) 
+          : newsletter.blocks;
+        
+        // Find all event-list blocks and create tabs from their titles
+        blocks.forEach((block: any) => {
+          if (block.type === 'event-list' && block.title) {
+            tabs.push({
+              id: block.id,
+              title: block.title,
+              blockId: block.id
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing newsletter blocks:', error);
+      }
+    }
+    
+    // If structured sections exist, also check those for event lists
     if (newsletter.sections) {
       try {
         const sections = typeof newsletter.sections === 'string' 
           ? JSON.parse(newsletter.sections) 
           : newsletter.sections;
-        return sections || [];
+        
+        sections.forEach((section: any) => {
+          if (section.blocks) {
+            section.blocks.forEach((block: any) => {
+              if (block.type === 'event-list' && block.title) {
+                tabs.push({
+                  id: block.id,
+                  title: block.title,
+                  blockId: block.id
+                });
+              }
+            });
+          }
+        });
       } catch (error) {
         console.error('Error parsing newsletter sections:', error);
       }
     }
-    return [];
+    
+    return tabs;
   };
 
-  const structuredSections = getStructuredSections();
-  const isStructuredNewsletter = structuredSections.length > 0;
+  const eventListTabs = getEventListTabs();
+  const hasEventListTabs = eventListTabs.length > 0;
 
-  const scrollToSection = (sectionId: string) => {
-    setActiveTab(sectionId);
-    // TODO: Implement smooth scrolling to section when refs are set up
+  const scrollToEventList = (blockId: string) => {
+    setActiveTab(blockId);
+    
+    if (scrollViewRef.current) {
+      console.log(`🎯 Attempting to scroll to blockId: ${blockId}`);
+      console.log(`🎯 Available tabs:`, eventListTabs.map(t => ({ id: t.blockId, title: t.title })));
+      console.log(`🎯 Stored positions:`, eventListPositions);
+      
+      // First check if we have a stored position for this block
+      if (eventListPositions[blockId]) {
+        // Position the section title in the upper portion of the screen
+        // Smaller offset to prevent over-scrolling
+        const screenOffset = -200; // Small offset to position title in upper area
+        const exactPosition = Math.max(0, eventListPositions[blockId] - screenOffset);
+        
+        console.log(`🎯 Original position: ${eventListPositions[blockId]}, Adjusted position: ${exactPosition}`);
+        
+        scrollViewRef.current.scrollTo({ y: exactPosition, animated: true });
+        return;
+      }
+      
+      // Find the index of this event list in all event lists
+      const eventListIndex = eventListTabs.findIndex(tab => tab.blockId === blockId);
+      console.log(`🎯 Found event list at index: ${eventListIndex}`);
+      
+      if (eventListIndex >= 0) {
+        // Use a more aggressive scroll estimate, positioning title in upper area
+        const headerHeight = 200; // Newsletter header
+        const tabHeight = 50; // Tab bar
+        const averageBlockHeight = 400; // Average height per block/event list
+        const screenOffset = -200; // Sweet spot offset for positioning
+        
+        const estimatedPosition = headerHeight + tabHeight + (eventListIndex * averageBlockHeight);
+        const adjustedScrollY = Math.max(0, estimatedPosition - screenOffset);
+        
+        console.log(`🎯 Estimated position: ${estimatedPosition}, Adjusted for upper half: ${adjustedScrollY}`);
+        
+        scrollViewRef.current.scrollTo({ y: adjustedScrollY, animated: true });
+      } else {
+        console.log(`🚫 Event list ${blockId} not found in tabs`);
+      }
+    } else {
+      console.log(`🚫 ScrollView ref is null`);
+    }
   };
 
   // Handle event press to navigate to event detail page
@@ -226,7 +308,30 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
           eventBlock.events?.includes(event.id)
         );
         
-        if (blockEvents.length === 0) return null;
+        console.log(`📋 Event Block: ${eventBlock.title}, Events: ${eventBlock.events?.length || 0}, BlockEvents: ${blockEvents.length}`);
+        
+        // Always show the event list container, even if no events
+        if (!eventBlock.events || eventBlock.events.length === 0) {
+          return (
+            <View key={`block-${index}`} style={styles.eventListContainer}>
+              {eventBlock.title && (
+                <Text style={styles.eventListTitle}>{eventBlock.title}</Text>
+              )}
+              <Text style={styles.emptySectionText}>No events selected for this section.</Text>
+            </View>
+          );
+        }
+        
+        if (blockEvents.length === 0) {
+          return (
+            <View key={`block-${index}`} style={styles.eventListContainer}>
+              {eventBlock.title && (
+                <Text style={styles.eventListTitle}>{eventBlock.title}</Text>
+              )}
+              <Text style={styles.emptySectionText}>Events are loading...</Text>
+            </View>
+          );
+        }
 
         // Group events by date (using date string to avoid timezone issues)
         const eventsByDate = blockEvents.reduce((groups: any, event: any) => {
@@ -249,10 +354,23 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
           a.localeCompare(b) // YYYY-MM-DD strings sort correctly lexicographically
         );
 
+        console.log(`📋 Rendering event list: ${eventBlock.title}, ID: ${eventBlock.id}`);
+        
         return (
-          <View key={`block-${index}`} style={styles.eventListContainer}>
+          <View 
+            key={`block-${index}`} 
+            style={styles.eventListContainer}
+            onLayout={(event) => {
+              const { y } = event.nativeEvent.layout;
+              setEventListPositions(prev => ({
+                ...prev,
+                [eventBlock.id]: y
+              }));
+              console.log(`📐 Event list "${eventBlock.title}" (${eventBlock.id}) positioned at Y: ${y}`);
+            }}
+          >
             {eventBlock.title && (
-              <Text style={styles.eventListTitle}>{eventBlock.title}</Text>
+              <Text style={[styles.eventListTitle, styles.eventListH1]}>{eventBlock.title}</Text>
             )}
             
             {sortedDates.map((dateKey, dateIndex) => {
@@ -309,26 +427,9 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
     }
   };
 
-  // Render structured sections
-  const renderStructuredSections = () => {
-    return structuredSections.map((section: any, sectionIndex: number) => (
-      <View key={section.id} style={styles.structuredSection}>
-        <Text style={styles.structuredSectionTitle}>{section.title}</Text>
-        {section.blocks && section.blocks.length > 0 ? (
-          section.blocks.map((block: any, blockIndex: number) => renderBlock(block, blockIndex))
-        ) : (
-          <Text style={styles.emptySectionText}>No content in this section yet.</Text>
-        )}
-      </View>
-    ));
-  };
-
-  // Render blocks if available, otherwise fall back to content
+  // Render blocks or content - simplified approach
   const renderBlocksOrContent = () => {
-    if (isStructuredNewsletter) {
-      return renderStructuredSections();
-    }
-    
+    // First try to render from blocks (new format)
     if (newsletter.blocks) {
       try {
         const blocks = typeof newsletter.blocks === 'string' 
@@ -343,7 +444,22 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
       }
     }
     
-    // Fallback to content rendering
+    // Try structured sections format
+    if (newsletter.sections) {
+      try {
+        const sections = typeof newsletter.sections === 'string' 
+          ? JSON.parse(newsletter.sections) 
+          : newsletter.sections;
+        
+        return sections.flatMap((section: any) => 
+          section.blocks ? section.blocks.map((block: any, index: number) => renderBlock(block, index)) : []
+        );
+      } catch (error) {
+        console.error('Error parsing newsletter sections:', error);
+      }
+    }
+    
+    // Fallback to content rendering (legacy format)
     return renderContent(newsletter.content);
   };
 
@@ -362,6 +478,9 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
         elements.push(
           <View key={`space-${index}`} style={styles.spacer} />
         );
+      } else if (trimmedLine.startsWith('<!--') && trimmedLine.endsWith('-->')) {
+        // Skip HTML comments (like Event List comments)
+        return;
       } else if (trimmedLine.startsWith('# ')) {
         // H1 Heading
         elements.push(
@@ -519,47 +638,33 @@ export default function NewsletterRenderer({ newsletter }: NewsletterRendererPro
         </View>
       </View>
 
-      {/* Tab Navigation for Structured Newsletters */}
-      {isStructuredNewsletter && (
+      {/* Tab Navigation for Event Lists */}
+      {hasEventListTabs && (
         <View style={styles.tabBar}>
-          {structuredSections.map((section: any) => (
+          {eventListTabs.map((tab: any) => (
             <TouchableOpacity
-              key={section.id}
+              key={tab.blockId}
               style={[
                 styles.tab,
-                activeTab === section.id && styles.activeTab
+                activeTab === tab.blockId && styles.activeTab
               ]}
-              onPress={() => scrollToSection(section.id)}
+              onPress={() => scrollToEventList(tab.blockId)}
             >
               <Text style={[
                 styles.tabText,
-                activeTab === section.id && styles.activeTabText
+                activeTab === tab.blockId && styles.activeTabText
               ]}>
-                {section.title}
+                {tab.title}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Events Section (legacy format) */}
-        {!isStructuredNewsletter && newsletter.events && newsletter.events.length > 0 && (
-          <View style={styles.eventsSection}>
-            <Text style={styles.eventsSectionTitle}>Events</Text>
-            {newsletter.events.map(renderEventBlock)}
-          </View>
-        )}
-
-        {/* Content */}
-        <View style={styles.content}>
-          {renderBlocksOrContent()}
-        </View>
-      </ScrollView>
+      {/* Content */}
+      <View style={styles.content}>
+        {renderBlocksOrContent()}
+      </View>
     </View>
   );
 }
@@ -735,11 +840,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 20,
   },
+  eventListH1: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 24,
+    marginBottom: 20,
+    textAlign: 'left',
+  },
   daySection: {
     marginBottom: 20,
   },
   dayHeader: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 8,
@@ -750,8 +863,8 @@ const styles = StyleSheet.create({
   },
   eventTitleText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
+    fontWeight: 'bold',
+    color: '#60a5fa',
     marginBottom: 6,
   },
   eventDescription: {
@@ -790,10 +903,11 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#121212',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
-    marginBottom: 0,
+    marginTop: -4,
+    marginBottom: 16,
   },
   tab: {
     flex: 1,
@@ -813,9 +927,6 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#60a5fa',
     fontWeight: '600',
-  },
-  scrollContainer: {
-    flex: 1,
   },
   structuredSection: {
     paddingHorizontal: 20,
