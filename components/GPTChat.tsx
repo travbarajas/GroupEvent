@@ -35,6 +35,7 @@ export default function GPTChat() {
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
+  const [isWatchingLocation, setIsWatchingLocation] = useState<boolean>(false);
 
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
@@ -54,12 +55,26 @@ export default function GPTChat() {
 
         setLocationPermission(true);
 
-        // Get current location with high accuracy
-        let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          maximumAge: 10000, // Accept location up to 10 seconds old
-          timeout: 15000, // Wait up to 15 seconds for location
-        });
+        // Try multiple approaches for best accuracy
+        let location;
+        
+        try {
+          // First try: Most aggressive GPS settings
+          console.log('Attempting high-precision GPS location...');
+          location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.BestForNavigation, // Most accurate available
+            maximumAge: 5000, // Accept location up to 5 seconds old
+            timeout: 25000, // Wait up to 25 seconds for GPS lock
+          });
+        } catch (error) {
+          console.log('High precision failed, trying high accuracy:', error);
+          // Fallback: High accuracy
+          location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+            maximumAge: 10000,
+            timeout: 20000,
+          });
+        }
         
         setUserLocation({
           latitude: location.coords.latitude,
@@ -75,6 +90,12 @@ export default function GPTChat() {
         console.log('- Altitude:', location.coords.altitude);
         console.log('- Speed:', location.coords.speed);
         console.log('- Timestamp:', new Date(location.timestamp));
+        
+        // Start watching location for continuous updates if accuracy is poor
+        if (location.coords.accuracy > 500) { // If accuracy worse than 500m
+          console.log('Starting location watch for better accuracy...');
+          startLocationWatch();
+        }
       } catch (error) {
         console.error('Error getting location:', error);
         setLocationPermission(false);
@@ -82,15 +103,70 @@ export default function GPTChat() {
     })();
   }, []);
 
+  // Function to start continuous location watching
+  const startLocationWatch = async () => {
+    if (isWatchingLocation) return;
+    
+    try {
+      setIsWatchingLocation(true);
+      console.log('Starting continuous location watch...');
+      
+      await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 5000, // Update every 5 seconds
+          distanceInterval: 10, // Update if moved 10 meters
+        },
+        (location) => {
+          console.log('Location watch update:');
+          console.log('- Accuracy:', location.coords.accuracy, 'meters');
+          console.log('- Coordinates:', location.coords.latitude, location.coords.longitude);
+          
+          // Only update if we got better accuracy
+          if (!userLocation || location.coords.accuracy < (userLocation.accuracy || Infinity)) {
+            setUserLocation({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              accuracy: location.coords.accuracy,
+              timestamp: location.timestamp,
+            });
+            console.log('Updated to better location accuracy:', location.coords.accuracy);
+            
+            // Stop watching once we get good accuracy
+            if (location.coords.accuracy < 100) {
+              console.log('Good accuracy achieved, stopping location watch');
+              setIsWatchingLocation(false);
+            }
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error starting location watch:', error);
+      setIsWatchingLocation(false);
+    }
+  };
+
   // Function to refresh location manually
   const refreshLocation = async () => {
     try {
       console.log('Refreshing location...');
-      let location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-        maximumAge: 0, // Force fresh location
-        timeout: 20000, // Wait up to 20 seconds
-      });
+      let location;
+      
+      try {
+        // Try most aggressive settings first
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          maximumAge: 0, // Force fresh location
+          timeout: 30000, // Wait up to 30 seconds
+        });
+      } catch (error) {
+        console.log('Best navigation failed, trying high accuracy:', error);
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          maximumAge: 0,
+          timeout: 25000,
+        });
+      }
       
       setUserLocation({
         latitude: location.coords.latitude,
@@ -245,13 +321,18 @@ export default function GPTChat() {
               { color: userLocation ? "#10b981" : "#6b7280" }
             ]}>
               {userLocation ? 
-                `Location ON (±${Math.round(userLocation.accuracy || 0)}m)` : 
+                `Location ON (±${Math.round(userLocation.accuracy || 0)}m)${isWatchingLocation ? ' 🔄' : ''}` : 
                 "Location OFF"
               }
             </Text>
             {userLocation && userLocation.accuracy && userLocation.accuracy > 1000 && (
               <TouchableOpacity onPress={refreshLocation} style={styles.refreshLocationButton}>
                 <Ionicons name="refresh" size={14} color="#f59e0b" />
+              </TouchableOpacity>
+            )}
+            {userLocation && userLocation.accuracy && userLocation.accuracy > 200 && !isWatchingLocation && (
+              <TouchableOpacity onPress={startLocationWatch} style={styles.watchLocationButton}>
+                <Ionicons name="eye" size={14} color="#3b82f6" />
               </TouchableOpacity>
             )}
           </View>
@@ -389,6 +470,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   refreshLocationButton: {
+    marginLeft: 4,
+    padding: 2,
+  },
+  watchLocationButton: {
     marginLeft: 4,
     padding: 2,
   },
