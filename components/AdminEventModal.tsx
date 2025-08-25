@@ -102,7 +102,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
       // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: [ImagePicker.MediaType.Images],
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
@@ -167,6 +167,40 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
     setIsSubmitting(true);
     try {
+      let imageUrl = null;
+      
+      // Upload image if selected
+      if (selectedImage) {
+        try {
+          // Create form data for image upload
+          const formData = new FormData();
+          formData.append('image', {
+            uri: selectedImage,
+            type: 'image/jpeg',
+            name: 'event-image.jpg',
+          } as any);
+          
+          // Upload to your image storage service
+          const imageResponse = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          
+          if (imageResponse.ok) {
+            const imageResult = await imageResponse.json();
+            imageUrl = imageResult.url;
+          } else {
+            console.warn('Image upload failed, proceeding without image');
+          }
+        } catch (imageError) {
+          console.warn('Image upload error:', imageError);
+          // Continue without image rather than failing the entire event creation
+        }
+      }
+
       const eventData = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
@@ -182,6 +216,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         max_attendees: null,
         min_attendees: null,
         attendance_required: false,
+        image_url: imageUrl, // Include the uploaded image URL
       };
 
       console.log('Creating event with data:', eventData);

@@ -78,7 +78,7 @@ export default function CreateEventScreen() {
 
       // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: [ImagePicker.MediaType.Images],
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
@@ -107,6 +107,37 @@ export default function CreateEventScreen() {
     setIsSubmitting(true);
     
     try {
+      let imageUrl = null;
+      
+      // Upload image if selected
+      if (selectedImage) {
+        try {
+          const formData = new FormData();
+          formData.append('image', {
+            uri: selectedImage,
+            type: 'image/jpeg',
+            name: 'event-image.jpg',
+          } as any);
+          
+          const imageResponse = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          
+          if (imageResponse.ok) {
+            const imageResult = await imageResponse.json();
+            imageUrl = imageResult.url;
+          } else {
+            console.warn('Image upload failed, proceeding without image');
+          }
+        } catch (imageError) {
+          console.warn('Image upload error:', imageError);
+        }
+      }
+
       // Create the custom event using the API
       await ApiService.createCustomEvent(groupId as string, {
         name: form.name,
@@ -114,7 +145,8 @@ export default function CreateEventScreen() {
         startDate: form.startDate,
         endDate: form.endDate,
         time: form.time,
-        location: form.location
+        location: form.location,
+        image_url: imageUrl,
       });
       
       Alert.alert(
