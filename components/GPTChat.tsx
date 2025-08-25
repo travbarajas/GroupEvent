@@ -15,11 +15,26 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as Location from 'expo-location';
+import EventBlock from './EventBlock';
+
+interface EventData {
+  id?: string;
+  name: string;
+  description?: string;
+  date: string;
+  time?: string;
+  price?: number | string;
+  is_free?: boolean;
+  location?: string;
+  venue_name?: string;
+  image_url?: string;
+}
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  events?: EventData[];
 }
 
 interface LocationData {
@@ -28,6 +43,56 @@ interface LocationData {
   accuracy?: number;
   timestamp?: number;
 }
+
+// Function to parse events from AI response
+const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): EventData[] => {
+  const events: EventData[] = [];
+  
+  // If the API returned structured events data, use that
+  if (apiEvents && Array.isArray(apiEvents)) {
+    apiEvents.forEach(event => {
+      if (event && typeof event === 'object') {
+        events.push({
+          id: event.id || Math.random().toString(),
+          name: event.name || event.title || 'Event',
+          description: event.description || event.summary || '',
+          date: event.date || event.start_date || event.when || '',
+          time: event.time || event.start_time || '',
+          price: event.price || event.cost,
+          is_free: event.is_free || event.free || false,
+          location: event.location || event.address || event.venue || '',
+          venue_name: event.venue_name || event.venue || '',
+          image_url: event.image_url || event.image || '',
+        });
+      }
+    });
+  }
+  
+  // Also try to parse events from the response text using patterns
+  // Look for structured data in the response like "Event: Name\nDate: ..."
+  const eventPattern = /(?:Event|EVENT):\s*([^\n]+)(?:\n.*?(?:Date|DATE):\s*([^\n]+))?(?:\n.*?(?:Time|TIME):\s*([^\n]+))?(?:\n.*?(?:Location|LOCATION):\s*([^\n]+))?(?:\n.*?(?:Price|PRICE):\s*([^\n]+))?/gi;
+  let match;
+  
+  while ((match = eventPattern.exec(responseText)) !== null) {
+    const [, name, date, time, location, price] = match;
+    if (name) {
+      events.push({
+        id: Math.random().toString(),
+        name: name.trim(),
+        description: '',
+        date: date?.trim() || '',
+        time: time?.trim() || '',
+        price: price?.trim() || '',
+        is_free: price?.toLowerCase().includes('free') || false,
+        location: location?.trim() || '',
+        venue_name: '',
+        image_url: '',
+      });
+    }
+  }
+  
+  return events;
+};
 
 export default function GPTChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -259,10 +324,14 @@ export default function GPTChat() {
       }
       
       if (data.success) {
+        // Parse events from the response
+        const events = parseEventsFromResponse(data.response, data.events);
+        
         const assistantMessage: Message = {
           role: 'assistant',
           content: data.response,
           timestamp: new Date(),
+          events: events.length > 0 ? events : undefined,
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
@@ -361,25 +430,43 @@ export default function GPTChat() {
         )}
         
         {messages.map((msg, index) => (
-          <View 
-            key={index} 
-            style={[
-              styles.messageBubble,
-              msg.role === 'user' ? styles.userMessage : styles.assistantMessage
-            ]}
-          >
-            <Text style={[
-              styles.messageText,
-              msg.role === 'user' ? styles.userMessageText : { color: '#1a1a1a' }
-            ]}>
-              {msg.content}
-            </Text>
-            <Text style={[
-              styles.timestamp,
-              msg.role === 'user' ? styles.userTimestamp : styles.assistantTimestamp
-            ]}>
-              {formatTime(msg.timestamp)}
-            </Text>
+          <View key={index}>
+            {/* Regular message bubble */}
+            <View 
+              style={[
+                styles.messageBubble,
+                msg.role === 'user' ? styles.userMessage : styles.assistantMessage
+              ]}
+            >
+              <Text style={[
+                styles.messageText,
+                msg.role === 'user' ? styles.userMessageText : { color: '#1a1a1a' }
+              ]}>
+                {msg.content}
+              </Text>
+              <Text style={[
+                styles.timestamp,
+                msg.role === 'user' ? styles.userTimestamp : styles.assistantTimestamp
+              ]}>
+                {formatTime(msg.timestamp)}
+              </Text>
+            </View>
+
+            {/* Event blocks if present */}
+            {msg.events && msg.events.length > 0 && (
+              <View style={styles.eventBlocksContainer}>
+                {msg.events.map((event, eventIndex) => (
+                  <EventBlock 
+                    key={eventIndex} 
+                    event={event}
+                    onPress={() => {
+                      // Handle event block press - could navigate to event details
+                      console.log('Event pressed:', event.name);
+                    }}
+                  />
+                ))}
+              </View>
+            )}
           </View>
         ))}
         
@@ -583,5 +670,9 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  eventBlocksContainer: {
+    marginTop: 8,
+    marginBottom: 4,
   },
 });
