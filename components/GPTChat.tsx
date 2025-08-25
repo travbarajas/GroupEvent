@@ -44,9 +44,10 @@ interface LocationData {
   timestamp?: number;
 }
 
-// Function to parse events from AI response
-const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): EventData[] => {
+// Function to parse events from AI response and clean text
+const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { events: EventData[], cleanedText: string } => {
   const events: EventData[] = [];
+  let cleanedText = responseText;
   
   // If the API returned structured events data, use that
   if (apiEvents && Array.isArray(apiEvents)) {
@@ -68,30 +69,135 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): Event
     });
   }
   
-  // Also try to parse events from the response text using patterns
-  // Look for structured data in the response like "Event: Name\nDate: ..."
-  const eventPattern = /(?:Event|EVENT):\s*([^\n]+)(?:\n.*?(?:Date|DATE):\s*([^\n]+))?(?:\n.*?(?:Time|TIME):\s*([^\n]+))?(?:\n.*?(?:Location|LOCATION):\s*([^\n]+))?(?:\n.*?(?:Price|PRICE):\s*([^\n]+))?/gi;
-  let match;
+  // Parse events from the response text using various patterns
+  const patterns = [
+    // Pattern 1: "Event: Name\nDate: ...\nTime: ..." format
+    /(?:Event|EVENT):\s*([^\n]+)(?:\n.*?(?:Date|DATE):\s*([^\n]+))?(?:\n.*?(?:Time|TIME):\s*([^\n]+))?(?:\n.*?(?:Location|LOCATION):\s*([^\n]+))?(?:\n.*?(?:Price|PRICE):\s*([^\n]+))?/gi,
+    
+    // Pattern 2: "**Event Name**\n- Date: ...\n- Time: ..." format
+    /\*\*([^*\n]+)\*\*\s*(?:\n[-•]\s*(?:Date|When):\s*([^\n]+))?(?:\n[-•]\s*(?:Time):\s*([^\n]+))?(?:\n[-•]\s*(?:Location|Where):\s*([^\n]+))?(?:\n[-•]\s*(?:Price|Cost):\s*([^\n]+))?/gi,
+    
+    // Pattern 3: "1. Event Name - Date, Time, Location" format
+    /\d+\.\s*([^-\n]+)\s*-\s*([^,\n]+)(?:,\s*([^,\n]+))?(?:,\s*([^,\n]+))?(?:,\s*([^\n]+))?/gi,
+    
+    // Pattern 4: Event blocks with multiple lines (emoji followed by content)
+    /(?:🎵|🎭|🎪|📅|🎯|🏆|🎨|🎤|🍽️|🍻|⚽|🏀|🎾|🎳|🎲|🎮)[\s\S]*?(?=\n\n|$)/gi,
+    
+    // Pattern 5: Calendar emoji format - more flexible
+    /📅\s*([^\n]+)\n\n([\s\S]+)/gi
+  ];
   
-  while ((match = eventPattern.exec(responseText)) !== null) {
-    const [, name, date, time, location, price] = match;
-    if (name) {
-      events.push({
-        id: Math.random().toString(),
-        name: name.trim(),
-        description: '',
-        date: date?.trim() || '',
-        time: time?.trim() || '',
-        price: price?.trim() || '',
-        is_free: price?.toLowerCase().includes('free') || false,
-        location: location?.trim() || '',
-        venue_name: '',
-        image_url: '',
-      });
+  patterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(responseText)) !== null) {
+      const fullMatch = match[0];
+      let name, date, time, location, price, description = '';
+      
+      if (pattern === patterns[0]) { // Event: format
+        [, name, date, time, location, price] = match;
+      } else if (pattern === patterns[1]) { // **Event** format
+        [, name, date, time, location, price] = match;
+      } else if (pattern === patterns[2]) { // numbered list format
+        [, name, date, time, location, price] = match;
+      } else if (pattern === patterns[3]) { // emoji block format
+        // Extract event info from emoji blocks
+        const lines = fullMatch.split('\n');
+        name = lines[0]?.replace(/[🎵🎭🎪📅🎯🏆🎨🎤🍽️🍻⚽🏀🎾🎳🎲🎮]/g, '').trim();
+        
+        // Also try to extract description from first few lines after the title
+        const descriptionLines = lines.slice(1).filter(line => 
+          !line.toLowerCase().includes('date:') && 
+          !line.toLowerCase().includes('time:') &&
+          !line.toLowerCase().includes('location:') &&
+          !line.toLowerCase().includes('price:') &&
+          !line.toLowerCase().includes('when:') &&
+          !line.toLowerCase().includes('where:') &&
+          !line.toLowerCase().includes('cost:') &&
+          line.trim().length > 0
+        );
+        
+        description = descriptionLines.slice(0, 2).join(' ').trim();
+        
+        lines.forEach(line => {
+          const lowerLine = line.toLowerCase();
+          if (lowerLine.includes('date:') || lowerLine.includes('when:')) {
+            date = line.split(':')[1]?.trim();
+          } else if (lowerLine.includes('time:')) {
+            time = line.split(':')[1]?.trim();
+          } else if (lowerLine.includes('location:') || lowerLine.includes('where:')) {
+            location = line.split(':')[1]?.trim();
+          } else if (lowerLine.includes('price:') || lowerLine.includes('cost:')) {
+            price = line.split(':')[1]?.trim();
+          }
+        });
+      } else if (pattern === patterns[4]) { // Calendar emoji format: 📅 Date\n\nContent
+        const [, eventDate, content] = match;
+        const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+        
+        date = eventDate?.trim();
+        name = lines[0] || ''; // First line is event name
+        description = lines[1] || ''; // Second line is description
+        
+        // Look for time and location in format "12:00 PM @ Venue (Location)"
+        const timeLocationLine = lines.find(line => line.includes('@') && (line.includes('PM') || line.includes('AM')));
+        if (timeLocationLine) {
+          const timeMatch = timeLocationLine.match(/^([^@]+)/);
+          time = timeMatch ? timeMatch[1].trim() : '';
+          
+          const venueMatch = timeLocationLine.match(/@\s*([^(]+)(\([^)]+\))?/);
+          if (venueMatch) {
+            const venue = venueMatch[1].trim();
+            const locationInParens = venueMatch[2] ? venueMatch[2].replace(/[()]/g, '').trim() : '';
+            location = venue && locationInParens ? `${venue}, ${locationInParens}` : venue || locationInParens;
+          }
+        }
+        
+        // Look for price line
+        const priceLine = lines.find(line => line.toLowerCase().includes('price:'));
+        if (priceLine) {
+          price = priceLine.replace(/price:\s*/i, '').trim();
+        }
+      }
+      
+      if (name && name.trim()) {
+        const eventData = {
+          id: Math.random().toString(),
+          name: name.trim(),
+          description: description || '',
+          date: date?.trim() || '',
+          time: time?.trim() || '',
+          price: price?.trim() || '',
+          is_free: price?.toLowerCase().includes('free') || price?.toLowerCase().includes('$0') || false,
+          location: location?.trim() || '',
+          venue_name: '',
+          image_url: '',
+        };
+        
+        // Debug log to see what data we're extracting
+        console.log('Extracted event data:', eventData);
+        
+        events.push(eventData);
+        
+        // Remove the event information from the text
+        cleanedText = cleanedText.replace(fullMatch, '').trim();
+      }
     }
+  });
+  
+  // Clean up the text - remove extra whitespace and empty lines
+  cleanedText = cleanedText
+    .replace(/\n\n\n+/g, '\n\n') // Replace multiple empty lines with double newline
+    .replace(/^\s+|\s+$/g, '') // Trim whitespace
+    .replace(/^[-•]\s*$/gm, '') // Remove empty bullet points
+    .replace(/\n\n+/g, '\n\n'); // Clean up spacing
+  
+  // If we found events, add a note about them being displayed below
+  if (events.length > 0) {
+    const eventCountText = events.length === 1 ? 'event' : 'events';
+    cleanedText += `\n\nI found ${events.length} ${eventCountText} for you:`;
   }
   
-  return events;
+  return { events, cleanedText };
 };
 
 export default function GPTChat() {
@@ -324,12 +430,12 @@ export default function GPTChat() {
       }
       
       if (data.success) {
-        // Parse events from the response
-        const events = parseEventsFromResponse(data.response, data.events);
+        // Parse events from the response and get cleaned text
+        const { events, cleanedText } = parseEventsFromResponse(data.response, data.events);
         
         const assistantMessage: Message = {
           role: 'assistant',
-          content: data.response,
+          content: cleanedText,
           timestamp: new Date(),
           events: events.length > 0 ? events : undefined,
         };
@@ -435,12 +541,17 @@ export default function GPTChat() {
             <View 
               style={[
                 styles.messageBubble,
-                msg.role === 'user' ? styles.userMessage : styles.assistantMessage
+                msg.role === 'user' ? styles.userMessage : {
+                  alignSelf: 'flex-start',
+                  backgroundColor: backgroundColor,
+                  borderWidth: 1,
+                  borderColor: '#666666',
+                }
               ]}
             >
               <Text style={[
                 styles.messageText,
-                msg.role === 'user' ? styles.userMessageText : { color: '#1a1a1a' }
+                msg.role === 'user' ? styles.userMessageText : { color: '#ffffff' }
               ]}>
                 {msg.content}
               </Text>
@@ -628,7 +739,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   assistantTimestamp: {
-    color: '#999',
+    color: '#cccccc',
   },
   loadingContainer: {
     flexDirection: 'row',

@@ -23,6 +23,7 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
   const textColor = useThemeColor({}, 'text');
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
+  const iconColor = useThemeColor({}, 'icon');
 
   const formatPrice = () => {
     if (event.is_free) return 'Free';
@@ -61,7 +62,7 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
 
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor: '#fff', borderColor: '#e0e0e0' }]}
+      style={[styles.container, { backgroundColor: '#2a2a2a', borderColor: '#3a3a3a' }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -70,8 +71,8 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
         {event.image_url ? (
           <Image source={{ uri: event.image_url }} style={styles.image} />
         ) : (
-          <View style={[styles.placeholderImage, { backgroundColor: '#f0f0f0' }]}>
-            <Ionicons name="calendar-outline" size={32} color="#999" />
+          <View style={[styles.placeholderImage, { backgroundColor: '#1a1a1a' }]}>
+            <Ionicons name="calendar-outline" size={32} color={iconColor} />
           </View>
         )}
       </View>
@@ -85,7 +86,7 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
 
         {/* Short Description */}
         {event.description && (
-          <Text style={[styles.description, { color: '#666' }]} numberOfLines={2}>
+          <Text style={[styles.description, { color: iconColor }]} numberOfLines={2}>
             {event.description}
           </Text>
         )}
