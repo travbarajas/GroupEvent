@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, View, TouchableOpacity, Text, StyleSheet, Dimensions, Animated, Share, ScrollView } from 'react-native';
+import { Modal, View, TouchableOpacity, Text, StyleSheet, Dimensions, Animated, Share, ScrollView, Image } from 'react-native';
 import { useGroups, Event, Group } from '../../contexts/GroupsContext';
 import { useRouter, usePathname } from 'expo-router';
 import GroupSelectionModal from '../../components/GroupSelectionModal';
@@ -198,10 +198,14 @@ const ExpandedEventModal = ({ event, visible, onClose, sourceLayout, onSaveEvent
           
           {/* Event Image */}
           <View style={styles.modalImageSection}>
-            <View style={styles.placeholderImage}>
-              <Ionicons name="image-outline" size={32} color="#6b7280" />
-              <Text style={styles.placeholderImageText}>Event Photo</Text>
-            </View>
+            {event?.image_url ? (
+              <Image source={{ uri: event.image_url }} style={styles.eventImage} />
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Ionicons name="image-outline" size={32} color="#6b7280" />
+                <Text style={styles.placeholderImageText}>Event Photo</Text>
+              </View>
+            )}
           </View>
           
           {/* Description */}
@@ -518,6 +522,12 @@ const styles = StyleSheet.create({
   modalImageSection: {
     padding: 20,
     paddingTop: 8,
+  },
+  eventImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+    backgroundColor: '#2a2a2a',
   },
   placeholderImage: {
     height: 140,

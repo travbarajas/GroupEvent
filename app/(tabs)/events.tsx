@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   Share,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -111,13 +112,17 @@ const CompactEventCard = ({ event, onPress, onAddToGroup, onShare }: {
 
   return (
     <TouchableOpacity style={styles.compactEventCard} onPress={onPress} activeOpacity={0.8}>
-      {/* Placeholder Image Background */}
-      <View style={styles.compactEventImagePlaceholder}>
-        <View style={styles.compactEventImageOverlay}>
-          <Ionicons name="image-outline" size={40} color="#6b7280" />
-          <Text style={styles.compactEventImageText}>Event Photo</Text>
+      {/* Event Image */}
+      {event.image_url ? (
+        <Image source={{ uri: event.image_url }} style={styles.compactEventImage} />
+      ) : (
+        <View style={styles.compactEventImagePlaceholder}>
+          <View style={styles.compactEventImageOverlay}>
+            <Ionicons name="image-outline" size={40} color="#6b7280" />
+            <Text style={styles.compactEventImageText}>Event Photo</Text>
+          </View>
         </View>
-      </View>
+      )}
       
       {/* Header at Bottom - Three rows */}
       <View style={styles.compactEventHeader}>
@@ -482,6 +487,16 @@ const styles = StyleSheet.create({
     height: 300,
     overflow: 'hidden',
     position: 'relative',
+  },
+  compactEventImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#2a2a2a',
   },
   compactEventImagePlaceholder: {
     position: 'absolute',

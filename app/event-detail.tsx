@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Share,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -158,10 +159,14 @@ export default function EventDetailScreen() {
 
         {/* Event Image */}
         <View style={styles.imageSection}>
-          <View style={styles.placeholderImage}>
-            <Ionicons name="image-outline" size={40} color="#6b7280" />
-            <Text style={styles.placeholderImageText}>Event Photo</Text>
-          </View>
+          {event.image_url ? (
+            <Image source={{ uri: event.image_url }} style={styles.eventImage} />
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Ionicons name="image-outline" size={40} color="#6b7280" />
+              <Text style={styles.placeholderImageText}>Event Photo</Text>
+            </View>
+          )}
         </View>
 
         {/* Description */}
@@ -333,6 +338,12 @@ const styles = StyleSheet.create({
   imageSection: {
     padding: 20,
     paddingTop: 8,
+  },
+  eventImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+    backgroundColor: '#2a2a2a',
   },
   placeholderImage: {
     height: 200,
