@@ -102,9 +102,9 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
       console.log('Opening image picker...');
       
-      // Pick image - using the working deprecated API for now
+      // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
@@ -176,36 +176,10 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     try {
       let imageUrl = null;
       
-      // Upload image if selected
+      // For now, use the local image URI directly
+      // TODO: Implement proper image upload to a cloud service
       if (selectedImage) {
-        try {
-          // Create form data for image upload
-          const formData = new FormData();
-          formData.append('image', {
-            uri: selectedImage,
-            type: 'image/jpeg',
-            name: 'event-image.jpg',
-          } as any);
-          
-          // Upload to your image storage service
-          const imageResponse = await fetch('/api/upload-image', {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-          
-          if (imageResponse.ok) {
-            const imageResult = await imageResponse.json();
-            imageUrl = imageResult.url;
-          } else {
-            console.warn('Image upload failed, proceeding without image');
-          }
-        } catch (imageError) {
-          console.warn('Image upload error:', imageError);
-          // Continue without image rather than failing the entire event creation
-        }
+        imageUrl = selectedImage;
       }
 
       const eventData = {

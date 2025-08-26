@@ -84,7 +84,7 @@ export default function EditEventScreen() {
       console.log('Opening image picker...');
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
@@ -118,33 +118,10 @@ export default function EditEventScreen() {
     try {
       let imageUrl = selectedImage;
       
-      // Upload new image if selected and it's a new local image (not existing URL)
-      if (selectedImage && selectedImage.startsWith('file://')) {
-        try {
-          const formData = new FormData();
-          formData.append('image', {
-            uri: selectedImage,
-            type: 'image/jpeg',
-            name: 'event-image.jpg',
-          } as any);
-          
-          const imageResponse = await fetch('/api/upload-image', {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-          
-          if (imageResponse.ok) {
-            const imageResult = await imageResponse.json();
-            imageUrl = imageResult.url;
-          } else {
-            console.warn('Image upload failed, keeping existing image');
-          }
-        } catch (imageError) {
-          console.warn('Image upload error:', imageError);
-        }
+      // For now, use the local image URI directly
+      // TODO: Implement proper image upload to a cloud service
+      if (selectedImage) {
+        imageUrl = selectedImage;
       }
 
       // Update event logic would go here
