@@ -104,18 +104,25 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
     console.log('Processing API places data:', apiPlaces);
     apiPlaces.forEach(place => {
       if (place && typeof place === 'object') {
+        // Handle various Google Places API formats
         const placeData = {
-          id: place.id || Math.random().toString(),
-          name: place.name || 'Place',
-          type: place.type || place.category || 'Place',
-          cuisine: place.cuisine || '',
-          rating: place.rating || place.score,
-          price_level: place.price_level || place.priceLevel || place.price,
-          address: place.address || place.location || '',
-          phone: place.phone || place.phoneNumber || '',
-          description: place.description || place.summary || '',
-          image_url: place.image_url || place.image || '',
+          id: place.id || place.place_id || place.reference || Math.random().toString(),
+          name: place.name || place.displayName?.text || place.title || 'Restaurant',
+          type: place.type || place.types?.[0] || place.category || 'Restaurant',
+          cuisine: place.cuisine || place.cuisineType || place.editorialSummary?.text || '',
+          rating: place.rating || place.userRatingCount || place.score || undefined,
+          price_level: place.price_level || place.priceLevel || place.priceRange || '',
+          address: place.address || place.vicinity || place.formattedAddress || place.location || '',
+          phone: place.phone || place.phoneNumber || place.internationalPhoneNumber || '',
+          description: place.description || place.summary || place.editorialSummary?.text || '',
+          image_url: place.image_url || place.image || place.photos?.[0]?.name || '',
         };
+        
+        // Convert Google Places price level (0-4) to $ symbols
+        if (typeof placeData.price_level === 'number') {
+          placeData.price_level = '$'.repeat(Math.max(1, placeData.price_level));
+        }
+        
         console.log('Adding API place:', placeData);
         places.push(placeData);
       }
@@ -149,6 +156,8 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
       /^([^-\n]+?)\s*-\s*([^-\n]+)$/gmi, // Any line with " - " 
       /^\d+\.\s*([^-\n]+)$/gmi, // Any numbered item
       /^[•\-*]\s*([^-\n]+)$/gmi, // Any bulleted item
+      // Emoji-formatted restaurant patterns (specifically for the format shown)
+      /🍽️\s*([^\n]+)(?:\n⭐\s*([^\/\n]+)\/\d+\s*stars?\s*)?(?:\n📍\s*([^\n]+))?(?:\n💰\s*(\$+))?/gmi,
     ]);
   }
 
@@ -160,10 +169,23 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
       const fullMatch = match[0];
       let name = match[1]?.trim();
       let description = match[2]?.trim() || '';
+      let extractedAddress = '';
+      let extractedRating = undefined;
+      let extractedPriceLevel = '';
+      
+      // Handle emoji pattern specifically (🍽️ format)
+      if (patternIndex >= 5 && fullMatch.includes('🍽️')) {
+        name = match[1]?.trim();
+        extractedRating = match[2] ? parseFloat(match[2]) : undefined;
+        extractedAddress = match[3]?.trim() || '';
+        extractedPriceLevel = match[4]?.trim() || '';
+        description = `Rating: ${extractedRating || 'N/A'}, Address: ${extractedAddress || 'N/A'}`;
+        console.log(`Emoji pattern matched:`, { name, extractedRating, extractedAddress, extractedPriceLevel });
+      }
       
       console.log(`Pattern ${patternIndex} matched:`, { fullMatch, name, description });
       
-      // Skip if this looks like a recipe, event, or instruction
+      // Skip if this looks like a recipe, event, instruction, or generic suggestions
       if (fullMatch.toLowerCase().includes('ingredient') || 
           fullMatch.toLowerCase().includes('recipe') ||
           fullMatch.toLowerCase().includes('step') ||
@@ -171,16 +193,21 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
           fullMatch.toLowerCase().includes('bake') ||
           fullMatch.toLowerCase().includes('event') ||
           fullMatch.toLowerCase().includes('date:') ||
-          fullMatch.toLowerCase().includes('time:')) {
-        console.log('Skipping non-place content:', fullMatch);
+          fullMatch.toLowerCase().includes('time:') ||
+          // Skip generic cuisine suggestions when API isn't providing real places
+          (fullMatch.toLowerCase().includes('restaurants') && 
+           fullMatch.toLowerCase().includes('perfect for') ||
+           fullMatch.toLowerCase().includes('great for') ||
+           fullMatch.toLowerCase().includes('often have') ||
+           fullMatch.toLowerCase().includes('many places offer'))) {
+        console.log('Skipping non-place content or generic suggestions:', fullMatch);
         continue;
       }
 
       // Determine place type from description
-      let placeType = 'Place';
+      let placeType = 'Restaurant'; // Default to Restaurant for better UX
       const lowerDesc = (fullMatch + ' ' + description).toLowerCase();
-      if (lowerDesc.includes('restaurant') || lowerDesc.includes('dining') || lowerDesc.includes('cuisine')) placeType = 'Restaurant';
-      else if (lowerDesc.includes('cafe') || lowerDesc.includes('coffee')) placeType = 'Cafe';
+      if (lowerDesc.includes('cafe') || lowerDesc.includes('coffee')) placeType = 'Cafe';
       else if (lowerDesc.includes('shop') || lowerDesc.includes('store') || lowerDesc.includes('boutique')) placeType = 'Shop';
       else if (lowerDesc.includes('bar') || lowerDesc.includes('pub') || lowerDesc.includes('brewery')) placeType = 'Bar';
       else if (lowerDesc.includes('hotel') || lowerDesc.includes('motel') || lowerDesc.includes('inn')) placeType = 'Hotel';
@@ -188,22 +215,35 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
       else if (lowerDesc.includes('museum') || lowerDesc.includes('gallery') || lowerDesc.includes('attraction')) placeType = 'Attraction';
       else if (lowerDesc.includes('gym') || lowerDesc.includes('fitness') || lowerDesc.includes('spa')) placeType = 'Fitness';
 
-      // Extract rating if present
-      let rating = undefined;
-      const ratingMatch = fullMatch.match(/(\d+\.\d+)(?:\s*(?:stars?|\/5|rating))?|\b(\d+)\/5\b|(\d+)\s*(?:stars?)/i);
-      if (ratingMatch) {
-        rating = parseFloat(ratingMatch[1] || ratingMatch[2] || ratingMatch[3]);
-        if (rating > 5) rating = rating / 2; // Convert 10-point to 5-point scale
+      // Use extracted data from emoji pattern, or fall back to text parsing
+      let rating = extractedRating;
+      let priceLevel = extractedPriceLevel;
+      let address = extractedAddress;
+      
+      // If not from emoji pattern, try to extract from text
+      if (!rating) {
+        const ratingMatch = fullMatch.match(/(\d+\.\d+)(?:\s*(?:stars?|\/5|rating|out of 5))?|\b(\d+)\/5\b|(\d+)\s*(?:stars?)|rated\s+(\d+\.?\d*)/i);
+        if (ratingMatch) {
+          rating = parseFloat(ratingMatch[1] || ratingMatch[2] || ratingMatch[3] || ratingMatch[4]);
+          if (rating > 5) rating = rating / 2; // Convert 10-point to 5-point scale
+        }
       }
 
-      // Extract price level
-      let priceLevel = '';
-      const priceMatch = fullMatch.match(/(\$+)|(?:budget|cheap|inexpensive)|(?:mid-range|moderate)|(?:expensive|upscale|fine dining)/i);
-      if (priceMatch) {
-        if (priceMatch[1]) priceLevel = priceMatch[1];
-        else if (priceMatch[0].toLowerCase().includes('budget') || priceMatch[0].toLowerCase().includes('cheap')) priceLevel = '$';
-        else if (priceMatch[0].toLowerCase().includes('mid') || priceMatch[0].toLowerCase().includes('moderate')) priceLevel = '$$';
-        else if (priceMatch[0].toLowerCase().includes('expensive') || priceMatch[0].toLowerCase().includes('upscale')) priceLevel = '$$$';
+      if (!priceLevel) {
+        const priceMatch = fullMatch.match(/(\$+)|(?:budget|cheap|inexpensive|affordable)|(?:mid-range|moderate|reasonably priced)|(?:expensive|upscale|fine dining|high-end|pricey)/i);
+        if (priceMatch) {
+          if (priceMatch[1]) priceLevel = priceMatch[1];
+          else if (priceMatch[0].toLowerCase().includes('budget') || priceMatch[0].toLowerCase().includes('cheap') || priceMatch[0].toLowerCase().includes('affordable')) priceLevel = '$';
+          else if (priceMatch[0].toLowerCase().includes('mid') || priceMatch[0].toLowerCase().includes('moderate') || priceMatch[0].toLowerCase().includes('reasonably')) priceLevel = '$$';
+          else if (priceMatch[0].toLowerCase().includes('expensive') || priceMatch[0].toLowerCase().includes('upscale') || priceMatch[0].toLowerCase().includes('fine') || priceMatch[0].toLowerCase().includes('high-end')) priceLevel = '$$$';
+        }
+      }
+
+      if (!address) {
+        const addressMatch = fullMatch.match(/(?:at|on|located at|address:?)\s*([^,\n]+)/i);
+        if (addressMatch) {
+          address = addressMatch[1].trim();
+        }
       }
 
       if (name && name.length > 2) {
@@ -214,7 +254,7 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
           cuisine: placeType === 'Restaurant' ? description : '',
           rating: rating,
           price_level: priceLevel,
-          address: '',
+          address: address,
           phone: '',
           description: description,
           image_url: '',
@@ -294,69 +334,93 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
   // Generate summary message
   const totalItems = events.length + places.length;
   
-  // Special handling: If we have API data but no parsed items, force create items from text
+  // Special handling: If we have API data with actual places/restaurants but no parsed items, force create items from text
   if (hasAnyApiData && totalItems === 0) {
-    console.log('API data present but no items parsed - forcing aggressive text parsing');
-    // Split response into lines and create place items from any substantial lines
-    const lines = responseText.split('\n')
-      .map(line => line.trim())
-      .filter(line => 
-        line.length > 3 && 
-        !line.toLowerCase().includes('here are') && 
-        !line.toLowerCase().includes('i found') &&
-        !line.toLowerCase().includes('would you like') &&
-        !line.toLowerCase().includes('let me know')
-      );
+    console.log('API data present but no items parsed - checking if response contains place listings');
     
-    lines.forEach((line, index) => {
-      if (index < 15 && line.length > 3) { // Increased limit and lowered threshold
-        const cleanName = line
-          .replace(/^\d+\.\s*/, '') // Remove numbering
-          .replace(/^[•\-*]\s*/, '') // Remove bullets
-          .replace(/^[-–—]\s*/, '') // Remove dashes
-          .split('-')[0] // Take first part before dash if exists
-          .trim();
-          
-        if (cleanName.length > 2) {
-          places.push({
-            id: Math.random().toString(),
-            name: cleanName,
-            type: 'Place',
-            cuisine: '',
-            rating: undefined,
-            price_level: '',
-            address: '',
-            phone: '',
-            description: line,
-            image_url: '',
-          });
+    // Only force parsing if the response actually contains restaurant/place listings
+    const containsPlaceListings = responseText.toLowerCase().includes('restaurant') ||
+                                 responseText.toLowerCase().includes('cafe') ||
+                                 responseText.toLowerCase().includes('food') ||
+                                 responseText.includes('🍽️') ||
+                                 responseText.includes('⭐') ||
+                                 responseText.includes('📍');
+    
+    if (containsPlaceListings) {
+      console.log('Response contains place listings - forcing text parsing');
+      // Split response into lines and create place items from any substantial lines
+      const lines = responseText.split('\n')
+        .map(line => line.trim())
+        .filter(line => 
+          line.length > 3 && 
+          !line.toLowerCase().includes('here are') && 
+          !line.toLowerCase().includes('i found') &&
+          !line.toLowerCase().includes('would you like') &&
+          !line.toLowerCase().includes('let me know') &&
+          !line.toLowerCase().includes('how can i assist')
+        );
+      
+      lines.forEach((line, index) => {
+        if (index < 15 && line.length > 3) { // Increased limit and lowered threshold
+          const cleanName = line
+            .replace(/^\d+\.\s*/, '') // Remove numbering
+            .replace(/^[•\-*]\s*/, '') // Remove bullets
+            .replace(/^[-–—]\s*/, '') // Remove dashes
+            .split('-')[0] // Take first part before dash if exists
+            .trim();
+            
+          if (cleanName.length > 2) {
+            places.push({
+              id: Math.random().toString(),
+              name: cleanName,
+              type: 'Place',
+              cuisine: '',
+              rating: undefined,
+              price_level: '',
+              address: '',
+              phone: '',
+              description: line,
+              image_url: '',
+            });
+          }
         }
-      }
-    });
-    console.log(`Force-created ${places.length} place items from API response text`);
+      });
+      console.log(`Force-created ${places.length} place items from API response text`);
+    } else {
+      console.log('Response does not contain place listings - skipping force parsing');
+    }
   }
 
-  // Final fallback: If we still have no items but the response mentions restaurants/places, create generic items
-  if (totalItems === 0 && (responseText.toLowerCase().includes('restaurant') || 
-                           responseText.toLowerCase().includes('place') ||
-                           responseText.toLowerCase().includes('cafe') ||
-                           responseText.toLowerCase().includes('shop'))) {
-    console.log('No items parsed but response mentions places - creating fallback items');
-    places.push({
-      id: Math.random().toString(),
-      name: 'Local Restaurant',
-      type: 'Restaurant',
-      cuisine: 'Various',
-      rating: 4.0,
-      price_level: '$$',
-      address: 'Nearby',
-      phone: '',
-      description: 'Check the full response for details',
-      image_url: '',
-    });
+  // Final fallback: Only create debug items if we explicitly have place data but parsing failed completely  
+  const finalTotalItems = events.length + places.length;
+  if (hasAnyApiData && finalTotalItems === 0) {
+    // Only create debug fallback if the response was supposed to contain place data
+    const shouldHavePlaceData = responseText.includes('🍽️') || 
+                               responseText.includes('⭐') || 
+                               responseText.includes('📍') ||
+                               (responseText.toLowerCase().includes('restaurant') && 
+                                !responseText.toLowerCase().includes("don't have") && 
+                                !responseText.toLowerCase().includes("not available"));
+    
+    if (shouldHavePlaceData) {
+      console.log('Expected place data but parsing failed - creating debug fallback');
+      places.push({
+        id: Math.random().toString(),
+        name: 'Debug: Parsing Failed',
+        type: 'Restaurant', 
+        cuisine: 'Check console',
+        rating: undefined,
+        price_level: '',
+        address: '',
+        phone: '',
+        description: 'Expected restaurant data but parsing failed. Check console logs.',
+        image_url: '',
+      });
+    } else {
+      console.log('No place data expected - not creating fallback blocks');
+    }
   }
   
-  const finalTotalItems = events.length + places.length;
   if (finalTotalItems > 0) {
     let message = '';
     if (events.length > 0) {
@@ -692,6 +756,11 @@ export default function GPTChat() {
           includeEvents: true,
           location: locationData,
           enablePlaces: true,
+          // Add more explicit Google Places parameters
+          useGooglePlaces: true,
+          requirePlaceData: true,
+          placeRadius: 5000, // 5km radius
+          placeType: 'restaurant',
           // Also send explicit instruction for custom blocks
           custom_blocks_required: true,
           force_structured_output: true,
@@ -741,9 +810,14 @@ export default function GPTChat() {
         console.log('API events data:', data.events);
         console.log('API places data:', data.restaurants || data.places);
         
-        // Check if we have ANY structured data from Google Places or similar APIs
-        const hasApiData = !!(data.events || data.restaurants || data.places || 
-                             data.google_places || data.yelp_data || data.structured_data);
+        // Check if we have ANY actual place/restaurant data (not just API flags)
+        const hasActualPlaceData = !!(data.restaurants || data.places || data.google_places || 
+                                     data.yelp_data || (data.placesIncluded && data.placesCount > 0));
+        const hasActualEventData = !!(data.events && Array.isArray(data.events) && data.events.length > 0);
+        const hasApiData = hasActualPlaceData || hasActualEventData;
+        
+        console.log('Has actual place data:', hasActualPlaceData);
+        console.log('Has actual event data:', hasActualEventData);
         console.log('Has API data:', hasApiData);
         
         // Parse events and places from the response and get cleaned text
