@@ -36,7 +36,8 @@
       "Bash(mv:*)",
       "Bash(npm start:*)",
       "Bash(git config:*)",
-      "Bash(timeout 30 npx expo start --port 8083)"
+      "Bash(timeout 30 npx expo start --port 8083)",
+      "WebSearch"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

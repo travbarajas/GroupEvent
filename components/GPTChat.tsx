@@ -21,7 +21,7 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import EventBlock from './EventBlock';
-import RestaurantBlock from './RestaurantBlock';
+import PlaceBlock from './PlaceBlock';
 
 interface EventData {
   id?: string;
@@ -36,9 +36,10 @@ interface EventData {
   image_url?: string;
 }
 
-interface RestaurantData {
+interface PlaceData {
   id?: string;
   name: string;
+  type?: string; // restaurant, cafe, shop, attraction, etc.
   cuisine?: string;
   rating?: number;
   price_level?: string;
@@ -53,7 +54,7 @@ interface Message {
   content: string;
   timestamp: Date;
   events?: EventData[];
-  restaurants?: RestaurantData[];
+  places?: PlaceData[];
 }
 
 interface LocationData {
@@ -63,10 +64,10 @@ interface LocationData {
   timestamp?: number;
 }
 
-// Function to parse events and restaurants from AI response and clean text
-const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiRestaurants?: any[]): { events: EventData[], restaurants: RestaurantData[], cleanedText: string } => {
+// Function to parse events and places from AI response and clean text
+const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPlaces?: any[]): { events: EventData[], places: PlaceData[], cleanedText: string } => {
   const events: EventData[] = [];
-  const restaurants: RestaurantData[] = [];
+  const places: PlaceData[] = [];
   let cleanedText = responseText;
   
   // Parse structured events data from API
@@ -89,20 +90,21 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiRe
     });
   }
   
-  // Parse structured restaurant data from API
-  if (apiRestaurants && Array.isArray(apiRestaurants) && apiRestaurants.length > 0) {
-    apiRestaurants.forEach(restaurant => {
-      if (restaurant && typeof restaurant === 'object') {
-        restaurants.push({
-          id: restaurant.id || Math.random().toString(),
-          name: restaurant.name || 'Restaurant',
-          cuisine: restaurant.cuisine || restaurant.type || '',
-          rating: restaurant.rating || restaurant.score,
-          price_level: restaurant.price_level || restaurant.priceLevel || restaurant.price,
-          address: restaurant.address || restaurant.location || '',
-          phone: restaurant.phone || restaurant.phoneNumber || '',
-          description: restaurant.description || restaurant.summary || '',
-          image_url: restaurant.image_url || restaurant.image || '',
+  // Parse structured place data from API (restaurants, shops, attractions, etc.)
+  if (apiPlaces && Array.isArray(apiPlaces) && apiPlaces.length > 0) {
+    apiPlaces.forEach(place => {
+      if (place && typeof place === 'object') {
+        places.push({
+          id: place.id || Math.random().toString(),
+          name: place.name || 'Place',
+          type: place.type || place.category || 'Place',
+          cuisine: place.cuisine || '',
+          rating: place.rating || place.score,
+          price_level: place.price_level || place.priceLevel || place.price,
+          address: place.address || place.location || '',
+          phone: place.phone || place.phoneNumber || '',
+          description: place.description || place.summary || '',
+          image_url: place.image_url || place.image || '',
         });
       }
     });
@@ -110,6 +112,97 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiRe
 
   // Also try to parse events and restaurants from text patterns (for when API doesn't return structured data)
   // But be more careful to avoid false positives like recipes
+  
+  // Parse places from text - look for any business/location patterns
+  const placePatterns = [
+    // Pattern: "1. Place Name - Description" (numbered list format)
+    /^\d+\.\s*\*?\*?([^-\n]+?)\*?\*?\s*-\s*([^-\n]+)/gmi,
+    // Pattern: "**Place Name** - Description"  
+    /\*\*([^*]+)\*\*\s*-\s*([^-\n]+)/gi,
+    // Pattern: "• Place Name - Description" (bullet points)
+    /^[•\-*]\s*\*?\*?([^-\n]+?)\*?\*?\s*-\s*([^-\n]+)/gmi,
+    // Pattern: Just numbered place names (fallback)
+    /^\d+\.\s*\*?\*?([^-\n]+?)\*?\*?\s*$/gmi,
+    // Pattern: Just bullet point place names (fallback)
+    /^[•\-*]\s*\*?\*?([^-\n]+?)\*?\*?\s*$/gmi,
+  ];
+
+  console.log('Parsing places from response:', responseText);
+  
+  placePatterns.forEach((pattern, patternIndex) => {
+    let match;
+    while ((match = pattern.exec(responseText)) !== null) {
+      const fullMatch = match[0];
+      let name = match[1]?.trim();
+      let description = match[2]?.trim() || '';
+      
+      console.log(`Pattern ${patternIndex} matched:`, { fullMatch, name, description });
+      
+      // Skip if this looks like a recipe, event, or instruction
+      if (fullMatch.toLowerCase().includes('ingredient') || 
+          fullMatch.toLowerCase().includes('recipe') ||
+          fullMatch.toLowerCase().includes('step') ||
+          fullMatch.toLowerCase().includes('cook') ||
+          fullMatch.toLowerCase().includes('bake') ||
+          fullMatch.toLowerCase().includes('event') ||
+          fullMatch.toLowerCase().includes('date:') ||
+          fullMatch.toLowerCase().includes('time:')) {
+        console.log('Skipping non-place content:', fullMatch);
+        continue;
+      }
+
+      // Determine place type from description
+      let placeType = 'Place';
+      const lowerDesc = (fullMatch + ' ' + description).toLowerCase();
+      if (lowerDesc.includes('restaurant') || lowerDesc.includes('dining') || lowerDesc.includes('cuisine')) placeType = 'Restaurant';
+      else if (lowerDesc.includes('cafe') || lowerDesc.includes('coffee')) placeType = 'Cafe';
+      else if (lowerDesc.includes('shop') || lowerDesc.includes('store') || lowerDesc.includes('boutique')) placeType = 'Shop';
+      else if (lowerDesc.includes('bar') || lowerDesc.includes('pub') || lowerDesc.includes('brewery')) placeType = 'Bar';
+      else if (lowerDesc.includes('hotel') || lowerDesc.includes('motel') || lowerDesc.includes('inn')) placeType = 'Hotel';
+      else if (lowerDesc.includes('park') || lowerDesc.includes('garden') || lowerDesc.includes('trail')) placeType = 'Park';
+      else if (lowerDesc.includes('museum') || lowerDesc.includes('gallery') || lowerDesc.includes('attraction')) placeType = 'Attraction';
+      else if (lowerDesc.includes('gym') || lowerDesc.includes('fitness') || lowerDesc.includes('spa')) placeType = 'Fitness';
+
+      // Extract rating if present
+      let rating = undefined;
+      const ratingMatch = fullMatch.match(/(\d+\.\d+)(?:\s*(?:stars?|\/5|rating))?|\b(\d+)\/5\b|(\d+)\s*(?:stars?)/i);
+      if (ratingMatch) {
+        rating = parseFloat(ratingMatch[1] || ratingMatch[2] || ratingMatch[3]);
+        if (rating > 5) rating = rating / 2; // Convert 10-point to 5-point scale
+      }
+
+      // Extract price level
+      let priceLevel = '';
+      const priceMatch = fullMatch.match(/(\$+)|(?:budget|cheap|inexpensive)|(?:mid-range|moderate)|(?:expensive|upscale|fine dining)/i);
+      if (priceMatch) {
+        if (priceMatch[1]) priceLevel = priceMatch[1];
+        else if (priceMatch[0].toLowerCase().includes('budget') || priceMatch[0].toLowerCase().includes('cheap')) priceLevel = '$';
+        else if (priceMatch[0].toLowerCase().includes('mid') || priceMatch[0].toLowerCase().includes('moderate')) priceLevel = '$$';
+        else if (priceMatch[0].toLowerCase().includes('expensive') || priceMatch[0].toLowerCase().includes('upscale')) priceLevel = '$$$';
+      }
+
+      if (name && name.length > 2) {
+        const place = {
+          id: Math.random().toString(),
+          name: name,
+          type: placeType,
+          cuisine: placeType === 'Restaurant' ? description : '',
+          rating: rating,
+          price_level: priceLevel,
+          address: '',
+          phone: '',
+          description: description,
+          image_url: '',
+        };
+        
+        console.log('Adding place:', place);
+        places.push(place);
+        
+        // Remove from text
+        cleanedText = cleanedText.replace(fullMatch, '').trim();
+      }
+    }
+  });
   
   // Parse events from text - only if it looks like actual events (has date/time/location context)
   const eventPatterns = [
@@ -174,21 +267,21 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiRe
   });
   
   // Generate summary message
-  const totalItems = events.length + restaurants.length;
+  const totalItems = events.length + places.length;
   if (totalItems > 0) {
     let message = '';
     if (events.length > 0) {
       message += events.length === 1 ? `I found 1 event` : `I found ${events.length} events`;
     }
-    if (restaurants.length > 0) {
+    if (places.length > 0) {
       if (events.length > 0) message += ' and ';
-      message += restaurants.length === 1 ? `1 restaurant` : `${restaurants.length} restaurants`;
+      message += places.length === 1 ? `1 place` : `${places.length} places`;
     }
     message += ' for you:';
     cleanedText = message;
   }
   
-  return { events, restaurants, cleanedText };
+  return { events, places, cleanedText };
 };
 
 export default function GPTChat() {
@@ -199,18 +292,25 @@ export default function GPTChat() {
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [isWatchingLocation, setIsWatchingLocation] = useState<boolean>(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState<boolean>(false);
-  const [selectedLocationOption, setSelectedLocationOption] = useState<string>('Use Location');
+  const [selectedLocationOption, setSelectedLocationOption] = useState<string>('Roseville');
   
   // Animation values for keyboard
   const keyboardOffset = useRef(new Animated.Value(0)).current;
 
-  // City options
+  // City options and their coordinates
   const locationOptions = [
     'Use Location',
     'Roseville',
     'Rocklin', 
     'Lincoln'
   ];
+
+  // Coordinates for preset cities (center points)
+  const cityCoordinates = {
+    'Roseville': { latitude: 38.7521, longitude: -121.2880 },
+    'Rocklin': { latitude: 38.7907, longitude: -121.2357 },
+    'Lincoln': { latitude: 38.8916, longitude: -121.2930 }
+  };
 
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
@@ -247,7 +347,6 @@ export default function GPTChat() {
 
   // Handle location option selection
   const handleLocationOptionSelect = async (option: string) => {
-    setSelectedLocationOption(option);
     setShowLocationDropdown(false);
     
     if (option === 'Use Location') {
@@ -255,19 +354,38 @@ export default function GPTChat() {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Location Permission', 'Location permission is required to use current location.');
-          setLocationPermission(false);
+          Alert.alert(
+            'Location Permission Denied', 
+            'Location permission was denied. Switching to Roseville as default location.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setSelectedLocationOption('Roseville');
+                  setUserLocation(null);
+                  setLocationPermission(false);
+                  setIsWatchingLocation(false);
+                }
+              }
+            ]
+          );
           return;
         }
         
+        setSelectedLocationOption(option);
         setLocationPermission(true);
         await getCurrentLocation();
       } catch (error) {
         console.error('Error requesting location permission:', error);
+        // Revert to Roseville on error
+        setSelectedLocationOption('Roseville');
         setLocationPermission(false);
+        setUserLocation(null);
+        setIsWatchingLocation(false);
       }
     } else {
-      // Using a preset city, clear GPS location data
+      // Using a preset city
+      setSelectedLocationOption(option);
       setUserLocation(null);
       setLocationPermission(false);
       setIsWatchingLocation(false);
@@ -418,10 +536,19 @@ export default function GPTChat() {
     // Determine location data to send
     let locationData = null;
     if (selectedLocationOption === 'Use Location' && userLocation) {
+      // Use actual GPS coordinates
       locationData = userLocation;
     } else if (selectedLocationOption !== 'Use Location') {
-      // Send city name instead of coordinates
-      locationData = { city: selectedLocationOption };
+      // Use preset city coordinates instead of just city name
+      const cityCoords = cityCoordinates[selectedLocationOption];
+      if (cityCoords) {
+        locationData = {
+          latitude: cityCoords.latitude,
+          longitude: cityCoords.longitude,
+          city: selectedLocationOption, // Also include city name for context
+          accuracy: 100, // Preset accuracy for city center
+        };
+      }
     }
     
     // Add user message immediately
@@ -461,6 +588,8 @@ export default function GPTChat() {
         body: JSON.stringify({
           message: userMessage,
           context: recentMessages,
+          messages: recentMessages, // Also send as 'messages' in case API expects this key
+          conversation_history: recentMessages, // Another possible key name
           includeEvents: true,
           location: locationData,
           enablePlaces: true,
@@ -505,15 +634,24 @@ export default function GPTChat() {
       }
       
       if (data.success) {
-        // Parse events and restaurants from the response and get cleaned text
-        const { events, restaurants, cleanedText } = parseContentFromResponse(data.response, data.events, data.restaurants);
+        console.log('API Response data:', data);
+        console.log('Raw response text:', data.response);
+        console.log('API events data:', data.events);
+        console.log('API places data:', data.restaurants || data.places);
+        
+        // Parse events and places from the response and get cleaned text
+        const { events, places, cleanedText } = parseContentFromResponse(data.response, data.events, data.restaurants || data.places);
+        
+        console.log('Parsed events:', events);
+        console.log('Parsed places:', places);
+        console.log('Cleaned text:', cleanedText);
         
         const assistantMessage: Message = {
           role: 'assistant',
           content: cleanedText,
           timestamp: new Date(),
           events: events.length > 0 ? events : undefined,
-          restaurants: restaurants.length > 0 ? restaurants : undefined,
+          places: places.length > 0 ? places : undefined,
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
@@ -713,20 +851,20 @@ export default function GPTChat() {
                   </View>
                 )}
 
-                {/* Restaurant blocks if present */}
-                {msg.restaurants && msg.restaurants.length > 0 && (
+                {/* Place blocks if present */}
+                {msg.places && msg.places.length > 0 && (
                   <View style={styles.eventBlocksContainer}>
-                    {msg.restaurants.map((restaurant, restaurantIndex) => (
-                      <View key={restaurantIndex}>
-                        <RestaurantBlock 
-                          restaurant={restaurant}
+                    {msg.places.map((place, placeIndex) => (
+                      <View key={placeIndex}>
+                        <PlaceBlock 
+                          place={place}
                           onPress={() => {
-                            // Handle restaurant block press - could navigate to restaurant details
-                            console.log('Restaurant pressed:', restaurant.name);
+                            // Handle place block press - could navigate to place details
+                            console.log('Place pressed:', place.name);
                           }}
                         />
-                        {/* Content break between restaurants (except after the last one) */}
-                        {restaurantIndex < msg.restaurants.length - 1 && (
+                        {/* Content break between places (except after the last one) */}
+                        {placeIndex < msg.places.length - 1 && (
                           <View style={styles.eventSeparator}>
                             <View style={styles.separatorContainer}>
                               <LinearGradient

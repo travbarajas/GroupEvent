@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 
-interface RestaurantData {
+interface PlaceData {
   id?: string;
   name: string;
+  type?: string; // restaurant, cafe, shop, attraction, etc.
   cuisine?: string;
   rating?: number;
   price_level?: string;
@@ -15,12 +16,12 @@ interface RestaurantData {
   image_url?: string;
 }
 
-interface RestaurantBlockProps {
-  restaurant: RestaurantData;
+interface PlaceBlockProps {
+  place: PlaceData;
   onPress?: () => void;
 }
 
-export default function RestaurantBlock({ restaurant, onPress }: RestaurantBlockProps) {
+export default function PlaceBlock({ place, onPress }: PlaceBlockProps) {
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
@@ -69,53 +70,53 @@ export default function RestaurantBlock({ restaurant, onPress }: RestaurantBlock
     >
       <View style={styles.header}>
         <Text style={[styles.name, { color: textColor }]} numberOfLines={2}>
-          {restaurant.name}
+          {place.name}
         </Text>
-        {restaurant.price_level && (
+        {place.price_level && (
           <Text style={[styles.priceLevel, { color: tintColor }]}>
-            {getPriceLevelDisplay(restaurant.price_level)}
+            {getPriceLevelDisplay(place.price_level)}
           </Text>
         )}
       </View>
 
-      {restaurant.cuisine && (
+      {(place.type || place.cuisine) && (
         <Text style={[styles.cuisine, { color: iconColor }]}>
-          {restaurant.cuisine}
+          {place.type || place.cuisine}
         </Text>
       )}
 
-      {restaurant.rating && (
+      {place.rating && (
         <View style={styles.ratingContainer}>
           <View style={styles.stars}>
-            {renderStars(restaurant.rating)}
+            {renderStars(place.rating)}
           </View>
           <Text style={[styles.ratingText, { color: textColor }]}>
-            {restaurant.rating.toFixed(1)}
+            {place.rating.toFixed(1)}
           </Text>
         </View>
       )}
 
-      {restaurant.address && (
+      {place.address && (
         <View style={styles.infoRow}>
           <Ionicons name="location-outline" size={14} color={iconColor} />
           <Text style={[styles.address, { color: iconColor }]} numberOfLines={2}>
-            {restaurant.address}
+            {place.address}
           </Text>
         </View>
       )}
 
-      {restaurant.phone && (
+      {place.phone && (
         <View style={styles.infoRow}>
           <Ionicons name="call-outline" size={14} color={iconColor} />
           <Text style={[styles.phone, { color: iconColor }]}>
-            {restaurant.phone}
+            {place.phone}
           </Text>
         </View>
       )}
 
-      {restaurant.description && (
+      {place.description && (
         <Text style={[styles.description, { color: textColor }]} numberOfLines={3}>
-          {restaurant.description}
+          {place.description}
         </Text>
       )}
     </TouchableOpacity>

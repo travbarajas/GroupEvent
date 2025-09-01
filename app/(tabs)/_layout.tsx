@@ -352,18 +352,18 @@ export default function TabLayout() {
         <Tabs.Screen
           name="newsletter"
           options={{
-            title: 'Newsletter',
+            title: 'Today',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? 'newspaper' : 'newspaper-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'today' : 'today-outline'} size={24} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="events"
           options={{
-            title: 'Events',
+            title: 'Explore',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'compass' : 'compass-outline'} size={24} color={color} />
             ),
           }}
         />
@@ -379,7 +379,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="ai"
           options={{
-            title: 'LocalAI',
+            title: 'AI',
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'sparkles' : 'sparkles-outline'} size={24} color={color} />
             ),

@@ -175,6 +175,7 @@ export default function ExploreTab() {
     loadEvents();
   }, []);
 
+
   const loadEvents = async () => {
     try {
       setIsLoading(true);
@@ -327,12 +328,15 @@ export default function ExploreTab() {
       <StatusBar style="light" />
       
       {/* Header */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+      <View style={[
+        styles.headerContainer, 
+        { paddingTop: insets.top }
+      ]}>
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Explore</Text>
             <Text style={styles.headerSubtitle}>
-              Discover events by category
+              Discover local events
             </Text>
           </View>
           <TouchableOpacity 
@@ -343,6 +347,7 @@ export default function ExploreTab() {
           </TouchableOpacity>
         </View>
       </View>
+
       
       {/* Categories */}
       <ScrollView 
@@ -404,6 +409,7 @@ export default function ExploreTab() {
         event={selectedEventForGroup!}
         onGroupSelected={handleGroupSelected}
       />
+      
     </View>
   );
 }
@@ -416,6 +422,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#1a1a1a',
     elevation: 10,
+    zIndex: 1000,
   },
   header: {
     backgroundColor: '#1a1a1a',
