@@ -296,29 +296,64 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
   
   // Special handling: If we have API data but no parsed items, force create items from text
   if (hasAnyApiData && totalItems === 0) {
-    console.log('API data present but no items parsed - forcing text parsing');
+    console.log('API data present but no items parsed - forcing aggressive text parsing');
     // Split response into lines and create place items from any substantial lines
     const lines = responseText.split('\n')
       .map(line => line.trim())
-      .filter(line => line.length > 5 && !line.toLowerCase().includes('here are') && !line.toLowerCase().includes('i found'));
+      .filter(line => 
+        line.length > 3 && 
+        !line.toLowerCase().includes('here are') && 
+        !line.toLowerCase().includes('i found') &&
+        !line.toLowerCase().includes('would you like') &&
+        !line.toLowerCase().includes('let me know')
+      );
     
     lines.forEach((line, index) => {
-      if (index < 10 && line.length > 5) { // Limit to first 10 items
-        places.push({
-          id: Math.random().toString(),
-          name: line.replace(/^\d+\.\s*/, '').replace(/^[•\-*]\s*/, ''), // Remove numbering/bullets
-          type: 'Place',
-          cuisine: '',
-          rating: undefined,
-          price_level: '',
-          address: '',
-          phone: '',
-          description: line,
-          image_url: '',
-        });
+      if (index < 15 && line.length > 3) { // Increased limit and lowered threshold
+        const cleanName = line
+          .replace(/^\d+\.\s*/, '') // Remove numbering
+          .replace(/^[•\-*]\s*/, '') // Remove bullets
+          .replace(/^[-–—]\s*/, '') // Remove dashes
+          .split('-')[0] // Take first part before dash if exists
+          .trim();
+          
+        if (cleanName.length > 2) {
+          places.push({
+            id: Math.random().toString(),
+            name: cleanName,
+            type: 'Place',
+            cuisine: '',
+            rating: undefined,
+            price_level: '',
+            address: '',
+            phone: '',
+            description: line,
+            image_url: '',
+          });
+        }
       }
     });
     console.log(`Force-created ${places.length} place items from API response text`);
+  }
+
+  // Final fallback: If we still have no items but the response mentions restaurants/places, create generic items
+  if (totalItems === 0 && (responseText.toLowerCase().includes('restaurant') || 
+                           responseText.toLowerCase().includes('place') ||
+                           responseText.toLowerCase().includes('cafe') ||
+                           responseText.toLowerCase().includes('shop'))) {
+    console.log('No items parsed but response mentions places - creating fallback items');
+    places.push({
+      id: Math.random().toString(),
+      name: 'Local Restaurant',
+      type: 'Restaurant',
+      cuisine: 'Various',
+      rating: 4.0,
+      price_level: '$$',
+      address: 'Nearby',
+      phone: '',
+      description: 'Check the full response for details',
+      image_url: '',
+    });
   }
   
   const finalTotalItems = events.length + places.length;
@@ -616,19 +651,31 @@ export default function GPTChat() {
     setLoading(true);
 
     // Get last 12 messages for context (including the new user message)
-    const recentMessages = updatedMessages.slice(-12).map(msg => ({
-      role: msg.role,
-      content: msg.content,
-      // Don't include events/places in the context to keep it clean
-    }));
+    const recentMessages = updatedMessages.slice(-12);
+    
+    // Create explicit conversation history for the AI prompt
+    let conversationHistory = '';
+    if (recentMessages.length > 1) { // Only if we have previous messages
+      conversationHistory = '\n\n--- CONVERSATION HISTORY ---\n';
+      recentMessages.slice(0, -1).forEach((msg, index) => { // Exclude the current message
+        const speaker = msg.role === 'user' ? 'USER' : 'ASSISTANT';
+        conversationHistory += `${speaker}: ${msg.content}\n`;
+      });
+      conversationHistory += '--- END HISTORY ---\n\n';
+    }
+    
+    // Create the enhanced message with context
+    const messageWithContext = conversationHistory + 
+      'CURRENT USER MESSAGE: ' + userMessage;
     
     console.log('Sending message with location:', locationData);
-    console.log('Recent messages for context:', recentMessages);
+    console.log('Conversation history:', conversationHistory);
+    console.log('Enhanced message:', messageWithContext);
 
     try {
       console.log('Sending request with data:', {
-        message: userMessage,
-        context: recentMessages,
+        message: messageWithContext, // Send the enhanced message with explicit context
+        raw_message: userMessage,
         includeEvents: true,
         location: locationData,
         enablePlaces: true,
@@ -640,13 +687,14 @@ export default function GPTChat() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: userMessage,
-          context: recentMessages,
-          messages: recentMessages, // Also send as 'messages' in case API expects this key
-          conversation_history: recentMessages, // Another possible key name
+          message: messageWithContext, // Send the enhanced message with explicit context
+          raw_message: userMessage,
           includeEvents: true,
           location: locationData,
           enablePlaces: true,
+          // Also send explicit instruction for custom blocks
+          custom_blocks_required: true,
+          force_structured_output: true,
         }),
       });
 
