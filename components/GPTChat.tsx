@@ -65,16 +65,22 @@ interface LocationData {
 }
 
 // Function to parse events and places from AI response and clean text
-const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPlaces?: any[]): { events: EventData[], places: PlaceData[], cleanedText: string } => {
+const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPlaces?: any[], hasApiData?: boolean): { events: EventData[], places: PlaceData[], cleanedText: string } => {
   const events: EventData[] = [];
   const places: PlaceData[] = [];
   let cleanedText = responseText;
+
+  // Check if we have ANY API data that should force custom blocks
+  const hasAnyApiData = hasApiData || 
+    (apiEvents && Array.isArray(apiEvents) && apiEvents.length > 0) ||
+    (apiPlaces && Array.isArray(apiPlaces) && apiPlaces.length > 0);
   
-  // Parse structured events data from API
+  // Parse structured events data from API - ALWAYS create blocks for API data
   if (apiEvents && Array.isArray(apiEvents) && apiEvents.length > 0) {
+    console.log('Processing API events data:', apiEvents);
     apiEvents.forEach(event => {
       if (event && typeof event === 'object') {
-        events.push({
+        const eventData = {
           id: event.id || Math.random().toString(),
           name: event.name || event.title || 'Event',
           description: event.description || event.summary || '',
@@ -85,16 +91,20 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
           location: event.location || event.address || event.venue || '',
           venue_name: event.venue_name || event.venue || '',
           image_url: event.image_url || event.image || '',
-        });
+        };
+        console.log('Adding API event:', eventData);
+        events.push(eventData);
       }
     });
+    console.log(`Added ${events.length} events from API data`);
   }
   
-  // Parse structured place data from API (restaurants, shops, attractions, etc.)
+  // Parse structured place data from API (restaurants, shops, attractions, etc.) - ALWAYS create blocks for API data
   if (apiPlaces && Array.isArray(apiPlaces) && apiPlaces.length > 0) {
+    console.log('Processing API places data:', apiPlaces);
     apiPlaces.forEach(place => {
       if (place && typeof place === 'object') {
-        places.push({
+        const placeData = {
           id: place.id || Math.random().toString(),
           name: place.name || 'Place',
           type: place.type || place.category || 'Place',
@@ -105,16 +115,20 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
           phone: place.phone || place.phoneNumber || '',
           description: place.description || place.summary || '',
           image_url: place.image_url || place.image || '',
-        });
+        };
+        console.log('Adding API place:', placeData);
+        places.push(placeData);
       }
     });
+    console.log(`Added ${places.length} places from API data`);
   }
 
-  // Also try to parse events and restaurants from text patterns (for when API doesn't return structured data)
+  // Also try to parse events and places from text patterns (for when API doesn't return structured data)
   // But be more careful to avoid false positives like recipes
+  // If we have API data, be MORE aggressive in parsing text to ensure we show blocks
   
   // Parse places from text - look for any business/location patterns
-  const placePatterns = [
+  let placePatterns = [
     // Pattern: "1. Place Name - Description" (numbered list format)
     /^\d+\.\s*\*?\*?([^-\n]+?)\*?\*?\s*-\s*([^-\n]+)/gmi,
     // Pattern: "**Place Name** - Description"  
@@ -126,6 +140,17 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
     // Pattern: Just bullet point place names (fallback)
     /^[•\-*]\s*\*?\*?([^-\n]+?)\*?\*?\s*$/gmi,
   ];
+
+  // If we have API data, add more aggressive patterns to catch everything
+  if (hasAnyApiData) {
+    console.log('API data detected - using aggressive parsing patterns');
+    placePatterns = placePatterns.concat([
+      // More aggressive patterns when API data is present
+      /^([^-\n]+?)\s*-\s*([^-\n]+)$/gmi, // Any line with " - " 
+      /^\d+\.\s*([^-\n]+)$/gmi, // Any numbered item
+      /^[•\-*]\s*([^-\n]+)$/gmi, // Any bulleted item
+    ]);
+  }
 
   console.log('Parsing places from response:', responseText);
   
@@ -268,7 +293,36 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
   
   // Generate summary message
   const totalItems = events.length + places.length;
-  if (totalItems > 0) {
+  
+  // Special handling: If we have API data but no parsed items, force create items from text
+  if (hasAnyApiData && totalItems === 0) {
+    console.log('API data present but no items parsed - forcing text parsing');
+    // Split response into lines and create place items from any substantial lines
+    const lines = responseText.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 5 && !line.toLowerCase().includes('here are') && !line.toLowerCase().includes('i found'));
+    
+    lines.forEach((line, index) => {
+      if (index < 10 && line.length > 5) { // Limit to first 10 items
+        places.push({
+          id: Math.random().toString(),
+          name: line.replace(/^\d+\.\s*/, '').replace(/^[•\-*]\s*/, ''), // Remove numbering/bullets
+          type: 'Place',
+          cuisine: '',
+          rating: undefined,
+          price_level: '',
+          address: '',
+          phone: '',
+          description: line,
+          image_url: '',
+        });
+      }
+    });
+    console.log(`Force-created ${places.length} place items from API response text`);
+  }
+  
+  const finalTotalItems = events.length + places.length;
+  if (finalTotalItems > 0) {
     let message = '';
     if (events.length > 0) {
       message += events.length === 1 ? `I found 1 event` : `I found ${events.length} events`;
@@ -561,11 +615,11 @@ export default function GPTChat() {
     setMessages(updatedMessages);
     setLoading(true);
 
-    // Get last 5 messages for context (including the new user message)
-    const recentMessages = updatedMessages.slice(-5).map(msg => ({
+    // Get last 12 messages for context (including the new user message)
+    const recentMessages = updatedMessages.slice(-12).map(msg => ({
       role: msg.role,
       content: msg.content,
-      // Don't include events in the context to keep it clean
+      // Don't include events/places in the context to keep it clean
     }));
     
     console.log('Sending message with location:', locationData);
@@ -639,8 +693,18 @@ export default function GPTChat() {
         console.log('API events data:', data.events);
         console.log('API places data:', data.restaurants || data.places);
         
+        // Check if we have ANY structured data from Google Places or similar APIs
+        const hasApiData = !!(data.events || data.restaurants || data.places || 
+                             data.google_places || data.yelp_data || data.structured_data);
+        console.log('Has API data:', hasApiData);
+        
         // Parse events and places from the response and get cleaned text
-        const { events, places, cleanedText } = parseContentFromResponse(data.response, data.events, data.restaurants || data.places);
+        const { events, places, cleanedText } = parseContentFromResponse(
+          data.response, 
+          data.events, 
+          data.restaurants || data.places, 
+          hasApiData
+        );
         
         console.log('Parsed events:', events);
         console.log('Parsed places:', places);
