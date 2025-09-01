@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,17 @@ import {
   Platform,
   SafeAreaView,
   Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import EventBlock from './EventBlock';
+import RestaurantBlock from './RestaurantBlock';
 
 interface EventData {
   id?: string;
@@ -31,11 +36,24 @@ interface EventData {
   image_url?: string;
 }
 
+interface RestaurantData {
+  id?: string;
+  name: string;
+  cuisine?: string;
+  rating?: number;
+  price_level?: string;
+  address?: string;
+  phone?: string;
+  description?: string;
+  image_url?: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
   events?: EventData[];
+  restaurants?: RestaurantData[];
 }
 
 interface LocationData {
@@ -45,13 +63,14 @@ interface LocationData {
   timestamp?: number;
 }
 
-// Function to parse events from AI response and clean text
-const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { events: EventData[], cleanedText: string } => {
+// Function to parse events and restaurants from AI response and clean text
+const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiRestaurants?: any[]): { events: EventData[], restaurants: RestaurantData[], cleanedText: string } => {
   const events: EventData[] = [];
+  const restaurants: RestaurantData[] = [];
   let cleanedText = responseText;
   
-  // If the API returned structured events data, use that
-  if (apiEvents && Array.isArray(apiEvents)) {
+  // Parse structured events data from API
+  if (apiEvents && Array.isArray(apiEvents) && apiEvents.length > 0) {
     apiEvents.forEach(event => {
       if (event && typeof event === 'object') {
         events.push({
@@ -70,128 +89,106 @@ const parseEventsFromResponse = (responseText: string, apiEvents?: any[]): { eve
     });
   }
   
-  // Parse events from the response text using various patterns
-  // Order patterns by specificity - most specific first to avoid conflicts
-  const patterns = [
-    // Pattern 1: Calendar emoji format - enhanced to capture multiple events separated by double newlines
+  // Parse structured restaurant data from API
+  if (apiRestaurants && Array.isArray(apiRestaurants) && apiRestaurants.length > 0) {
+    apiRestaurants.forEach(restaurant => {
+      if (restaurant && typeof restaurant === 'object') {
+        restaurants.push({
+          id: restaurant.id || Math.random().toString(),
+          name: restaurant.name || 'Restaurant',
+          cuisine: restaurant.cuisine || restaurant.type || '',
+          rating: restaurant.rating || restaurant.score,
+          price_level: restaurant.price_level || restaurant.priceLevel || restaurant.price,
+          address: restaurant.address || restaurant.location || '',
+          phone: restaurant.phone || restaurant.phoneNumber || '',
+          description: restaurant.description || restaurant.summary || '',
+          image_url: restaurant.image_url || restaurant.image || '',
+        });
+      }
+    });
+  }
+
+  // Also try to parse events and restaurants from text patterns (for when API doesn't return structured data)
+  // But be more careful to avoid false positives like recipes
+  
+  // Parse events from text - only if it looks like actual events (has date/time/location context)
+  const eventPatterns = [
+    // Calendar emoji format with date
     /📅\s*([^\n]+)\n\n([\s\S]*?)(?=\n\n📅|\n\n$|$)/gi,
-    
-    // Pattern 2: "Event: Name\nDate: ...\nTime: ..." format
-    /(?:Event|EVENT):\s*([^\n]+)(?:\n.*?(?:Date|DATE):\s*([^\n]+))?(?:\n.*?(?:Time|TIME):\s*([^\n]+))?(?:\n.*?(?:Location|LOCATION):\s*([^\n]+))?(?:\n.*?(?:Price|PRICE):\s*([^\n]+))?/gi,
-    
-    // Pattern 3: "**Event Name**\n- Date: ...\n- Time: ..." format
-    /\*\*([^*\n]+)\*\*\s*(?:\n[-•]\s*(?:Date|When):\s*([^\n]+))?(?:\n[-•]\s*(?:Time):\s*([^\n]+))?(?:\n[-•]\s*(?:Location|Where):\s*([^\n]+))?(?:\n[-•]\s*(?:Price|Cost):\s*([^\n]+))?/gi,
-    
-    // Pattern 4: "1. Event Name - Date, Time, Location" format
-    /\d+\.\s*([^-\n]+)\s*-\s*([^,\n]+)(?:,\s*([^,\n]+))?(?:,\s*([^,\n]+))?(?:,\s*([^\n]+))?/gi,
+    // Event: format with clear event indicators
+    /(?:Event|EVENT):\s*([^\n]+)(?:\n.*?(?:Date|DATE|When):\s*([^\n]+))?(?:\n.*?(?:Time|TIME):\s*([^\n]+))?(?:\n.*?(?:Location|LOCATION|Where):\s*([^\n]+))?/gi,
   ];
   
-  // Keep track of processed text regions to avoid duplicates
-  const processedRegions: string[] = [];
-  
-  patterns.forEach(pattern => {
+  eventPatterns.forEach(pattern => {
     let match;
     while ((match = pattern.exec(responseText)) !== null) {
       const fullMatch = match[0];
-      let name, date, time, location, price, description = '';
+      let name, date, time, location = '';
       
-      // Skip if we've already processed this text region
-      if (processedRegions.some(region => fullMatch.includes(region) || region.includes(fullMatch))) {
+      // Skip if this looks like a recipe or instruction
+      if (fullMatch.toLowerCase().includes('ingredient') || 
+          fullMatch.toLowerCase().includes('recipe') ||
+          fullMatch.toLowerCase().includes('step') ||
+          fullMatch.toLowerCase().includes('cook') ||
+          fullMatch.toLowerCase().includes('bake')) {
         continue;
       }
       
-      if (pattern === patterns[0]) { // Calendar emoji format: 📅 Date\n\nContent
+      if (pattern === eventPatterns[0]) { // Calendar emoji format
         const [, eventDate, content] = match;
         const lines = content.split('\n').map(line => line.trim()).filter(line => line);
-        
         date = eventDate?.trim();
-        name = lines[0] || ''; // First line is event name
-        description = lines[1] || ''; // Second line is description
+        name = lines[0] || '';
         
-        // Look for time and location in format "12:00 PM @ Venue (Location)"
+        // Look for time and location
         const timeLocationLine = lines.find(line => line.includes('@') && (line.includes('PM') || line.includes('AM')));
         if (timeLocationLine) {
           const timeMatch = timeLocationLine.match(/^([^@]+)/);
           time = timeMatch ? timeMatch[1].trim() : '';
-          
-          const venueMatch = timeLocationLine.match(/@\s*([^(]+)(\([^)]+\))?/);
-          if (venueMatch) {
-            const venue = venueMatch[1].trim();
-            const locationInParens = venueMatch[2] ? venueMatch[2].replace(/[()]/g, '').trim() : '';
-            location = venue && locationInParens ? `${venue}, ${locationInParens}` : venue || locationInParens;
-          }
+          const venueMatch = timeLocationLine.match(/@\s*([^(]+)/);
+          location = venueMatch ? venueMatch[1].trim() : '';
         }
-        
-        // Look for price line
-        const priceLine = lines.find(line => line.toLowerCase().includes('price:'));
-        if (priceLine) {
-          price = priceLine.replace(/price:\s*/i, '').trim();
-        }
-      } else if (pattern === patterns[1]) { // Event: format
-        [, name, date, time, location, price] = match;
-      } else if (pattern === patterns[2]) { // **Event** format
-        [, name, date, time, location, price] = match;
-      } else if (pattern === patterns[3]) { // numbered list format
-        [, name, date, time, location, price] = match;
+      } else if (pattern === eventPatterns[1]) { // Event: format
+        [, name, date, time, location] = match;
       }
       
-      if (name && name.trim()) {
-        const eventData = {
+      // Only add if it has event-like characteristics
+      if (name && name.trim() && (date || time || location)) {
+        events.push({
           id: Math.random().toString(),
           name: name.trim(),
-          description: description || '',
+          description: '',
           date: date?.trim() || '',
           time: time?.trim() || '',
-          price: price?.trim() || '',
-          is_free: price?.toLowerCase().includes('free') || price?.toLowerCase().includes('$0') || false,
+          price: '',
+          is_free: false,
           location: location?.trim() || '',
           venue_name: '',
           image_url: '',
-        };
+        });
         
-        // Only add events that have meaningful data (not just a date as name)
-        const hasValidData = eventData.name && (
-          eventData.description || 
-          eventData.time || 
-          eventData.location || 
-          eventData.price ||
-          !eventData.name.match(/^\w+,?\s+\w+\s+\d+$/) // Don't treat "Saturday, Jul 25" as an event name
-        );
-        
-        if (hasValidData) {
-          // Debug log to see what data we're extracting
-          console.log('Extracted valid event data:', eventData);
-          events.push(eventData);
-          
-          // Mark this region as processed
-          processedRegions.push(fullMatch);
-        } else {
-          console.log('Skipping invalid event data:', eventData);
-        }
-        
-        // Remove the event information from the text
+        // Remove from text
         cleanedText = cleanedText.replace(fullMatch, '').trim();
       }
     }
   });
   
-  // Clean up the text - remove extra whitespace and empty lines
-  cleanedText = cleanedText
-    .replace(/\n\n\n+/g, '\n\n') // Replace multiple empty lines with double newline
-    .replace(/^\s+|\s+$/g, '') // Trim whitespace
-    .replace(/^[-•]\s*$/gm, '') // Remove empty bullet points
-    .replace(/\n\n+/g, '\n\n'); // Clean up spacing
-  
-  // If we found events, replace the cleaned text with a simple message
-  if (events.length > 0) {
-    if (events.length === 1) {
-      cleanedText = `I found 1 event for you:`;
-    } else {
-      cleanedText = `I found ${events.length} events for you:`;
+  // Generate summary message
+  const totalItems = events.length + restaurants.length;
+  if (totalItems > 0) {
+    let message = '';
+    if (events.length > 0) {
+      message += events.length === 1 ? `I found 1 event` : `I found ${events.length} events`;
     }
+    if (restaurants.length > 0) {
+      if (events.length > 0) message += ' and ';
+      message += restaurants.length === 1 ? `1 restaurant` : `${restaurants.length} restaurants`;
+    }
+    message += ' for you:';
+    cleanedText = message;
   }
   
-  return { events, cleanedText };
+  return { events, restaurants, cleanedText };
 };
 
 export default function GPTChat() {
@@ -201,72 +198,128 @@ export default function GPTChat() {
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [isWatchingLocation, setIsWatchingLocation] = useState<boolean>(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState<boolean>(false);
+  const [selectedLocationOption, setSelectedLocationOption] = useState<string>('Use Location');
+  
+  // Animation values for keyboard
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+
+  // City options
+  const locationOptions = [
+    'Use Location',
+    'Roseville',
+    'Rocklin', 
+    'Lincoln'
+  ];
 
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
   const iconColor = useThemeColor({}, 'icon');
 
-  // Get user location on component mount
-  useEffect(() => {
-    (async () => {
+  // Animation functions
+  const animateUp = () => {
+    Animated.timing(keyboardOffset, {
+      toValue: -150, // Move content up by 150px
+      duration: 300, // Fixed smooth duration
+      useNativeDriver: true, // Use native driver for better performance
+    }).start();
+  };
+
+  const animateDown = () => {
+    Animated.timing(keyboardOffset, {
+      toValue: 0, // Move content back to original position
+      duration: 300, // Fixed smooth duration
+      useNativeDriver: true, // Use native driver for better performance
+    }).start();
+  };
+
+  // Handle input focus - trigger animation immediately
+  const handleInputFocus = () => {
+    animateUp();
+  };
+
+  // Handle screen tap to dismiss keyboard - trigger animation immediately
+  const handleScreenTap = () => {
+    Keyboard.dismiss();
+    animateDown();
+  };
+
+  // Handle location option selection
+  const handleLocationOptionSelect = async (option: string) => {
+    setSelectedLocationOption(option);
+    setShowLocationDropdown(false);
+    
+    if (option === 'Use Location') {
+      // Request location permission and get current location
       try {
-        // Request location permissions
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.log('Permission to access location was denied');
+          Alert.alert('Location Permission', 'Location permission is required to use current location.');
           setLocationPermission(false);
           return;
         }
-
+        
         setLocationPermission(true);
-
-        // Try multiple approaches for best accuracy
-        let location;
-        
-        try {
-          // First try: Most aggressive GPS settings
-          console.log('Attempting high-precision GPS location...');
-          location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.BestForNavigation, // Most accurate available
-            maximumAge: 5000, // Accept location up to 5 seconds old
-            timeout: 25000, // Wait up to 25 seconds for GPS lock
-          });
-        } catch (error) {
-          console.log('High precision failed, trying high accuracy:', error);
-          // Fallback: High accuracy
-          location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
-            maximumAge: 10000,
-            timeout: 20000,
-          });
-        }
-        
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          accuracy: location.coords.accuracy,
-          timestamp: location.timestamp,
-        });
-
-        console.log('Location obtained:');
-        console.log('- Latitude:', location.coords.latitude);
-        console.log('- Longitude:', location.coords.longitude);
-        console.log('- Accuracy:', location.coords.accuracy, 'meters');
-        console.log('- Altitude:', location.coords.altitude);
-        console.log('- Speed:', location.coords.speed);
-        console.log('- Timestamp:', new Date(location.timestamp));
-        
-        // Start watching location for continuous updates if accuracy is poor
-        if (location.coords.accuracy > 500) { // If accuracy worse than 500m
-          console.log('Starting location watch for better accuracy...');
-          startLocationWatch();
-        }
+        await getCurrentLocation();
       } catch (error) {
-        console.error('Error getting location:', error);
+        console.error('Error requesting location permission:', error);
         setLocationPermission(false);
       }
-    })();
+    } else {
+      // Using a preset city, clear GPS location data
+      setUserLocation(null);
+      setLocationPermission(false);
+      setIsWatchingLocation(false);
+    }
+  };
+
+  // Function to get current GPS location
+  const getCurrentLocation = async () => {
+    try {
+      let location;
+      
+      try {
+        // First try: Most aggressive GPS settings
+        console.log('Attempting high-precision GPS location...');
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          maximumAge: 5000,
+          timeout: 25000,
+        });
+      } catch (error) {
+        console.log('High precision failed, trying high accuracy:', error);
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          maximumAge: 10000,
+          timeout: 20000,
+        });
+      }
+      
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        timestamp: location.timestamp,
+      });
+
+      console.log('Location obtained:', location.coords);
+      
+      // Start watching location for continuous updates if accuracy is poor
+      if (location.coords.accuracy > 500) {
+        console.log('Starting location watch for better accuracy...');
+        startLocationWatch();
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Location Error', 'Could not get current location. Please try again.');
+    }
+  };
+
+  // Initialize with default location option
+  useEffect(() => {
+    // Don't automatically request location on mount anymore
+    // Let user choose via dropdown
   }, []);
 
   // Function to start continuous location watching
@@ -362,7 +415,14 @@ export default function GPTChat() {
     const userMessage = inputText.trim();
     setInputText('');
     
-    console.log('Sending message with location:', userLocation);
+    // Determine location data to send
+    let locationData = null;
+    if (selectedLocationOption === 'Use Location' && userLocation) {
+      locationData = userLocation;
+    } else if (selectedLocationOption !== 'Use Location') {
+      // Send city name instead of coordinates
+      locationData = { city: selectedLocationOption };
+    }
     
     // Add user message immediately
     const newUserMessage: Message = {
@@ -370,14 +430,26 @@ export default function GPTChat() {
       content: userMessage,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, newUserMessage]);
+    const updatedMessages = [...messages, newUserMessage];
+    setMessages(updatedMessages);
     setLoading(true);
+
+    // Get last 5 messages for context (including the new user message)
+    const recentMessages = updatedMessages.slice(-5).map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      // Don't include events in the context to keep it clean
+    }));
+    
+    console.log('Sending message with location:', locationData);
+    console.log('Recent messages for context:', recentMessages);
 
     try {
       console.log('Sending request with data:', {
         message: userMessage,
+        context: recentMessages,
         includeEvents: true,
-        location: userLocation,
+        location: locationData,
         enablePlaces: true,
       });
 
@@ -388,8 +460,9 @@ export default function GPTChat() {
         },
         body: JSON.stringify({
           message: userMessage,
+          context: recentMessages,
           includeEvents: true,
-          location: userLocation,
+          location: locationData,
           enablePlaces: true,
         }),
       });
@@ -432,14 +505,15 @@ export default function GPTChat() {
       }
       
       if (data.success) {
-        // Parse events from the response and get cleaned text
-        const { events, cleanedText } = parseEventsFromResponse(data.response, data.events);
+        // Parse events and restaurants from the response and get cleaned text
+        const { events, restaurants, cleanedText } = parseContentFromResponse(data.response, data.events, data.restaurants);
         
         const assistantMessage: Message = {
           role: 'assistant',
           content: cleanedText,
           timestamp: new Date(),
           events: events.length > 0 ? events : undefined,
+          restaurants: restaurants.length > 0 ? restaurants : undefined,
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
@@ -480,172 +554,292 @@ export default function GPTChat() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Ionicons name="sparkles" size={24} color={tintColor} />
-          <Text style={[styles.title, { color: textColor }]}>LocalAI</Text>
-        </View>
-        
-        <View style={styles.headerControls}>
-          <View style={styles.locationStatus}>
-            <Ionicons 
-              name={userLocation ? "location" : "location-outline"} 
-              size={16} 
-              color={userLocation ? "#10b981" : "#6b7280"} 
-            />
-            <Text style={[
-              styles.locationText,
-              { color: userLocation ? "#10b981" : "#6b7280" }
-            ]}>
-              {userLocation ? 
-                `Location ON (±${Math.round(userLocation.accuracy || 0)}m)${isWatchingLocation ? ' 🔄' : ''}` : 
-                "Location OFF"
-              }
-            </Text>
-            {userLocation && userLocation.accuracy && userLocation.accuracy > 1000 && (
-              <TouchableOpacity onPress={refreshLocation} style={styles.refreshLocationButton}>
-                <Ionicons name="refresh" size={14} color="#f59e0b" />
-              </TouchableOpacity>
-            )}
-            {userLocation && userLocation.accuracy && userLocation.accuracy > 200 && !isWatchingLocation && (
-              <TouchableOpacity onPress={startLocationWatch} style={styles.watchLocationButton}>
-                <Ionicons name="eye" size={14} color="#3b82f6" />
-              </TouchableOpacity>
-            )}
+      {/* Show header only when there are messages */}
+      {messages.length > 0 && (
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Ionicons name="sparkles" size={24} color={tintColor} />
+            <Text style={[styles.title, { color: textColor }]}>LocalAI</Text>
           </View>
-          {messages.length > 0 && (
+          
+          <View style={styles.headerControls}>
+            <TouchableOpacity 
+              onPress={() => setShowLocationDropdown(true)} 
+              style={styles.locationDropdownButton}
+            >
+              <Ionicons 
+                name="location" 
+                size={16} 
+                color={tintColor} 
+              />
+              <Text style={[styles.locationDropdownText, { color: textColor }]}>
+                {selectedLocationOption}
+              </Text>
+              <Ionicons 
+                name="chevron-down" 
+                size={16} 
+                color={textColor} 
+              />
+            </TouchableOpacity>
+            
             <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
               <Ionicons name="trash-outline" size={20} color={tintColor} />
             </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <ScrollView 
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
-      >
-        {messages.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubble-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyStateText}>
-              Ask LocalAI about events, restaurants, or group planning!
-            </Text>
-            <Text style={styles.emptyStateSubtext}>
-              I have access to local events and nearby places via Google Places
-            </Text>
           </View>
-        )}
-        
-        {messages.map((msg, index) => (
-          <View key={index}>
-            {/* Regular message bubble */}
-            <View 
-              style={[
-                styles.messageBubble,
-                msg.role === 'user' ? styles.userMessage : {
-                  alignSelf: 'flex-start',
-                  backgroundColor: backgroundColor,
-                  borderWidth: 1,
-                  borderColor: '#666666',
-                }
-              ]}
-            >
-              <Text style={[
-                styles.messageText,
-                msg.role === 'user' ? styles.userMessageText : { color: '#ffffff' }
-              ]}>
-                {msg.content}
-              </Text>
-              <Text style={[
-                styles.timestamp,
-                msg.role === 'user' ? styles.userTimestamp : styles.assistantTimestamp
-              ]}>
-                {formatTime(msg.timestamp)}
-              </Text>
-            </View>
+        </View>
+      )}
 
-            {/* Event blocks if present */}
-            {msg.events && msg.events.length > 0 && (
-              <View style={styles.eventBlocksContainer}>
-                {msg.events.map((event, eventIndex) => (
-                  <View key={eventIndex}>
-                    <EventBlock 
-                      event={event}
-                      onPress={() => {
-                        // Handle event block press - could navigate to event details
-                        console.log('Event pressed:', event.name);
-                      }}
-                    />
-                    {/* Content break between events (except after the last one) */}
-                    {eventIndex < msg.events.length - 1 && (
-                      <View style={styles.eventSeparator}>
-                        <View style={styles.separatorContainer}>
-                          <LinearGradient
-                            colors={[backgroundColor, iconColor + '4D']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.separatorFadeLeft}
-                          />
-                          <View style={[styles.separatorLine, { backgroundColor: iconColor }]} />
-                          <LinearGradient
-                            colors={[iconColor + '4D', backgroundColor]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.separatorFadeRight}
-                          />
-                        </View>
+      {messages.length === 0 ? (
+        // Centered layout when no messages
+        <TouchableWithoutFeedback onPress={handleScreenTap}>
+          <View style={styles.centeredContainer}>
+            <Animated.View style={[
+              styles.centeredInputContainer,
+              { transform: [{ translateY: keyboardOffset }] }
+            ]}>
+              {/* Title and subtitle above input */}
+              <TouchableWithoutFeedback onPress={handleScreenTap}>
+                <View style={styles.centeredContent}>
+                  <Ionicons name="sparkles" size={48} color={tintColor} />
+                  <Text style={[styles.centeredTitle, { color: textColor }]}>LocalAI</Text>
+                  <Text style={styles.centeredSubtitle}>
+                    Ask me about local events, restaurants, or help with group planning
+                  </Text>
+                </View>
+              </TouchableWithoutFeedback>
+              
+              {/* Centered Input */}
+              <View style={styles.centeredInputRow}>
+                <View style={styles.centeredInputField}>
+                  <TextInput
+                    style={[styles.centeredInput, { color: textColor }]}
+                    value={inputText}
+                    onChangeText={setInputText}
+                    placeholder="Ask me anything..."
+                    placeholderTextColor="#999"
+                    multiline={false}
+                    onSubmitEditing={sendMessage}
+                    onFocus={handleInputFocus}
+                    autoFocus={false}
+                  />
+                </View>
+                <TouchableOpacity 
+                  style={[
+                    styles.centeredSendButton,
+                    { backgroundColor: inputText.trim() && !loading ? '#007AFF' : '#666666' }
+                  ]}
+                  onPress={sendMessage}
+                  disabled={!inputText.trim() || loading}
+                >
+                  <Ionicons 
+                    name={loading ? "hourglass-outline" : "send"} 
+                    size={20} 
+                    color="white" 
+                  />
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+      ) : (
+        // Normal chat layout when messages exist
+        <>
+          <ScrollView 
+            style={styles.messagesContainer}
+            contentContainerStyle={styles.messagesContent}
+          >
+            {messages.map((msg, index) => (
+              <View key={index}>
+                {/* Regular message bubble */}
+                <View 
+                  style={[
+                    styles.messageBubble,
+                    msg.role === 'user' ? styles.userMessage : {
+                      alignSelf: 'flex-start',
+                      backgroundColor: backgroundColor,
+                      borderWidth: 1,
+                      borderColor: '#666666',
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.messageText,
+                    msg.role === 'user' ? styles.userMessageText : { color: '#ffffff' }
+                  ]}>
+                    {msg.content}
+                  </Text>
+                  <Text style={[
+                    styles.timestamp,
+                    msg.role === 'user' ? styles.userTimestamp : styles.assistantTimestamp
+                  ]}>
+                    {formatTime(msg.timestamp)}
+                  </Text>
+                </View>
+
+                {/* Event blocks if present */}
+                {msg.events && msg.events.length > 0 && (
+                  <View style={styles.eventBlocksContainer}>
+                    {msg.events.map((event, eventIndex) => (
+                      <View key={eventIndex}>
+                        <EventBlock 
+                          event={event}
+                          onPress={() => {
+                            // Handle event block press - could navigate to event details
+                            console.log('Event pressed:', event.name);
+                          }}
+                        />
+                        {/* Content break between events (except after the last one) */}
+                        {eventIndex < msg.events.length - 1 && (
+                          <View style={styles.eventSeparator}>
+                            <View style={styles.separatorContainer}>
+                              <LinearGradient
+                                colors={[backgroundColor, iconColor + '4D']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.separatorFadeLeft}
+                              />
+                              <View style={[styles.separatorLine, { backgroundColor: iconColor }]} />
+                              <LinearGradient
+                                colors={[iconColor + '4D', backgroundColor]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.separatorFadeRight}
+                              />
+                            </View>
+                          </View>
+                        )}
                       </View>
-                    )}
+                    ))}
                   </View>
-                ))}
+                )}
+
+                {/* Restaurant blocks if present */}
+                {msg.restaurants && msg.restaurants.length > 0 && (
+                  <View style={styles.eventBlocksContainer}>
+                    {msg.restaurants.map((restaurant, restaurantIndex) => (
+                      <View key={restaurantIndex}>
+                        <RestaurantBlock 
+                          restaurant={restaurant}
+                          onPress={() => {
+                            // Handle restaurant block press - could navigate to restaurant details
+                            console.log('Restaurant pressed:', restaurant.name);
+                          }}
+                        />
+                        {/* Content break between restaurants (except after the last one) */}
+                        {restaurantIndex < msg.restaurants.length - 1 && (
+                          <View style={styles.eventSeparator}>
+                            <View style={styles.separatorContainer}>
+                              <LinearGradient
+                                colors={[backgroundColor, iconColor + '4D']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.separatorFadeLeft}
+                              />
+                              <View style={[styles.separatorLine, { backgroundColor: iconColor }]} />
+                              <LinearGradient
+                                colors={[iconColor + '4D', backgroundColor]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.separatorFadeRight}
+                              />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+            
+            {loading && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={tintColor} />
+                <Text style={[styles.loadingText, { color: textColor }]}>
+                  LocalAI is thinking...
+                </Text>
               </View>
             )}
-          </View>
-        ))}
-        
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={tintColor} />
-            <Text style={[styles.loadingText, { color: textColor }]}>
-              LocalAI is thinking...
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          </ScrollView>
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.inputContainer}
-      >
-        <View style={[styles.inputRow, { backgroundColor }]}>
-          <TextInput
-            style={[styles.input, { color: textColor, borderColor: '#e0e0e0' }]}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Ask me anything..."
-            placeholderTextColor="#999"
-            multiline
-            maxHeight={100}
-            onSubmitEditing={sendMessage}
-          />
-          <TouchableOpacity 
-            style={[
-              styles.sendButton,
-              { backgroundColor: tintColor },
-              (!inputText.trim() || loading) && styles.sendButtonDisabled
-            ]}
-            onPress={sendMessage}
-            disabled={!inputText.trim() || loading}
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.inputContainer}
           >
-            <Ionicons 
-              name={loading ? "hourglass-outline" : "send"} 
-              size={20} 
-              color="white" 
-            />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            <View style={[styles.inputRow, { backgroundColor }]}>
+              <TextInput
+                style={[styles.input, { color: textColor, borderColor: '#666666' }]}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Ask me anything..."
+                placeholderTextColor="#999"
+                multiline
+                maxHeight={100}
+                onSubmitEditing={sendMessage}
+              />
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton,
+                  { backgroundColor: inputText.trim() && !loading ? '#007AFF' : '#666666' }
+                ]}
+                onPress={sendMessage}
+                disabled={!inputText.trim() || loading}
+              >
+                <Ionicons 
+                  name={loading ? "hourglass-outline" : "send"} 
+                  size={20} 
+                  color="white" 
+                />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </>
+      )}
+
+      {/* Location Dropdown Modal */}
+      <Modal
+        visible={showLocationDropdown}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLocationDropdown(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowLocationDropdown(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={[styles.dropdownModal, { backgroundColor }]}>
+                <Text style={[styles.dropdownTitle, { color: textColor }]}>
+                  Select Location
+                </Text>
+                {locationOptions.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.dropdownOption,
+                      option === selectedLocationOption && styles.selectedOption
+                    ]}
+                    onPress={() => handleLocationOptionSelect(option)}
+                  >
+                    <Ionicons 
+                      name={option === 'Use Location' ? 'location' : 'location-outline'} 
+                      size={20} 
+                      color={option === selectedLocationOption ? tintColor : textColor} 
+                    />
+                    <Text style={[
+                      styles.dropdownOptionText, 
+                      { color: option === selectedLocationOption ? tintColor : textColor }
+                    ]}>
+                      {option}
+                    </Text>
+                    {option === selectedLocationOption && (
+                      <Ionicons name="checkmark" size={20} color={tintColor} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -661,7 +855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#666666',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -677,26 +871,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  locationStatus: {
+  locationDropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     backgroundColor: 'rgba(0,0,0,0.05)',
   },
-  locationText: {
-    fontSize: 12,
+  locationDropdownText: {
+    fontSize: 14,
     fontWeight: '500',
-  },
-  refreshLocationButton: {
-    marginLeft: 4,
-    padding: 2,
-  },
-  watchLocationButton: {
-    marginLeft: 4,
-    padding: 2,
   },
   clearButton: {
     padding: 4,
@@ -742,7 +928,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: 'white',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#666666',
   },
   messageText: {
     fontSize: 16,
@@ -778,7 +964,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#666666',
   },
   inputRow: {
     flexDirection: 'row',
@@ -801,9 +987,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
   },
   eventBlocksContainer: {
     marginTop: 8,
@@ -830,5 +1013,107 @@ const styles = StyleSheet.create({
   separatorFadeRight: {
     flex: 1,
     height: 1,
+  },
+  // Centered layout styles (when no messages)
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  centeredInputContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  centeredInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    width: '100%',
+    maxWidth: 400, // Max width for larger screens
+    marginTop: 40, // Space between title and input
+  },
+  centeredInputField: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    paddingHorizontal: 20, // Increased from 16
+    paddingVertical: 16, // Increased from 12
+    minHeight: 56, // Minimum touch target height
+  },
+  centeredInput: {
+    fontSize: 16,
+    color: '#ffffff',
+    textAlignVertical: 'center', // Center text vertically in larger container
+  },
+  centeredSendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centeredContent: {
+    alignItems: 'center',
+  },
+  centeredTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  centeredSubtitle: {
+    fontSize: 16,
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
+    marginBottom: 8, // Small space below subtitle
+  },
+  // Modal and dropdown styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownModal: {
+    minWidth: 200,
+    maxWidth: 300,
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  dropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 4,
+    gap: 12,
+  },
+  selectedOption: {
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+    flex: 1,
   },
 });
