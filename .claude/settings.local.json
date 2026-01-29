@@ -42,7 +42,8 @@
       "Bash(sed:*)",
       "Bash(npx vercel env:*)",
       "Bash(npm audit:*)",
-      "Bash(git -C \"C:\\Users\\zappi\\GroupEvent\" check-ignore .env.development.local)"
+      "Bash(git -C \"C:\\Users\\zappi\\GroupEvent\" check-ignore .env.development.local)",
+      "Bash(dir \"C:\\\\Users\\\\zappi\\\\GroupEvent\\\\api\" /b)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

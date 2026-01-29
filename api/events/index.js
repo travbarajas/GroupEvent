@@ -74,15 +74,15 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Event name is required' });
       }
 
-      // Ensure events table exists
+      // Ensure events table exists with flexible date/time columns
       try {
         await sql`
           CREATE TABLE IF NOT EXISTS events (
             id VARCHAR(255) PRIMARY KEY,
             name VARCHAR(500) NOT NULL,
             description TEXT,
-            date DATE,
-            time TIME,
+            date VARCHAR(100),
+            time VARCHAR(100),
             location VARCHAR(500),
             venue_name VARCHAR(500),
             price DECIMAL(10,2),
@@ -93,32 +93,46 @@ module.exports = async function handler(req, res) {
             max_attendees INTEGER,
             min_attendees INTEGER,
             attendance_required BOOLEAN DEFAULT false,
+            image_url TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `;
+
+        // Try to alter existing columns to VARCHAR if they exist as DATE/TIME
+        try {
+          await sql`ALTER TABLE events ALTER COLUMN date TYPE VARCHAR(100)`;
+        } catch (e) { /* Column might already be VARCHAR or not exist */ }
+        try {
+          await sql`ALTER TABLE events ALTER COLUMN time TYPE VARCHAR(100)`;
+        } catch (e) { /* Column might already be VARCHAR or not exist */ }
+        try {
+          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS image_url TEXT`;
+        } catch (e) { /* Column might already exist */ }
       } catch (error) {
         console.log('Events table creation:', error.message);
       }
 
       const eventId = `EVT_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-      
+
       // Clean up data - convert empty strings to null for date/time fields
       const cleanDate = date && date.trim() ? date : null;
       const cleanTime = time && time.trim() ? time : null;
       const cleanTags = tags || [];
-      
+      const { image_url } = req.body;
+
       // Create event in global registry
       const [newEvent] = await sql`
         INSERT INTO events (
           id, name, description, date, time, location, venue_name,
-          price, currency, is_free, category, tags, 
-          max_attendees, min_attendees, attendance_required
+          price, currency, is_free, category, tags,
+          max_attendees, min_attendees, attendance_required, image_url
         )
         VALUES (
-          ${eventId}, ${name}, ${description || null}, ${cleanDate}, ${cleanTime}, 
-          ${location || null}, ${venue_name || null}, ${price || 0}, ${currency}, ${is_free}, 
-          ${category || null}, ${cleanTags}, ${max_attendees || null}, ${min_attendees || null}, ${attendance_required}
+          ${eventId}, ${name}, ${description || null}, ${cleanDate}, ${cleanTime},
+          ${location || null}, ${venue_name || null}, ${price || 0}, ${currency}, ${is_free},
+          ${category || null}, ${cleanTags}, ${max_attendees || null}, ${min_attendees || null},
+          ${attendance_required}, ${image_url || null}
         )
         RETURNING *
       `;
