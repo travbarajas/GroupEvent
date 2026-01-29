@@ -282,7 +282,6 @@ export default function CalendarScreen() {
         }
       });
       
-      console.log('Processed calendar events:', calendarEvents);
       
       setEvents(calendarEvents);
     } catch (error) {
@@ -415,7 +414,6 @@ export default function CalendarScreen() {
         const newMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + monthOffset, 1);
         const monthStr = String(newMonthDate.getMonth() + 1).padStart(2, '0');
         const yearStr = newMonthDate.getFullYear().toString();
-        console.log(`Loading month: ${monthStr}/${yearStr}`);
       }
       
       setMonthsRange(prev => ({ ...prev, start: newStart }));
@@ -436,7 +434,6 @@ export default function CalendarScreen() {
         const newMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + monthOffset, 1);
         const monthStr = String(newMonthDate.getMonth() + 1).padStart(2, '0');
         const yearStr = newMonthDate.getFullYear().toString();
-        console.log(`Loading month: ${monthStr}/${yearStr}`);
       }
       
       setMonthsRange(prev => ({ ...prev, end: newEnd }));
@@ -528,8 +525,6 @@ export default function CalendarScreen() {
                     setSelectedDate({day: date, month, year});
                     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
                     
-                    console.log('Clicked date:', dateString);
-                    console.log('Events for this date:', dateEvents.map(e => ({ title: e.title, startDate: e.startDate })));
                     
                     // If only one event, go directly to event screen; otherwise go to date list
                     if (dateEvents.length === 1) {

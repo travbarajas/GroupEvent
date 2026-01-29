@@ -37,7 +37,12 @@
       "Bash(npm start:*)",
       "Bash(git config:*)",
       "Bash(timeout 30 npx expo start --port 8083)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(/bashes)",
+      "Bash(sed:*)",
+      "Bash(npx vercel env:*)",
+      "Bash(npm audit:*)",
+      "Bash(git -C \"C:\\Users\\zappi\\GroupEvent\" check-ignore .env.development.local)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

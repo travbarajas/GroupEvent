@@ -228,10 +228,12 @@ export default function EventDetailScreen() {
           </Text>
         </TouchableOpacity>
         
+        {/* Add to Group button hidden - preserving functionality for future use
         <TouchableOpacity style={[styles.actionButton, styles.addButton]} onPress={handleAddToGroup}>
           <Ionicons name="add" size={18} color="#ffffff" />
           <Text style={styles.actionButtonText}>Add to Group</Text>
         </TouchableOpacity>
+        */}
         
         <TouchableOpacity style={[styles.actionButton, styles.shareButton]} onPress={handleShare}>
           <Ionicons name="share-outline" size={18} color="#9ca3af" />

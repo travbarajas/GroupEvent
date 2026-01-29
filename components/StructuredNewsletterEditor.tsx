@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Newsletter } from '@/types/newsletter';
 import { 
   NewsletterBlock, 
@@ -37,6 +38,7 @@ export default function StructuredNewsletterEditor({
   onCancel 
 }: StructuredNewsletterEditorProps) {
   const { createNewsletter, updateNewsletter } = useNewsletter();
+  const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   
   // State for basic newsletter info
@@ -231,19 +233,14 @@ export default function StructuredNewsletterEditor({
       index={index}
       isSelected={selectedBlockId === block.id}
       isEditing={editingBlockId === block.id}
-      isDragging={false}
-      dragY={{ value: 0 } as any}
-      draggedBlockIndex={{ value: -1 } as any}
       onUpdate={updateBlock}
       onDelete={() => deleteBlock(block.id)}
-      onDragStart={() => {}}
       onEdit={() => {
         setEditingBlockId(block.id);
         setSelectedBlockId(block.id);
       }}
       onStopEditing={() => setEditingBlockId(null)}
       onSelect={() => setSelectedBlockId(block.id)}
-      gestureHandler={() => {}}
     />
   );
 
@@ -261,10 +258,19 @@ export default function StructuredNewsletterEditor({
             {newsletter ? 'Edit Newsletter' : 'New Newsletter'}
           </Text>
         </View>
-        
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
+
+        <View style={styles.toolbarRight}>
+          <TouchableOpacity
+            style={styles.createEventButton}
+            onPress={() => router.push('/create-event')}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#60a5fa" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
 
@@ -352,6 +358,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#ffffff',
+  },
+  toolbarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  createEventButton: {
+    padding: 4,
   },
   tabBar: {
     flexDirection: 'row',

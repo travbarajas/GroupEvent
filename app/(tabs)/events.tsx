@@ -20,10 +20,10 @@ import GroupSelectionModal from '../../components/GroupSelectionModal';
 const { width } = Dimensions.get('window');
 
 // Compact Event Card for horizontal scrolling
-const CompactEventCard = ({ event, onPress, onAddToGroup, onShare }: { 
+const CompactEventCard = ({ event, onPress, onShare }: { 
   event: Event; 
   onPress: () => void;
-  onAddToGroup: (event: Event) => void;
+  /* onAddToGroup: (event: Event) => void; // Hidden - preserving for future use */
   onShare: (event: Event) => void;
 }) => {
   const { toggleSaveEvent, isEventSaved } = useGroups();
@@ -146,9 +146,11 @@ const CompactEventCard = ({ event, onPress, onAddToGroup, onShare }: {
             <TouchableOpacity style={styles.compactShareButton} onPress={handleShare}>
               <Ionicons name="share-outline" size={18} color="#ffffff" />
             </TouchableOpacity>
+            {/* Add to Group button hidden - preserving functionality for future use
             <TouchableOpacity style={styles.compactAddButton} onPress={handleAddToGroup}>
               <Ionicons name="add" size={18} color="#ffffff" />
             </TouchableOpacity>
+            */}
             <TouchableOpacity style={styles.compactSaveButton} onPress={handleSaveEvent}>
               <Ionicons 
                 name={isSaved ? "heart" : "heart-outline"} 
@@ -181,7 +183,6 @@ export default function ExploreTab() {
       setIsLoading(true);
       
       const { events: apiEvents } = await ApiService.getAllEvents();
-      console.log('API Response:', { apiEvents, length: apiEvents?.length });
       
       if (apiEvents && apiEvents.length > 0) {
         // Convert API events to the format expected by the UI
@@ -203,7 +204,6 @@ export default function ExploreTab() {
         setEvents(getFallbackEvents());
       }
     } catch (error) {
-      console.log('API not available, using fallback events');
       // Fallback to hardcoded events if API fails
       setEvents(getFallbackEvents());
     } finally {
@@ -382,7 +382,7 @@ export default function ExploreTab() {
                       key={event.id}
                       event={event}
                       onPress={() => handleEventPress(event)}
-                      onAddToGroup={handleAddToGroup}
+                      /* onAddToGroup={handleAddToGroup} // Hidden - preserving for future use */
                       onShare={handleShareEvent}
                     />
                   ))}
@@ -403,12 +403,14 @@ export default function ExploreTab() {
         )}
       </ScrollView>
       
+      {/* Group Selection Modal hidden - preserving functionality for future use
       <GroupSelectionModal
         visible={showGroupModal}
         onClose={() => setShowGroupModal(false)}
         event={selectedEventForGroup!}
         onGroupSelected={handleGroupSelected}
       />
+      */}
       
     </View>
   );

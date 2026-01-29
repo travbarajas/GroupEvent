@@ -1,11 +1,5 @@
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
-import {
-  PanGestureHandler,
-} from 'react-native-gesture-handler';
-import Animated, {
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import { TouchableOpacity, View } from 'react-native';
 import {
   NewsletterBlock,
 } from '@/types/blocks';
@@ -23,16 +17,11 @@ interface DraggableBlockProps {
   index: number;
   isSelected: boolean;
   isEditing: boolean;
-  isDragging: boolean;
-  dragY: Animated.SharedValue<number>;
-  draggedBlockIndex: Animated.SharedValue<number>;
   onUpdate: (block: NewsletterBlock) => void;
   onDelete: () => void;
-  onDragStart: () => void;
   onEdit: () => void;
   onStopEditing: () => void;
   onSelect: () => void;
-  gestureHandler: any;
 }
 
 export default function DraggableBlock({
@@ -40,29 +29,12 @@ export default function DraggableBlock({
   index,
   isSelected,
   isEditing,
-  isDragging,
-  dragY,
-  draggedBlockIndex,
   onUpdate,
   onDelete,
-  onDragStart,
   onEdit,
   onStopEditing,
   onSelect,
-  gestureHandler,
 }: DraggableBlockProps) {
-  
-  const animatedStyle = useAnimatedStyle(() => {
-    const isBeingDragged = draggedBlockIndex.value === index;
-    return {
-      transform: [
-        { translateY: isBeingDragged ? dragY.value : 0 },
-        { scale: isBeingDragged ? 1.02 : 1 }
-      ],
-      zIndex: isBeingDragged ? 1000 : 1,
-      opacity: isBeingDragged ? 0.9 : 1,
-    };
-  });
 
   const blockProps = {
     block,
@@ -70,7 +42,6 @@ export default function DraggableBlock({
     isEditing,
     onUpdate,
     onDelete,
-    onDragStart,
     onEdit,
     onStopEditing,
   };
@@ -100,15 +71,13 @@ export default function DraggableBlock({
   const BlockComponent = getBlockComponent();
 
   return (
-    <PanGestureHandler onGestureEvent={gestureHandler}>
-      <Animated.View style={animatedStyle}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={onSelect}
-        >
-          <BlockComponent {...blockProps} />
-        </TouchableOpacity>
-      </Animated.View>
-    </PanGestureHandler>
+    <View>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onSelect}
+      >
+        <BlockComponent {...blockProps} />
+      </TouchableOpacity>
+    </View>
   );
 }

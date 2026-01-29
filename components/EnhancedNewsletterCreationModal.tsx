@@ -6,10 +6,10 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  SafeAreaView,
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 import { useGroups, Event } from '@/contexts/GroupsContext';
@@ -66,7 +66,6 @@ export default function EnhancedNewsletterCreationModal({
         const data = await response.json();
         events = data.events || [];
       } catch (apiError) {
-        console.log('API not available, using fallback events');
         // Fallback to hardcoded events if API fails
         events = getFallbackEvents();
       }

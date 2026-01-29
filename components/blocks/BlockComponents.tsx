@@ -464,10 +464,8 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
 
   const loadAvailableEvents = async () => {
     try {
-      console.log('Loading available events for newsletter...');
       const response = await ApiService.getNewsletterEvents();
       setAvailableEvents(response.events || []);
-      console.log(`✅ Loaded ${response.events?.length || 0} newsletter events`);
     } catch (error) {
       console.error('Failed to load newsletter events:', error);
       setAvailableEvents([]);

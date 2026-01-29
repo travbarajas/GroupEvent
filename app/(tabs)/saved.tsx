@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Dimensions,
@@ -11,6 +10,7 @@ import {
   TextInput,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,11 +20,11 @@ import GroupSelectionModal from '../../components/GroupSelectionModal';
 
 const { width } = Dimensions.get('window');
 
-const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: { 
+const EventCard = ({ event, onPress, onUnsave, onShare }: { 
   event: Event; 
   onPress: () => void;
   onUnsave: () => void;
-  onAddToGroup: () => void;
+  /* onAddToGroup: () => void; // Hidden - preserving for future use */
   onShare: () => void;
 }) => {
   const getTypeColor = (type: Event['type']) => {
@@ -71,9 +71,11 @@ const EventCard = ({ event, onPress, onUnsave, onAddToGroup, onShare }: {
           <TouchableOpacity style={styles.shareButton} onPress={onShare}>
             <Ionicons name="share-outline" size={18} color="#9ca3af" />
           </TouchableOpacity>
+          {/* Add to Group button hidden - preserving functionality for future use
           <TouchableOpacity style={styles.addButton} onPress={onAddToGroup}>
             <Ionicons name="add" size={18} color="#60a5fa" />
           </TouchableOpacity>
+          */}
           <TouchableOpacity style={styles.unsaveButton} onPress={onUnsave}>
             <Ionicons name="heart" size={20} color="#ef4444" />
           </TouchableOpacity>
@@ -348,7 +350,7 @@ export default function SavedTab() {
                 event={event}
                 onPress={() => handleEventPress(event)}
                 onUnsave={() => handleUnsaveEvent(event.id)}
-                onAddToGroup={() => handleAddToGroup(event)}
+                /* onAddToGroup={() => handleAddToGroup(event)} // Hidden - preserving for future use */
                 onShare={() => handleShareEvent(event)}
               />
             ))}
@@ -363,12 +365,14 @@ export default function SavedTab() {
         )}
       </Animated.ScrollView>
       
+      {/* Group Selection Modal hidden - preserving functionality for future use
       <GroupSelectionModal
         visible={showGroupModal}
         onClose={() => setShowGroupModal(false)}
         event={selectedEventForGroup!}
         onGroupSelected={handleGroupSelected}
       />
+      */}
     </View>
   );
 }

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Animated,
@@ -13,6 +12,7 @@ import {
   TextInput,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -478,7 +478,6 @@ export default function EventDetailScreen() {
   };
 
   const handleEditDateTime = async () => {
-    console.log('🚀 HANDLE EDIT DATE TIME CALLED!');
     try {
       // Format the date and time for the API
       const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD

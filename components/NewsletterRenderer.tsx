@@ -112,9 +112,6 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
     setActiveTab(blockId);
     
     if (scrollViewRef.current) {
-      console.log(`🎯 Attempting to scroll to blockId: ${blockId}`);
-      console.log(`🎯 Available tabs:`, eventListTabs.map(t => ({ id: t.blockId, title: t.title })));
-      console.log(`🎯 Stored positions:`, eventListPositions);
       
       // First check if we have a stored position for this block
       if (eventListPositions[blockId]) {

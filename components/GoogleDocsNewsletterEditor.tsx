@@ -9,9 +9,10 @@ import {
   Alert,
   Modal,
   Dimensions,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 import EventBlockEditor from './EventBlockEditor';
@@ -30,6 +31,7 @@ export default function GoogleDocsNewsletterEditor({
   onCancel 
 }: GoogleDocsNewsletterEditorProps) {
   const { createNewsletter, updateNewsletter } = useNewsletter();
+  const router = useRouter();
   
   // Header fields
   const [title, setTitle] = useState(newsletter?.title || '');
@@ -166,10 +168,19 @@ export default function GoogleDocsNewsletterEditor({
             {newsletter ? 'Edit Newsletter' : 'New Newsletter'}
           </Text>
         </View>
-        
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
+
+        <View style={styles.toolbarRight}>
+          <TouchableOpacity
+            style={styles.createEventButton}
+            onPress={() => router.push('/create-event')}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#60a5fa" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Formatting Toolbar */}
@@ -433,6 +444,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#ffffff',
+  },
+  toolbarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  createEventButton: {
+    padding: 4,
   },
   formatToolbar: {
     borderBottomWidth: 1,

@@ -253,10 +253,12 @@ const ExpandedEventModal = ({ event, visible, onClose, sourceLayout, onSaveEvent
             </Text>
           </TouchableOpacity>
           
+          {/* Add to Group button hidden - preserving functionality for future use
           <TouchableOpacity style={[styles.actionButton, styles.addButton]} onPress={onAddToGroup}>
             <Ionicons name="add" size={18} color="#ffffff" />
             <Text style={styles.actionButtonText}>Add to Group</Text>
           </TouchableOpacity>
+          */}
           
           <TouchableOpacity style={[styles.actionButton, styles.shareButton]} onPress={onShare}>
             <Ionicons name="share-outline" size={18} color="#9ca3af" />
@@ -340,6 +342,7 @@ export default function TabLayout() {
           tabBarActiveTintColor: '#60a5fa',
           tabBarInactiveTintColor: '#9ca3af',
         }}>
+        {/* Groups tab hidden - preserving functionality for future use
         <Tabs.Screen
           name="index"
           options={{
@@ -349,8 +352,9 @@ export default function TabLayout() {
             ),
           }}
         />
+        */}
         <Tabs.Screen
-          name="newsletter"
+          name="index"
           options={{
             title: 'Today',
             tabBarIcon: ({ color, focused }) => (
@@ -376,6 +380,7 @@ export default function TabLayout() {
             ),
           }}
         />
+        {/* AI tab hidden - preserving functionality for future use
         <Tabs.Screen
           name="ai"
           options={{
@@ -385,6 +390,7 @@ export default function TabLayout() {
             ),
           }}
         />
+        */}
       </Tabs>
       
       <ExpandedEventModal 
@@ -393,16 +399,18 @@ export default function TabLayout() {
         onClose={handleCloseModal}
         sourceLayout={sourceLayout}
         onSaveEvent={handleSaveEvent}
-        onAddToGroup={handleAddToGroup}
+        /* onAddToGroup={handleAddToGroup} // Hidden - preserving for future use */
         onShare={handleShare}
       />
       
+      {/* Group Selection Modal hidden - preserving functionality for future use
       <GroupSelectionModal
         visible={showGroupModal}
         onClose={() => setShowGroupModal(false)}
         event={selectedEvent!}
         onGroupSelected={handleGroupSelected}
       />
+      */}
     </>
   );
 }

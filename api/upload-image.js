@@ -15,6 +15,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Check for device_id in headers for authentication
+    const device_id = req.headers['x-device-id'];
+    if (!device_id) {
+      return res.status(401).json({ error: 'Authentication required. Missing device_id header.' });
+    }
     const form = new IncomingForm({
       uploadDir: './public/uploads/events',
       keepExtensions: true,
@@ -40,10 +45,18 @@ export default async function handler(req, res) {
 
       // Handle both single file and array of files
       const file = Array.isArray(imageFile) ? imageFile[0] : imageFile;
-      
+
+      // Validate file type (only allow images)
+      const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      const ext = path.extname(file.originalFilename || '').toLowerCase();
+      if (!allowedExtensions.includes(ext)) {
+        return res.status(400).json({
+          error: 'Invalid file type. Only images are allowed (jpg, jpeg, png, gif, webp)'
+        });
+      }
+
       // Generate unique filename
       const timestamp = Date.now();
-      const ext = path.extname(file.originalFilename || '.jpg');
       const filename = `event-${timestamp}${ext}`;
       const newPath = path.join(uploadDir, filename);
 

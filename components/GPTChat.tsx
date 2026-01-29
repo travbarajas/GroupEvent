@@ -9,13 +9,14 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Alert,
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as Location from 'expo-location';
@@ -156,8 +157,8 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
       /^([^-\n]+?)\s*-\s*([^-\n]+)$/gmi, // Any line with " - " 
       /^\d+\.\s*([^-\n]+)$/gmi, // Any numbered item
       /^[•\-*]\s*([^-\n]+)$/gmi, // Any bulleted item
-      // Emoji-formatted restaurant patterns (specifically for the format shown)
-      /🍽️\s*([^\n]+)(?:\n⭐\s*([^\/\n]+)\/\d+\s*stars?\s*)?(?:\n📍\s*([^\n]+))?(?:\n💰\s*(\$+))?/gmi,
+      // Emoji-formatted restaurant patterns (enhanced to capture all data)
+      /🍽️\s*([^\n]+)(?:\n⭐\s*([\d\.]+)\/?\d*\s*stars?\s*)?(?:\n📍\s*([^\n]+))?(?:\n💰\s*(\$+))?(?:\n🕐\s*([^\n]+))?/gmi,
     ]);
   }
 
@@ -437,6 +438,11 @@ const parseContentFromResponse = (responseText: string, apiEvents?: any[], apiPl
   return { events, places, cleanedText };
 };
 
+const MESSAGES_STORAGE_KEY = '@gpt_chat_messages';
+const RATE_LIMIT_STORAGE_KEY = '@gpt_rate_limit';
+const CHAR_LIMIT_PER_HOUR = 5000;
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+
 export default function GPTChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -446,6 +452,127 @@ export default function GPTChat() {
   const [isWatchingLocation, setIsWatchingLocation] = useState<boolean>(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState<boolean>(false);
   const [selectedLocationOption, setSelectedLocationOption] = useState<string>('Roseville');
+  const [charUsage, setCharUsage] = useState<{count: number, resetTime: number}>({count: 0, resetTime: Date.now() + RATE_LIMIT_WINDOW});
+
+  // Save messages to AsyncStorage
+  const saveMessages = async (messagesToSave: Message[]) => {
+    try {
+      await AsyncStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messagesToSave));
+    } catch (error) {
+      console.error('Error saving messages:', error);
+    }
+  };
+
+  // Load messages from AsyncStorage
+  const loadMessages = async () => {
+    try {
+      const savedMessages = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY);
+      if (savedMessages) {
+        const parsedMessages = JSON.parse(savedMessages);
+        // Convert timestamp strings back to Date objects
+        const messagesWithDates = parsedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(messagesWithDates);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  };
+
+  // Save and load rate limit data
+  const saveRateLimit = async (usage: {count: number, resetTime: number}) => {
+    try {
+      await AsyncStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(usage));
+    } catch (error) {
+      console.error('Error saving rate limit:', error);
+    }
+  };
+
+  const loadRateLimit = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(RATE_LIMIT_STORAGE_KEY);
+      if (saved) {
+        const usage = JSON.parse(saved);
+        const now = Date.now();
+        
+        // Reset if time window has passed
+        if (now > usage.resetTime) {
+          const newUsage = {count: 0, resetTime: now + RATE_LIMIT_WINDOW};
+          setCharUsage(newUsage);
+          saveRateLimit(newUsage);
+        } else {
+          setCharUsage(usage);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading rate limit:', error);
+    }
+  };
+
+  // Check if user can send message
+  const canSendMessage = (messageLength: number) => {
+    const now = Date.now();
+    if (now > charUsage.resetTime) {
+      // Reset the counter
+      return messageLength <= CHAR_LIMIT_PER_HOUR;
+    }
+    return (charUsage.count + messageLength) <= CHAR_LIMIT_PER_HOUR;
+  };
+
+  // Update rate limit usage
+  const updateRateLimit = (messageLength: number) => {
+    const now = Date.now();
+    let newUsage;
+    
+    if (now > charUsage.resetTime) {
+      // Reset the counter
+      newUsage = {count: messageLength, resetTime: now + RATE_LIMIT_WINDOW};
+    } else {
+      newUsage = {count: charUsage.count + messageLength, resetTime: charUsage.resetTime};
+    }
+    
+    setCharUsage(newUsage);
+    saveRateLimit(newUsage);
+  };
+
+  // Get remaining characters
+  const getRemainingChars = () => {
+    const now = Date.now();
+    if (now > charUsage.resetTime) {
+      return CHAR_LIMIT_PER_HOUR;
+    }
+    return Math.max(0, CHAR_LIMIT_PER_HOUR - charUsage.count);
+  };
+
+  // Get time until reset
+  const getTimeUntilReset = () => {
+    const now = Date.now();
+    const msUntilReset = charUsage.resetTime - now;
+    if (msUntilReset <= 0) return "Available now";
+    
+    const minutes = Math.ceil(msUntilReset / (60 * 1000));
+    if (minutes < 60) {
+      return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+    }
+    const hours = Math.ceil(minutes / 60);
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  };
+
+  // Custom setMessages function that also saves to AsyncStorage
+  const updateMessages = (newMessages: Message[] | ((prev: Message[]) => Message[])) => {
+    if (typeof newMessages === 'function') {
+      setMessages(prev => {
+        const updated = newMessages(prev);
+        saveMessages(updated);
+        return updated;
+      });
+    } else {
+      setMessages(newMessages);
+      saveMessages(newMessages);
+    }
+  };
   
   // Animation values for keyboard
   const keyboardOffset = useRef(new Animated.Value(0)).current;
@@ -587,6 +714,12 @@ export default function GPTChat() {
     }
   };
 
+  // Load saved messages and rate limit on component mount
+  useEffect(() => {
+    loadMessages();
+    loadRateLimit();
+  }, []);
+
   // Initialize with default location option
   useEffect(() => {
     // Don't automatically request location on mount anymore
@@ -684,6 +817,17 @@ export default function GPTChat() {
     if (!inputText.trim()) return;
 
     const userMessage = inputText.trim();
+    
+    // Check rate limit
+    if (!canSendMessage(userMessage.length)) {
+      Alert.alert(
+        'Character Limit Reached',
+        `You've reached the limit of ${CHAR_LIMIT_PER_HOUR} characters per hour. You have ${getRemainingChars()} characters remaining.\n\nLimit resets in: ${getTimeUntilReset()}`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setInputText('');
     
     // Determine location data to send
@@ -704,6 +848,9 @@ export default function GPTChat() {
       }
     }
     
+    // Update rate limit
+    updateRateLimit(userMessage.length);
+    
     // Add user message immediately
     const newUserMessage: Message = {
       role: 'user',
@@ -711,7 +858,7 @@ export default function GPTChat() {
       timestamp: new Date(),
     };
     const updatedMessages = [...messages, newUserMessage];
-    setMessages(updatedMessages);
+    updateMessages(updatedMessages);
     setLoading(true);
 
     // Get last 12 messages for context (including the new user message)
@@ -780,7 +927,7 @@ export default function GPTChat() {
           content: `API Error (${response.status}): ${errorText.includes('<!DOCTYPE') ? 'Server returned HTML error page' : errorText}`,
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, errorMessage]);
+        updateMessages(prev => [...prev, errorMessage]);
         return;
       }
 
@@ -800,7 +947,7 @@ export default function GPTChat() {
           content: `Failed to parse response. Server returned: ${responseText.substring(0, 200)}...`,
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, errorMessage]);
+        updateMessages(prev => [...prev, errorMessage]);
         return;
       }
       
@@ -839,14 +986,14 @@ export default function GPTChat() {
           events: events.length > 0 ? events : undefined,
           places: places.length > 0 ? places : undefined,
         };
-        setMessages(prev => [...prev, assistantMessage]);
+        updateMessages(prev => [...prev, assistantMessage]);
       } else {
         const errorMessage: Message = {
           role: 'assistant',
           content: `Sorry, I encountered an error: ${data.error || 'Unknown error'}. Please try again.`,
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, errorMessage]);
+        updateMessages(prev => [...prev, errorMessage]);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -867,7 +1014,7 @@ export default function GPTChat() {
       'Are you sure you want to clear all messages?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: () => setMessages([]) },
+        { text: 'Clear', style: 'destructive', onPress: () => updateMessages([]) },
       ]
     );
   };
@@ -1090,17 +1237,31 @@ export default function GPTChat() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.inputContainer}
           >
+            {/* Rate limit indicator */}
+            <View style={styles.rateLimitIndicator}>
+              <Text style={styles.rateLimitText}>
+                {getRemainingChars()}/{CHAR_LIMIT_PER_HOUR} characters remaining
+              </Text>
+              {getRemainingChars() < 1000 && (
+                <Text style={styles.rateLimitWarning}>
+                  Resets in {getTimeUntilReset()}
+                </Text>
+              )}
+            </View>
+            
             <View style={[styles.inputRow, { backgroundColor }]}>
-              <TextInput
-                style={[styles.input, { color: textColor, borderColor: '#666666' }]}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Ask me anything..."
-                placeholderTextColor="#999"
-                multiline
-                maxHeight={100}
-                onSubmitEditing={sendMessage}
-              />
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor: '#666666' }]}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Ask me anything..."
+                  placeholderTextColor="#999"
+                  multiline
+                  maxHeight={100}
+                  onSubmitEditing={sendMessage}
+                />
+              </View>
               <TouchableOpacity 
                 style={[
                   styles.sendButton,
@@ -1290,20 +1451,54 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#666666',
   },
+  rateLimitIndicator: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderTopWidth: 1,
+    borderTopColor: '#666666',
+  },
+  rateLimitText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  rateLimitWarning: {
+    fontSize: 11,
+    color: '#ff6b6b',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   inputRow: {
     flexDirection: 'row',
     padding: 16,
     alignItems: 'flex-end',
     gap: 12,
   },
-  input: {
+  inputWrapper: {
     flex: 1,
+    position: 'relative',
+  },
+  input: {
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
     maxHeight: 100,
+  },
+  inputCharCounter: {
+    position: 'absolute',
+    bottom: 4,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  inputCharCounterText: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   sendButton: {
     width: 44,
@@ -1395,6 +1590,19 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 20,
     marginBottom: 8, // Small space below subtitle
+  },
+  charCounter: {
+    position: 'absolute',
+    bottom: 8,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  charCounterText: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   // Modal and dropdown styles
   modalOverlay: {

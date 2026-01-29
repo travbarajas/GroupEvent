@@ -6,21 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  SafeAreaView,
 } from 'react-native';
-import {
-  PanGestureHandler,
-  PanGestureHandlerGestureEvent,
-  State,
-} from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  useAnimatedGestureHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  runOnJS,
-  withSpring,
-} from 'react-native-reanimated';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
 import { 
   NewsletterBlock, 
@@ -89,11 +77,6 @@ export default function BlockBasedNewsletterEditor({
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
-  
-  // Drag and drop
-  const dragY = useSharedValue(0);
-  const draggedBlockIndex = useSharedValue(-1);
-  const [isDragging, setIsDragging] = useState(false);
 
   // Update blocks when newsletter changes
   useEffect(() => {
@@ -132,38 +115,6 @@ export default function BlockBasedNewsletterEditor({
     );
   };
 
-  const moveBlock = (fromIndex: number, toIndex: number) => {
-    setBlocks(prev => reorderBlocks(prev, fromIndex, toIndex));
-  };
-
-  const handleDragStart = (blockId: string) => {
-    const index = blocks.findIndex(b => b.id === blockId);
-    draggedBlockIndex.value = index;
-    setIsDragging(true);
-  };
-
-  const gestureHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent>({
-    onStart: () => {
-      dragY.value = 0;
-    },
-    onActive: (event) => {
-      dragY.value = event.translationY;
-    },
-    onEnd: () => {
-      const currentIndex = draggedBlockIndex.value;
-      const newIndex = Math.max(0, Math.min(blocks.length - 1, 
-        Math.round(currentIndex + dragY.value / 80)
-      ));
-      
-      if (currentIndex !== newIndex && currentIndex >= 0) {
-        runOnJS(moveBlock)(currentIndex, newIndex);
-      }
-      
-      dragY.value = withSpring(0);
-      draggedBlockIndex.value = -1;
-      runOnJS(setIsDragging)(false);
-    },
-  });
 
   const renderBlock = (block: NewsletterBlock, index: number) => {
     const isSelected = selectedBlockId === block.id;
@@ -176,19 +127,14 @@ export default function BlockBasedNewsletterEditor({
         index={index}
         isSelected={isSelected}
         isEditing={isEditing}
-        isDragging={isDragging}
-        dragY={dragY}
-        draggedBlockIndex={draggedBlockIndex}
         onUpdate={updateBlock}
         onDelete={() => deleteBlock(block.id)}
-        onDragStart={() => handleDragStart(block.id)}
         onEdit={() => {
           setEditingBlockId(block.id);
           setSelectedBlockId(block.id);
         }}
         onStopEditing={() => setEditingBlockId(null)}
         onSelect={() => setSelectedBlockId(block.id)}
-        gestureHandler={gestureHandler}
       />
     );
   };

@@ -111,21 +111,7 @@ async function searchNearbyPlaces(location, query, radius = 5000, placeType = nu
     
     console.log('Google Places nearby response:', response.data);
     
-    // Filter out results with placeholder addresses (same as text search)
-    const filteredResults = response.data.results.filter(place => {
-      const address = place.formatted_address || place.vicinity || '';
-      const hasFakeNumbers = address.includes('1234') || 
-                           address.includes('5678') || 
-                           address.includes('9999') ||
-                           address.match(/\b(1234|5678|9999|0000)\b/);
-      const isGenericAddress = address.match(/^(Road|Street|Avenue|Drive|Main Street|Park Ave)$/i) ||
-                              address.match(/^\d+ (Main Street|Park Ave|First Street|Second Street)$/i);
-      const isTooShort = address.length < 15;
-      
-      return !hasFakeNumbers && !isGenericAddress && !isTooShort;
-    });
-    
-    return filteredResults.slice(0, 5);
+    return response.data.results.slice(0, 5);
   } catch (error) {
     console.error('Error fetching places:', error);
     return [];
@@ -164,22 +150,7 @@ async function searchPlacesByText(query, location) {
     
     console.log('Google Places text search response:', response.data);
     
-    // Filter out results with placeholder addresses
-    const filteredResults = response.data.results.filter(place => {
-      const address = place.formatted_address || place.vicinity || '';
-      // Filter out obviously fake addresses and sequential patterns
-      const hasFakeNumbers = address.includes('1234') || 
-                           address.includes('5678') || 
-                           address.includes('9999') ||
-                           address.match(/\b(1234|5678|9999|0000)\b/);
-      const isGenericAddress = address.match(/^(Road|Street|Avenue|Drive|Main Street|Park Ave)$/i) ||
-                              address.match(/^\d+ (Main Street|Park Ave|First Street|Second Street)$/i);
-      const isTooShort = address.length < 15; // Real addresses are usually longer
-      
-      return !hasFakeNumbers && !isGenericAddress && !isTooShort;
-    });
-    
-    return filteredResults.slice(0, 5);
+    return response.data.results.slice(0, 5);
   } catch (error) {
     console.error('Error searching places by text:', error);
     return [];
@@ -232,28 +203,16 @@ async function searchBrandedRestaurant(location, brandName, radius = 3000) {
           address: r.formatted_address || r.vicinity,
           place_id: r.place_id
         })));
-        // Apply strict filtering for branded restaurants
+        // Filter only by brand name match
         const validResults = response.data.results.filter(place => {
-          const address = place.formatted_address || place.vicinity || '';
           const name = place.name || '';
-          
           // Must have the brand name in the result
-          const hasBrandName = name.toLowerCase().includes(brandName.toLowerCase());
-          
-          // More strict filtering for addresses
-          const hasFakeNumbers = address.match(/\b(1234|5678|9999|0000|1111|2222|3333)\b/);
-          const hasRealAddressComponents = address.includes(',') && address.length > 20;
-          const hasState = address.match(/[A-Z]{2}\s+\d{5}/); // State + ZIP pattern
-          
-          return hasBrandName && !hasFakeNumbers && (hasRealAddressComponents || hasState);
+          return name.toLowerCase().includes(brandName.toLowerCase());
         });
 
         if (validResults.length > 0) {
-          console.log(`Found ${validResults.length} valid ${brandName} locations`);
+          console.log(`Found ${validResults.length} ${brandName} locations`);
           return validResults.slice(0, 3); // Return fewer results for branded searches
-        } else {
-          console.log(`All ${brandName} results were filtered out as fake addresses`);
-          console.log('Fake addresses detected:', response.data.results.map(r => r.formatted_address || r.vicinity));
         }
       }
     }
@@ -394,6 +353,8 @@ When displaying places/restaurants, use this format:
 💰 [Price Level: $ to $$$$]
 🕐 [Open/Closed status if available]
 
+IMPORTANT: When you have restaurant/place data from Google Places API, ALWAYS present each restaurant as a separate custom block in the chat interface. This means the app will automatically create interactive restaurant cards for users. Never just list restaurants in plain text when you have API data - always use the structured format above to trigger custom blocks.
+
 Group multiple events by date. Use emojis but NO markdown formatting (no ** or other symbols). Make dates and times very user-friendly.`;
 
     // Add Places API instructions based on location availability
@@ -490,7 +451,7 @@ Group multiple events by date. Use emojis but NO markdown formatting (no ** or o
 
     // Handle Google Places API requests
     let placesData = [];
-    const isAskingAboutPlaces = /restaurant|food|eat|cafe|coffee|bar|venue|place|nearby|around here|close by|dining|lunch|dinner|brunch/i.test(message);
+    const isAskingAboutPlaces = /restaurant|food|eat|cafe|coffee|bar|venue|place|nearby|around here|close by|dining|lunch|dinner|brunch|spaghetti|pizza|italian|chinese|mexican|fast food|burger|taco|sandwich|soup|salad|breakfast|snack|cuisine|deli|bakery|bistro|grill|steakhouse|seafood/i.test(message);
     
     console.log('Place query analysis:');
     console.log('- Is asking about places:', isAskingAboutPlaces);

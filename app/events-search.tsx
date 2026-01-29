@@ -19,10 +19,10 @@ import AdminEventModal from '../components/AdminEventModal';
 
 const { width } = Dimensions.get('window');
 
-const EventCard = ({ event, onPress, onAddToGroup, onShare }: { 
+const EventCard = ({ event, onPress, onShare }: { 
   event: Event; 
   onPress: () => void;
-  onAddToGroup: (event: Event) => void;
+  /* onAddToGroup: (event: Event) => void; // Hidden - preserving for future use */
   onShare: (event: Event) => void;
 }) => {
   const { toggleSaveEvent, isEventSaved } = useGroups();
@@ -85,9 +85,11 @@ const EventCard = ({ event, onPress, onAddToGroup, onShare }: {
           <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
             <Ionicons name="share-outline" size={18} color="#9ca3af" />
           </TouchableOpacity>
+          {/* Add to Group button hidden - preserving functionality for future use
           <TouchableOpacity style={styles.addButton} onPress={handleAddToGroup}>
             <Ionicons name="add" size={18} color="#60a5fa" />
           </TouchableOpacity>
+          */}
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveEvent}>
             <Ionicons 
               name={isSaved ? "heart" : "heart-outline"} 
@@ -359,7 +361,7 @@ export default function EventsSearchScreen() {
                 key={event.id} 
                 event={event} 
                 onPress={() => handleEventPress(event)}
-                onAddToGroup={handleAddToGroup}
+                /* onAddToGroup={handleAddToGroup} // Hidden - preserving for future use */
                 onShare={handleShareEvent}
               />
             ))}

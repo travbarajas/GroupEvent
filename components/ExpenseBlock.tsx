@@ -279,25 +279,17 @@ export default function ExpenseBlock({
           });
         } else {
           // Fallback to old processing method if no participant records
-          console.log('No participant records found, using fallback processing...');
           
           // Add payers with their contribution amounts and percentages
           if (expense.payers && Array.isArray(expense.payers)) {
             expense.payers.forEach((payerDeviceId: string) => {
               // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
               const localData = localPercentageData[expense.id];
-              const payerPercentage = expense.payers_percentages?.[payerDeviceId] 
-                || localData?.payersPercentages?.[payerDeviceId] 
+              const payerPercentage = expense.payers_percentages?.[payerDeviceId]
+                || localData?.payersPercentages?.[payerDeviceId]
                 || (100 / expense.payers.length);
               const payerAmount = (parseFloat(expense.total_amount) || 0) * payerPercentage / 100;
-              
-              console.log(`Payer ${payerDeviceId}:`, {
-                percentage: payerPercentage,
-                amount: payerAmount,
-                hasPercentageData: !!expense.payers_percentages?.[payerDeviceId],
-                hasLocalData: !!localData?.payersPercentages?.[payerDeviceId]
-              });
-              
+
               participants.push({
                 device_id: payerDeviceId,
                 payer_percentage: payerPercentage,
@@ -312,18 +304,11 @@ export default function ExpenseBlock({
             expense.owers.forEach((owerDeviceId: string) => {
               // Try to get percentage from: 1) API response, 2) local storage, 3) equal split fallback
               const localData = localPercentageData[expense.id];
-              const owerPercentage = expense.owers_percentages?.[owerDeviceId] 
-                || localData?.owersPercentages?.[owerDeviceId] 
+              const owerPercentage = expense.owers_percentages?.[owerDeviceId]
+                || localData?.owersPercentages?.[owerDeviceId]
                 || (100 / expense.owers.length);
               const owerAmount = (parseFloat(expense.total_amount) || 0) * owerPercentage / 100;
-              
-              console.log(`Ower ${owerDeviceId}:`, {
-                percentage: owerPercentage,
-                amount: owerAmount,
-                hasPercentageData: !!expense.owers_percentages?.[owerDeviceId],
-                hasLocalData: !!localData?.owersPercentages?.[owerDeviceId]
-              });
-              
+
               participants.push({
                 device_id: owerDeviceId,
                 ower_percentage: owerPercentage,
@@ -544,12 +529,8 @@ export default function ExpenseBlock({
           }))
         ]
       };
-      
+
       // Save percentage data locally for the edited expense
-      console.log('Saving percentage data for expense ID:', selectedExpense.id, {
-        payersPercentages: editingPayersPercentages,
-        owersPercentages: editingOwersPercentages
-      });
       await savePercentageData(selectedExpense.id, editingPayersPercentages, editingOwersPercentages);
       
       // Update the expense in the list optimistically
@@ -565,24 +546,6 @@ export default function ExpenseBlock({
       // Only attempt server sync if user created this expense (has delete permission)
       if (selectedExpense.addedBy === currentDeviceId) {
         try {
-          // Create the new expense first to ensure it works before deleting the original
-          console.log('=== EDITING EXPENSE DEBUG ===');
-          console.log('Original expense data:', {
-            id: selectedExpense.id,
-            name: selectedExpense.name,
-            total_amount: selectedExpense.total_amount,
-            participants: selectedExpense.participants
-          });
-          
-          console.log('Editing data being sent to API:', {
-            description: editingExpenseDescription.trim(),
-            totalAmount: amount,
-            paidBy: Array.from(editingSelectedPayers),
-            splitBetween: Array.from(editingSelectedOwers),
-            payersPercentages: editingPayersPercentages,
-            owersPercentages: editingOwersPercentages
-          });
-          
           // Create participants array for the API using new format
           const participants = [];
           
@@ -606,10 +569,7 @@ export default function ExpenseBlock({
             });
           }
           
-          console.log('=== EDIT EXPENSE API REQUEST ===');
-          console.log('Participants:', JSON.stringify(participants, null, 2));
           
-          console.log('Creating updated expense...');
           const newExpenseResponse = await ApiService.createGroupExpense(groupId, {
             description: editingExpenseDescription.trim(),
             totalAmount: amount,
@@ -625,7 +585,6 @@ export default function ExpenseBlock({
             throw new Error('Failed to get new expense ID from API response');
           }
           
-          console.log(`✅ New expense created with ID: ${newExpenseId}`);
           
           // Create the new expense object for frontend state
           const newExpense: ExpenseItem = {
@@ -652,27 +611,21 @@ export default function ExpenseBlock({
           
           if (wasOptimisticExpense) {
             // Map percentage data from optimistic ID to new real ID
-            console.log(`📊 Mapping percentage data from ${selectedExpense.id} to ${newExpenseId}`);
             await mapPercentageData(selectedExpense.id, newExpenseId);
             
             // Remove optimistic expense and add new real expense
-            console.log('🔄 Replacing optimistic expense with real expense in state');
             setExpenseItems(prev => prev.filter(expense => expense.id !== selectedExpense.id).concat(newExpense));
           } else {
             // For real expenses, delete the old one and add the new one
-            console.log('Deleting original expense...');
             await ApiService.deleteGroupExpense(groupId, selectedExpense.id);
             
             // Replace old expense with new expense in state
-            console.log('🔄 Replacing old expense with new expense in state');
             setExpenseItems(prev => prev.filter(expense => expense.id !== selectedExpense.id).concat(newExpense));
           }
           
           // Save percentage data for the new expense ID
-          console.log(`💾 Saving percentage data for new expense ID: ${newExpenseId}`);
           await savePercentageData(newExpenseId, editingPayersPercentages, editingOwersPercentages);
           
-          console.log('Successfully updated expense via recreate+delete');
           
           // Close the modal to prevent duplicate edits
           setShowExpenseModal(false);
@@ -680,8 +633,6 @@ export default function ExpenseBlock({
           
           // Don't reload expenses - the optimistic update already has correct data
           // Reloading would lose our percentage data since the new expense has a different ID
-          console.log('Skipping reload to preserve percentage data. Server sync complete.');
-          console.log('=== END EDITING EXPENSE DEBUG ===');
           
         } catch (apiError) {
           console.error('Delete+recreate failed:', apiError);
@@ -849,8 +800,6 @@ export default function ExpenseBlock({
           });
         }
         
-        console.log('=== ADD EXPENSE API REQUEST ===');
-        console.log('Participants:', JSON.stringify(participants, null, 2));
         
         await ApiService.createGroupExpense(groupId, {
           description: newExpenseDescription.trim(),
@@ -977,7 +926,6 @@ export default function ExpenseBlock({
             const percentage = participant.ower_percentage && participant.ower_percentage >= 5 
               ? participant.ower_percentage 
               : Math.floor(100 / owersData.length);
-            console.log(`🔧 Ower ${participant.device_id}: stored=${participant.ower_percentage}, using=${percentage}`);
             initialOwersPercentages[participant.device_id] = percentage;
           });
           setEditingOwersPercentages(initialOwersPercentages);
@@ -991,7 +939,6 @@ export default function ExpenseBlock({
             const percentage = participant.payer_percentage && participant.payer_percentage >= 5 
               ? participant.payer_percentage 
               : Math.floor(100 / payersData.length);
-            console.log(`🔧 Payer ${participant.device_id}: stored=${participant.payer_percentage}, using=${percentage}`);
             initialPayersPercentages[participant.device_id] = percentage;
           });
           setEditingPayersPercentages(initialPayersPercentages);

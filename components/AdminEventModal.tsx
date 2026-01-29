@@ -100,7 +100,6 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         return;
       }
 
-      console.log('Opening image picker...');
       
       // Pick image
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -110,13 +109,10 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         quality: 0.8,
       });
 
-      console.log('Image picker result:', result);
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        console.log('Selected image URI:', result.assets[0].uri);
         setSelectedImage(result.assets[0].uri);
       } else {
-        console.log('Image selection was canceled or failed');
       }
     } catch (error) {
       console.error('Error selecting image:', error);
@@ -200,7 +196,6 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         image_url: imageUrl, // Include the uploaded image URL
       };
 
-      console.log('Creating event with data:', eventData);
       await ApiService.createGlobalEvent(eventData);
       
       Alert.alert('Success', 'Event created successfully!', [

@@ -6,8 +6,12 @@ if (!process.env.DATABASE_URL) {
 
 const sql = neon(process.env.DATABASE_URL);
 
-// Simple admin key for security (you can change this)
-const ADMIN_KEY = process.env.ADMIN_KEY || 'admin_debug_key_2024';
+// Require admin key from environment variable (no default for security)
+const ADMIN_KEY = process.env.ADMIN_KEY;
+
+if (!ADMIN_KEY) {
+  throw new Error('ADMIN_KEY environment variable is required for admin endpoints');
+}
 
 module.exports = async function handler(req, res) {
   // Enable CORS
@@ -19,23 +23,17 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Simple admin authentication with debug info
-  const adminKey = req.headers.authorization?.replace('Bearer ', '') || req.query.admin_key;
-  
+  // Admin authentication - only accept from Authorization header (not query string for security)
+  const adminKey = req.headers.authorization?.replace('Bearer ', '');
+
   console.log('Admin auth attempt:', {
-    provided_key: adminKey ? adminKey.substring(0, 5) + '...' : 'none',
-    expected_key: ADMIN_KEY.substring(0, 5) + '...',
-    headers_auth: req.headers.authorization,
-    query_auth: req.query.admin_key
+    has_key: !!adminKey,
+    timestamp: new Date().toISOString()
   });
-  
+
   if (!adminKey || adminKey.trim() !== ADMIN_KEY.trim()) {
-    return res.status(401).json({ 
-      error: 'Unauthorized - Invalid admin key',
-      debug: process.env.NODE_ENV === 'development' ? {
-        provided: adminKey,
-        expected: ADMIN_KEY
-      } : undefined
+    return res.status(401).json({
+      error: 'Unauthorized - Invalid or missing admin key'
     });
   }
 

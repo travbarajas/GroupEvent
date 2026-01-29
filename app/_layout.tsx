@@ -2,7 +2,6 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -85,13 +84,6 @@ export default function RootLayout() {
           />
           <Stack.Screen 
             name="group-chat" 
-            options={{ 
-              headerShown: false,
-              presentation: 'card'
-            }} 
-          />
-          <Stack.Screen 
-            name="newsletter-admin" 
             options={{ 
               headerShown: false,
               presentation: 'card'

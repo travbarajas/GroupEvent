@@ -81,7 +81,6 @@ export default function EditEventScreen() {
         return;
       }
 
-      console.log('Opening image picker...');
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaType.Images,
@@ -90,13 +89,10 @@ export default function EditEventScreen() {
         quality: 0.8,
       });
 
-      console.log('Image picker result:', result);
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        console.log('Selected image URI:', result.assets[0].uri);
         setSelectedImage(result.assets[0].uri);
       } else {
-        console.log('Image selection was canceled or failed');
       }
     } catch (error) {
       console.error('Error selecting image:', error);
@@ -130,7 +126,6 @@ export default function EditEventScreen() {
         image_url: imageUrl,
       };
       
-      console.log('Updating event with data:', updateData);
       
       Alert.alert(
         'Event Updated!',

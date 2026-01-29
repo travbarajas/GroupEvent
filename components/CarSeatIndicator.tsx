@@ -81,7 +81,6 @@ export default function CarSeatIndicator({
   const loadCars = async () => {
     // Don't load if we don't have required data
     if (!groupId || !currentUserId) {
-      // console.log('Skipping loadCars - missing required data:', { groupId, currentUserId });
       return;
     }
     
@@ -99,14 +98,12 @@ export default function CarSeatIndicator({
       
       if (!response.ok) {
         const errorText = await response.text();
-        // console.error('API Error:', response.status, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const { cars: apiCars } = await response.json();
       setCars(apiCars || []);
     } catch (error) {
-      // console.error('Failed to load cars:', error);
       // Don't show alert for now, just log the error
       setCars([]);
     } finally {
@@ -168,7 +165,6 @@ export default function CarSeatIndicator({
       // Reload cars to get real data with proper IDs
       await loadCars();
     } catch (error) {
-      // console.error('Failed to create car:', error);
       Alert.alert('Error', 'Failed to create car. Please try again.');
       // Revert optimistic update on error
       await loadCars();
@@ -238,7 +234,6 @@ export default function CarSeatIndicator({
       // Reload from server to get authoritative state (and sync with other users)
       await loadCars();
     } catch (error) {
-      // console.error('Failed to update seat assignment:', error);
       Alert.alert('Error', 'Failed to update seat assignment. Please try again.');
       // Revert optimistic update on error
       await loadCars();
@@ -292,7 +287,6 @@ export default function CarSeatIndicator({
         capacity: newCapacity
       }),
     }).catch(error => {
-      // console.error('Failed to update car capacity:', error);
       // Silently revert on error after a delay
       setTimeout(() => loadCars(), 1000);
     });
@@ -328,7 +322,6 @@ export default function CarSeatIndicator({
         return car;
       }));
     } catch (error) {
-      // console.error('Failed to update car name:', error);
       Alert.alert('Error', 'Failed to update car name. Please try again.');
       // Reload cars to revert any local changes
       await loadCars();
@@ -359,7 +352,6 @@ export default function CarSeatIndicator({
       // Reload cars to get the latest data
       await loadCars();
     } catch (error) {
-      // console.error('Failed to delete car:', error);
       Alert.alert('Error', 'Failed to delete car. Please try again.');
     }
   };

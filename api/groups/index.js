@@ -227,10 +227,20 @@ module.exports = async function handler(req, res) {
       }
       
       const { name, description, device_id } = req.body;
-      
+
       if (!name || name.trim().length === 0) {
         console.log('Validation failed: missing name');
         return res.status(400).json({ error: 'Group name is required' });
+      }
+
+      // Validate name length (1-100 characters)
+      if (name.trim().length > 100) {
+        return res.status(400).json({ error: 'Group name must be 100 characters or less' });
+      }
+
+      // Validate description length if provided (max 500 characters)
+      if (description && description.length > 500) {
+        return res.status(400).json({ error: 'Group description must be 500 characters or less' });
       }
 
       if (!device_id) {
@@ -288,9 +298,21 @@ module.exports = async function handler(req, res) {
     try {
       const { device_id, username, color } = req.body;
       console.log('🔧 PUT request received:', { device_id, username, color });
-      
+
       if (!device_id || !username) {
         return res.status(400).json({ error: 'device_id and username are required' });
+      }
+
+      // Validate username (3-50 characters, alphanumeric and basic punctuation only)
+      if (username.trim().length < 3 || username.trim().length > 50) {
+        return res.status(400).json({ error: 'Username must be between 3 and 50 characters' });
+      }
+
+      // Validate username format (letters, numbers, spaces, and basic punctuation only)
+      if (!/^[a-zA-Z0-9\s._-]+$/.test(username.trim())) {
+        return res.status(400).json({
+          error: 'Username can only contain letters, numbers, spaces, periods, underscores, and hyphens'
+        });
       }
 
       // Ensure color column exists in members table

@@ -48,12 +48,7 @@ export default function ChatPreviewBubble({
 
   // Debug connection status
   useEffect(() => {
-    console.log('ChatPreviewBubble - Connection status:', {
-      isConnected,
-      isLoading,
-      error,
-      messagesCount: messages.length
-    });
+    // Connection status monitoring removed for production
   }, [isConnected, isLoading, error, messages.length]);
 
   // Show connection status after 3 seconds delay
@@ -217,7 +212,6 @@ export default function ChatPreviewBubble({
                     onBlur={() => setShowInputField(false)}
                     returnKeyType="send"
                     onSubmitEditing={() => {
-                      console.log('onSubmitEditing triggered with message:', newMessage);
                       handleSendMessage();
                     }}
                     blurOnSubmit={false}

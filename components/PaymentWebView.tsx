@@ -64,7 +64,6 @@ const PaymentWebView: React.FC<PaymentWebViewProps> = ({
     setCanGoBack(navState.canGoBack);
     setLoading(navState.loading);
 
-    console.log('WebView navigation:', {
       url: navState.url,
       title: navState.title,
       loading: navState.loading,
@@ -109,7 +108,6 @@ const PaymentWebView: React.FC<PaymentWebViewProps> = ({
     if (paymentCompleted) return; // Prevent multiple calls
     
     setPaymentCompleted(true);
-    console.log('Payment completion detected:', success);
     
     Alert.alert(
       success ? 'Payment Sent!' : 'Payment Status',

@@ -256,7 +256,6 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
 
     // Here you would typically send push notifications
     // For now, we'll just log it
-    console.log('Newsletter published! Push notifications would be sent here.');
   };
 
   const deleteNewsletter = async (id: string) => {
