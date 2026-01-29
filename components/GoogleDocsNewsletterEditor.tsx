@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import AdminEventModal from './AdminEventModal';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 import EventBlockEditor from './EventBlockEditor';
@@ -31,7 +31,7 @@ export default function GoogleDocsNewsletterEditor({
   onCancel 
 }: GoogleDocsNewsletterEditorProps) {
   const { createNewsletter, updateNewsletter } = useNewsletter();
-  const router = useRouter();
+  const [showAdminModal, setShowAdminModal] = useState(false);
   
   // Header fields
   const [title, setTitle] = useState(newsletter?.title || '');
@@ -172,7 +172,7 @@ export default function GoogleDocsNewsletterEditor({
         <View style={styles.toolbarRight}>
           <TouchableOpacity
             style={styles.createEventButton}
-            onPress={() => router.push('/create-event')}
+            onPress={() => setShowAdminModal(true)}
           >
             <Ionicons name="add-circle-outline" size={20} color="#60a5fa" />
           </TouchableOpacity>
@@ -398,6 +398,12 @@ Content sections you might include:
           }}
         />
       )}
+
+      <AdminEventModal
+        visible={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onEventCreated={() => setShowAdminModal(false)}
+      />
     </SafeAreaView>
   );
 }

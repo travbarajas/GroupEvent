@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import AdminEventModal from './AdminEventModal';
 import { Newsletter } from '@/types/newsletter';
 import { 
   NewsletterBlock, 
@@ -38,8 +38,8 @@ export default function StructuredNewsletterEditor({
   onCancel 
 }: StructuredNewsletterEditorProps) {
   const { createNewsletter, updateNewsletter } = useNewsletter();
-  const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   
   // State for basic newsletter info
   const [title, setTitle] = useState(newsletter?.title || '');
@@ -262,7 +262,7 @@ export default function StructuredNewsletterEditor({
         <View style={styles.toolbarRight}>
           <TouchableOpacity
             style={styles.createEventButton}
-            onPress={() => router.push('/create-event')}
+            onPress={() => setShowAdminModal(true)}
           >
             <Ionicons name="add-circle-outline" size={20} color="#60a5fa" />
           </TouchableOpacity>
@@ -312,6 +312,12 @@ export default function StructuredNewsletterEditor({
           </View>
         </View>
       </ScrollView>
+
+      <AdminEventModal
+        visible={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onEventCreated={() => setShowAdminModal(false)}
+      />
     </SafeAreaView>
   );
 }
