@@ -42,6 +42,8 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [lastCreatedEvent, setLastCreatedEvent] = useState<string | null>(null);
 
   const categories = [
     { value: 'music', label: 'Music' },
@@ -120,6 +122,8 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
   const handleClose = () => {
     resetForm();
+    setShowSuccess(false);
+    setLastCreatedEvent(null);
     onClose();
   };
 
@@ -168,17 +172,24 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         image_url: imageUrl, // Include the uploaded image URL
       };
 
-      await ApiService.createGlobalEvent(eventData);
-      
-      Alert.alert('Success', 'Event created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            handleClose();
-            onEventCreated();
-          }
-        }
-      ]);
+      const result = await ApiService.createGlobalEvent(eventData);
+
+      // Show success message
+      setLastCreatedEvent(formData.name.trim());
+      setShowSuccess(true);
+
+      // Reset form for next event
+      resetForm();
+
+      // Notify parent to refresh events list
+      onEventCreated();
+
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+        setLastCreatedEvent(null);
+      }, 3000);
+
     } catch (error) {
       console.error('Failed to create event:', error);
       Alert.alert('Error', 'Failed to create event. Please try again.');
@@ -211,6 +222,16 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Success Banner */}
+        {showSuccess && (
+          <View style={styles.successBanner}>
+            <Ionicons name="checkmark-circle" size={24} color="#ffffff" />
+            <Text style={styles.successText}>
+              Event "{lastCreatedEvent}" created successfully!
+            </Text>
+          </View>
+        )}
 
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>
@@ -420,6 +441,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
     backgroundColor: '#1a1a1a',
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  successText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   closeButton: {
     padding: 8,
