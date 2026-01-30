@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,14 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastCreatedEvent, setLastCreatedEvent] = useState<string | null>(null);
+
+  // Refs for input navigation
+  const nameRef = useRef<TextInput>(null);
+  const descriptionRef = useRef<TextInput>(null);
+  const timeRef = useRef<TextInput>(null);
+  const locationRef = useRef<TextInput>(null);
+  const venueRef = useRef<TextInput>(null);
+  const priceRef = useRef<TextInput>(null);
 
   const categories = [
     { value: 'music', label: 'Music' },
@@ -138,7 +146,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     return `${formatDateForApi(formData.startDate)} to ${formatDateForApi(formData.endDate)}`;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (closeAfter: boolean = true) => {
     if (!formData.name.trim()) {
       Alert.alert('Error', 'Event name is required');
       return;
@@ -169,10 +177,10 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         max_attendees: null,
         min_attendees: null,
         attendance_required: false,
-        image_url: imageUrl, // Include the uploaded image URL
+        image_url: imageUrl,
       };
 
-      const result = await ApiService.createGlobalEvent(eventData);
+      await ApiService.createGlobalEvent(eventData);
 
       // Show success message
       setLastCreatedEvent(formData.name.trim());
@@ -184,11 +192,24 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       // Notify parent to refresh events list
       onEventCreated();
 
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setShowSuccess(false);
-        setLastCreatedEvent(null);
-      }, 3000);
+      if (closeAfter) {
+        // Close modal after a brief delay to show success
+        setTimeout(() => {
+          setShowSuccess(false);
+          setLastCreatedEvent(null);
+          onClose();
+        }, 1000);
+      } else {
+        // Keep modal open, hide success after 3 seconds, focus name field
+        setTimeout(() => {
+          setShowSuccess(false);
+          setLastCreatedEvent(null);
+        }, 3000);
+        // Focus name field for next entry
+        setTimeout(() => {
+          nameRef.current?.focus();
+        }, 100);
+      }
 
     } catch (error) {
       console.error('Failed to create event:', error);
@@ -212,15 +233,25 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Create New Event</Text>
-          <TouchableOpacity 
-            onPress={handleSubmit}
-            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.saveButtonText}>
-              {isSubmitting ? 'Creating...' : 'Create'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              onPress={() => handleSubmit(false)}
+              style={[styles.nextButton, isSubmitting && styles.saveButtonDisabled]}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.nextButtonText}>Next</Text>
+              <Ionicons name="add" size={16} color="#10b981" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleSubmit(true)}
+              style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.saveButtonText}>
+                {isSubmitting ? '...' : 'Create'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Success Banner */}
@@ -239,11 +270,15 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             <View style={styles.formGroup}>
               <Text style={styles.label}>Event Name *</Text>
               <TextInput
+                ref={nameRef}
                 style={styles.input}
                 value={formData.name}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
                 placeholder="Enter event name"
                 placeholderTextColor="#6b7280"
+                returnKeyType="next"
+                onSubmitEditing={() => descriptionRef.current?.focus()}
+                blurOnSubmit={false}
               />
             </View>
 
@@ -251,6 +286,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             <View style={styles.formGroup}>
               <Text style={styles.label}>Description</Text>
               <TextInput
+                ref={descriptionRef}
                 style={[styles.input, styles.textArea]}
                 value={formData.description}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
@@ -258,6 +294,9 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
                 placeholderTextColor="#6b7280"
                 multiline
                 numberOfLines={3}
+                returnKeyType="next"
+                blurOnSubmit={true}
+                onSubmitEditing={() => timeRef.current?.focus()}
               />
             </View>
 
@@ -294,11 +333,15 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             <View style={styles.formGroup}>
               <Text style={styles.label}>Time</Text>
               <TextInput
+                ref={timeRef}
                 style={styles.input}
                 value={formData.time}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, time: text }))}
                 placeholder="e.g., 8:30 AM - 1:00 PM, All Day, Evening, etc."
                 placeholderTextColor="#6b7280"
+                returnKeyType="next"
+                onSubmitEditing={() => locationRef.current?.focus()}
+                blurOnSubmit={false}
               />
             </View>
 
@@ -306,11 +349,15 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             <View style={styles.formGroup}>
               <Text style={styles.label}>Location</Text>
               <TextInput
+                ref={locationRef}
                 style={styles.input}
                 value={formData.location}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
                 placeholder="Enter location"
                 placeholderTextColor="#6b7280"
+                returnKeyType="next"
+                onSubmitEditing={() => venueRef.current?.focus()}
+                blurOnSubmit={false}
               />
             </View>
 
@@ -318,11 +365,13 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
             <View style={styles.formGroup}>
               <Text style={styles.label}>Venue Name</Text>
               <TextInput
+                ref={venueRef}
                 style={styles.input}
                 value={formData.venue_name}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, venue_name: text }))}
                 placeholder="Enter venue name"
                 placeholderTextColor="#6b7280"
+                returnKeyType="done"
               />
             </View>
 
@@ -464,6 +513,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  nextButtonText: {
+    color: '#10b981',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   saveButton: {
     backgroundColor: '#2563eb',
     paddingHorizontal: 16,
@@ -472,6 +542,7 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: {
     backgroundColor: '#374151',
+    borderColor: '#374151',
   },
   saveButtonText: {
     color: '#ffffff',
