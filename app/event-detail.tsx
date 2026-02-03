@@ -15,6 +15,47 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
 
+// Format date to show day name if within 7 days, otherwise MM/DD/YY
+const formatEventDate = (dateString: string): string => {
+  if (!dateString) return '';
+
+  // Handle date range format "YYYY-MM-DD to YYYY-MM-DD"
+  const datePart = dateString.split(' to ')[0];
+
+  // Parse the date - handle both "YYYY-MM-DD" and other formats
+  let eventDate: Date;
+  if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    // YYYY-MM-DD format - parse as local date
+    const [year, month, day] = datePart.split('-').map(Number);
+    eventDate = new Date(year, month - 1, day);
+  } else {
+    eventDate = new Date(datePart);
+  }
+
+  if (isNaN(eventDate.getTime())) return dateString;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+  const diffTime = eventDay.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const month = (eventDate.getMonth() + 1).toString().padStart(2, '0');
+  const day = eventDate.getDate().toString().padStart(2, '0');
+  const year = eventDate.getFullYear().toString().slice(-2);
+  const formattedDate = `${month}/${day}/${year}`;
+
+  // If within 7 days (including today), show day name
+  if (diffDays >= 0 && diffDays < 7) {
+    const dayName = dayNames[eventDate.getDay()];
+    return `${dayName}, ${formattedDate}`;
+  }
+
+  return formattedDate;
+};
+
 export default function EventDetailScreen() {
   const { toggleSaveEvent, isEventSaved } = useGroups();
   const insets = useSafeAreaInsets();
@@ -119,7 +160,7 @@ export default function EventDetailScreen() {
           </View>
           <View style={styles.eventHeaderText}>
             <Text style={styles.eventName}>{event.name}</Text>
-            <Text style={styles.eventDate}>{event.date}</Text>
+            <Text style={styles.eventDate}>{formatEventDate(event.date)}</Text>
           </View>
           {isAdmin && (
             <TouchableOpacity onPress={handleEditEvent} style={styles.editButton}>
@@ -184,10 +225,16 @@ export default function EventDetailScreen() {
             <Ionicons name="map-outline" size={32} color="#6b7280" />
             <Text style={styles.placeholderMapText}>Map View</Text>
           </View>
-          <View style={styles.addressContainer}>
-            <Ionicons name="location" size={16} color="#f87171" />
-            <Text style={styles.addressText}>123 Main Street, Downtown District, San Francisco, CA 94102</Text>
-          </View>
+          {(event.location || event.venue_name) && (
+            <View style={styles.addressContainer}>
+              <Ionicons name="location" size={16} color="#f87171" />
+              <Text style={styles.addressText}>
+                {event.venue_name && event.location
+                  ? `${event.venue_name}, ${event.location}`
+                  : event.venue_name || event.location}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Tags */}

@@ -10,6 +10,7 @@ import {
   Switch,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,31 +79,48 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
   };
 
   const selectImage = async () => {
-    try {
-      // Request permission
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow access to your photo library to select an image.');
-        return;
+    if (Platform.OS === 'web') {
+      // Web: use native file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (event: any) => {
+        const file = event.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUrl = e.target?.result as string;
+            setSelectedImage(dataUrl);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    } else {
+      // Native: use expo-image-picker
+      try {
+        // Request permission
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please allow access to your photo library to select an image.');
+          return;
+        }
+
+        // Pick image
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaType.Images,
+          allowsEditing: true,
+          aspect: [16, 9],
+          quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets && result.assets[0]) {
+          setSelectedImage(result.assets[0].uri);
+        }
+      } catch (error) {
+        console.error('Error selecting image:', error);
+        Alert.alert('Error', `Failed to select image: ${(error as Error).message}`);
       }
-
-      
-      // Pick image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-      });
-
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
-      } else {
-      }
-    } catch (error) {
-      console.error('Error selecting image:', error);
-      Alert.alert('Error', `Failed to select image: ${error.message}`);
     }
   };
 

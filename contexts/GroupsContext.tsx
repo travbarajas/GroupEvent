@@ -20,6 +20,9 @@ export interface Event {
   distance: string;
   type: string; // Made flexible instead of restricted to specific types
   tags: string[];
+  location?: string;
+  venue_name?: string;
+  image_url?: string;
 }
 
 interface GroupsContextType {
