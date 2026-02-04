@@ -8,6 +8,8 @@ import {
   Alert,
   Modal,
   TextInput,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,7 @@ import GoogleDocsNewsletterEditor from '@/components/GoogleDocsNewsletterEditor'
 import BlockBasedNewsletterEditor from '@/components/BlockBasedNewsletterEditor';
 import StructuredNewsletterEditor from '@/components/StructuredNewsletterEditor';
 import EnhancedNewsletterCreationModal from '@/components/EnhancedNewsletterCreationModal';
+import NewsletterRenderer from '@/components/NewsletterRenderer';
 
 export default function NewsletterAdminScreen() {
   const router = useRouter();
@@ -34,10 +37,16 @@ export default function NewsletterAdminScreen() {
   const [showEditor, setShowEditor] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<Newsletter | null>(null);
   const [useBlockEditor, setUseBlockEditor] = useState(true); // Default to structured editor
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewNewsletter, setPreviewNewsletter] = useState<Newsletter | null>(null);
 
   useEffect(() => {
     if (!isAdmin) {
-      Alert.alert('Access Denied', 'You do not have permission to access this page.');
+      if (Platform.OS === 'web') {
+        window.alert('Access Denied: You do not have permission to access this page.');
+      } else {
+        Alert.alert('Access Denied', 'You do not have permission to access this page.');
+      }
       router.back();
       return;
     }
@@ -55,58 +64,94 @@ export default function NewsletterAdminScreen() {
     setShowEditor(true);
   };
 
-  const handlePublishNewsletter = (newsletter: Newsletter) => {
+  const handlePublishNewsletter = async (newsletter: Newsletter) => {
     if (newsletter.isPublished) {
-      Alert.alert('Info', 'This newsletter is already published');
+      if (Platform.OS === 'web') {
+        window.alert('This newsletter is already published');
+      } else {
+        Alert.alert('Info', 'This newsletter is already published');
+      }
       return;
     }
 
     if (!newsletter.content || typeof newsletter.content !== 'string' || newsletter.content.trim().length === 0) {
-      Alert.alert('Error', 'Cannot publish an empty newsletter');
+      if (Platform.OS === 'web') {
+        window.alert('Cannot publish an empty newsletter');
+      } else {
+        Alert.alert('Error', 'Cannot publish an empty newsletter');
+      }
       return;
     }
 
-    Alert.alert(
-      'Publish Newsletter',
-      'Are you sure you want to publish this newsletter? This will send push notifications to all users.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Publish',
-          style: 'default',
-          onPress: async () => {
-            try {
-              await publishNewsletter(newsletter.id);
-              await loadNewsletters(); // Refresh the newsletter list after publishing
-              Alert.alert('Success', 'Newsletter published successfully!');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to publish newsletter');
-            }
+    const performPublish = async () => {
+      try {
+        await publishNewsletter(newsletter.id);
+        await loadNewsletters();
+        if (Platform.OS === 'web') {
+          window.alert('Newsletter published successfully!');
+        } else {
+          Alert.alert('Success', 'Newsletter published successfully!');
+        }
+      } catch (error) {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to publish newsletter');
+        } else {
+          Alert.alert('Error', 'Failed to publish newsletter');
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to publish this newsletter? This will send push notifications to all users.')) {
+        await performPublish();
+      }
+    } else {
+      Alert.alert(
+        'Publish Newsletter',
+        'Are you sure you want to publish this newsletter? This will send push notifications to all users.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Publish',
+            style: 'default',
+            onPress: performPublish,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
-  const handleDeleteNewsletter = (newsletter: Newsletter) => {
-    Alert.alert(
-      'Delete Newsletter',
-      'Are you sure you want to delete this newsletter? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteNewsletter(newsletter.id);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete newsletter');
-            }
+  const handleDeleteNewsletter = async (newsletter: Newsletter) => {
+    const performDelete = async () => {
+      try {
+        await deleteNewsletter(newsletter.id);
+      } catch (error) {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to delete newsletter');
+        } else {
+          Alert.alert('Error', 'Failed to delete newsletter');
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this newsletter? This action cannot be undone.')) {
+        await performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Newsletter',
+        'Are you sure you want to delete this newsletter? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: performDelete,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleEditorSave = (newsletter: Newsletter) => {
@@ -118,6 +163,11 @@ export default function NewsletterAdminScreen() {
   const handleEditorCancel = () => {
     setShowEditor(false);
     setEditingNewsletter(null);
+  };
+
+  const handlePreviewNewsletter = (newsletter: Newsletter) => {
+    setPreviewNewsletter(newsletter);
+    setShowPreview(true);
   };
 
   const renderNewsletterItem = ({ item }: { item: Newsletter }) => (
@@ -139,11 +189,18 @@ export default function NewsletterAdminScreen() {
         <View style={styles.newsletterActions}>
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => handlePreviewNewsletter(item)}
+          >
+            <Ionicons name="eye-outline" size={20} color="#a855f7" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => handleEditNewsletter(item)}
           >
             <Ionicons name="pencil-outline" size={20} color="#60a5fa" />
           </TouchableOpacity>
-          
+
           {!item.isPublished && (
             <TouchableOpacity
               style={styles.actionButton}
@@ -152,7 +209,7 @@ export default function NewsletterAdminScreen() {
               <Ionicons name="send-outline" size={20} color="#10b981" />
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleDeleteNewsletter(item)}
@@ -260,6 +317,36 @@ export default function NewsletterAdminScreen() {
         onClose={() => setShowCreateModal(false)}
         onNewsletterCreated={handleNewsletterCreated}
       />
+
+      {/* Preview Newsletter Modal */}
+      <Modal
+        visible={showPreview}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowPreview(false)}
+      >
+        <SafeAreaView style={styles.previewContainer}>
+          <View style={styles.previewHeader}>
+            <TouchableOpacity
+              style={styles.previewCloseButton}
+              onPress={() => setShowPreview(false)}
+            >
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.previewHeaderTitle}>Newsletter Preview</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <ScrollView
+            style={styles.previewScrollView}
+            contentContainerStyle={styles.previewContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {previewNewsletter && (
+              <NewsletterRenderer newsletter={previewNewsletter} />
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -404,5 +491,33 @@ const styles = StyleSheet.create({
   },
   activeToggleText: {
     color: '#ffffff',
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+    backgroundColor: '#121212',
+  },
+  previewCloseButton: {
+    padding: 8,
+  },
+  previewHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  previewScrollView: {
+    flex: 1,
+  },
+  previewContent: {
+    paddingBottom: 40,
   },
 });

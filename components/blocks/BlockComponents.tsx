@@ -28,9 +28,13 @@ interface BlockComponentProps {
   isEditing: boolean;
   onUpdate: (block: NewsletterBlock) => void;
   onDelete: () => void;
-  onDragStart: () => void;
+  onDragStart?: () => void;
   onEdit: () => void;
   onStopEditing: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }
 
 // Heading Block Component
@@ -43,6 +47,10 @@ export const HeadingBlockComponent: React.FC<BlockComponentProps & { block: Head
   onDragStart,
   onEdit,
   onStopEditing,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }) => {
   const getFontSize = () => {
     switch (block.type) {
@@ -69,9 +77,22 @@ export const HeadingBlockComponent: React.FC<BlockComponentProps & { block: Head
       <View style={styles.blockHeader}>
         <View style={styles.blockInfo}>
           <Text style={styles.blockType}>{getHeadingLevel()}</Text>
-          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
-            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.moveButtons}>
+            <TouchableOpacity
+              onPress={onMoveUp}
+              style={[styles.moveButton, isFirst && styles.moveButtonDisabled]}
+              disabled={isFirst}
+            >
+              <Ionicons name="chevron-up" size={18} color={isFirst ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveDown}
+              style={[styles.moveButton, isLast && styles.moveButtonDisabled]}
+              disabled={isLast}
+            >
+              <Ionicons name="chevron-down" size={18} color={isLast ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.blockActions}>
           <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
@@ -118,15 +139,32 @@ export const ParagraphBlockComponent: React.FC<BlockComponentProps & { block: Pa
   onDragStart,
   onEdit,
   onStopEditing,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }) => {
   return (
     <View style={[styles.blockContainer, isSelected && styles.selectedBlock]}>
       <View style={styles.blockHeader}>
         <View style={styles.blockInfo}>
           <Text style={styles.blockType}>¶</Text>
-          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
-            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.moveButtons}>
+            <TouchableOpacity
+              onPress={onMoveUp}
+              style={[styles.moveButton, isFirst && styles.moveButtonDisabled]}
+              disabled={isFirst}
+            >
+              <Ionicons name="chevron-up" size={18} color={isFirst ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveDown}
+              style={[styles.moveButton, isLast && styles.moveButtonDisabled]}
+              disabled={isLast}
+            >
+              <Ionicons name="chevron-down" size={18} color={isLast ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.blockActions}>
           <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
@@ -174,6 +212,10 @@ export const ContentBreakBlockComponent: React.FC<BlockComponentProps & { block:
   onDragStart,
   onEdit,
   onStopEditing,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }) => {
   const getBreakStyle = () => {
     switch (block.style) {
@@ -190,9 +232,22 @@ export const ContentBreakBlockComponent: React.FC<BlockComponentProps & { block:
       <View style={styles.blockHeader}>
         <View style={styles.blockInfo}>
           <Text style={styles.blockType}>---</Text>
-          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
-            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.moveButtons}>
+            <TouchableOpacity
+              onPress={onMoveUp}
+              style={[styles.moveButton, isFirst && styles.moveButtonDisabled]}
+              disabled={isFirst}
+            >
+              <Ionicons name="chevron-up" size={18} color={isFirst ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveDown}
+              style={[styles.moveButton, isLast && styles.moveButtonDisabled]}
+              disabled={isLast}
+            >
+              <Ionicons name="chevron-down" size={18} color={isLast ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.blockActions}>
           <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
@@ -244,15 +299,32 @@ export const ImageBlockComponent: React.FC<BlockComponentProps & { block: ImageB
   onDragStart,
   onEdit,
   onStopEditing,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }) => {
   return (
     <View style={[styles.blockContainer, isSelected && styles.selectedBlock]}>
       <View style={styles.blockHeader}>
         <View style={styles.blockInfo}>
           <Text style={styles.blockType}>📷</Text>
-          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
-            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.moveButtons}>
+            <TouchableOpacity
+              onPress={onMoveUp}
+              style={[styles.moveButton, isFirst && styles.moveButtonDisabled]}
+              disabled={isFirst}
+            >
+              <Ionicons name="chevron-up" size={18} color={isFirst ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveDown}
+              style={[styles.moveButton, isLast && styles.moveButtonDisabled]}
+              disabled={isLast}
+            >
+              <Ionicons name="chevron-down" size={18} color={isLast ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.blockActions}>
           <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
@@ -325,6 +397,10 @@ export const ButtonBlockComponent: React.FC<BlockComponentProps & { block: Butto
   onDragStart,
   onEdit,
   onStopEditing,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }) => {
   const handleButtonPress = () => {
     if (block.url && !isEditing) {
@@ -355,9 +431,22 @@ export const ButtonBlockComponent: React.FC<BlockComponentProps & { block: Butto
       <View style={styles.blockHeader}>
         <View style={styles.blockInfo}>
           <Text style={styles.blockType}>🔗</Text>
-          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
-            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.moveButtons}>
+            <TouchableOpacity
+              onPress={onMoveUp}
+              style={[styles.moveButton, isFirst && styles.moveButtonDisabled]}
+              disabled={isFirst}
+            >
+              <Ionicons name="chevron-up" size={18} color={isFirst ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveDown}
+              style={[styles.moveButton, isLast && styles.moveButtonDisabled]}
+              disabled={isLast}
+            >
+              <Ionicons name="chevron-down" size={18} color={isLast ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.blockActions}>
           <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
@@ -430,6 +519,10 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
   onDragStart,
   onEdit,
   onStopEditing,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }) => {
   const [availableEvents, setAvailableEvents] = useState<any[]>([]);
   const [selectedEvents, setSelectedEvents] = useState<string[]>(block.events || []);
@@ -453,7 +546,7 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
   // Load selected event details for display
   useEffect(() => {
     if (selectedEvents.length > 0 && availableEvents.length > 0) {
-      const eventDetails = selectedEvents.map(eventId => 
+      const eventDetails = selectedEvents.map(eventId =>
         availableEvents.find(event => event.id === eventId)
       ).filter(Boolean);
       setSelectedEventDetails(eventDetails);
@@ -476,7 +569,7 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
     const newSelection = selectedEvents.includes(eventId)
       ? selectedEvents.filter(id => id !== eventId)
       : [...selectedEvents, eventId];
-    
+
     setSelectedEvents(newSelection);
     onUpdate({ ...block, events: newSelection });
   };
@@ -486,9 +579,22 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
       <View style={styles.blockHeader}>
         <View style={styles.blockInfo}>
           <Text style={styles.blockType}>📅</Text>
-          <TouchableOpacity style={styles.dragHandle} onPressIn={onDragStart}>
-            <Ionicons name="reorder-three" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.moveButtons}>
+            <TouchableOpacity
+              onPress={onMoveUp}
+              style={[styles.moveButton, isFirst && styles.moveButtonDisabled]}
+              disabled={isFirst}
+            >
+              <Ionicons name="chevron-up" size={18} color={isFirst ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveDown}
+              style={[styles.moveButton, isLast && styles.moveButtonDisabled]}
+              disabled={isLast}
+            >
+              <Ionicons name="chevron-down" size={18} color={isLast ? "#d1d5db" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.blockActions}>
           <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
@@ -718,6 +824,17 @@ const styles = StyleSheet.create({
   dragHandle: {
     padding: 4,
   },
+  moveButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  moveButton: {
+    padding: 2,
+  },
+  moveButtonDisabled: {
+    opacity: 0.4,
+  },
   blockActions: {
     flexDirection: 'row',
     gap: 8,
@@ -931,7 +1048,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   eventsTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '600',
     color: '#1f2937',
     marginBottom: 4,

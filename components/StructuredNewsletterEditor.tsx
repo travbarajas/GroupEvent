@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -120,22 +121,49 @@ export default function StructuredNewsletterEditor({
   };
 
   const deleteBlock = (blockId: string) => {
-    Alert.alert(
-      'Delete Block',
-      'Are you sure you want to delete this block?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => {
-            setBlocks(prev => prev.filter(block => block.id !== blockId));
-            setSelectedBlockId(null);
-            setEditingBlockId(null);
+    const performDelete = () => {
+      setBlocks(prev => prev.filter(block => block.id !== blockId));
+      setSelectedBlockId(null);
+      setEditingBlockId(null);
+    };
+
+    if (Platform.OS === 'web') {
+      // Use window.confirm on web since Alert.alert doesn't work
+      if (window.confirm('Are you sure you want to delete this block?')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Block',
+        'Are you sure you want to delete this block?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: performDelete
           }
-        }
-      ]
-    );
+        ]
+      );
+    }
+  };
+
+  const moveBlockUp = (index: number) => {
+    if (index <= 0) return;
+    setBlocks(prev => {
+      const newBlocks = [...prev];
+      [newBlocks[index - 1], newBlocks[index]] = [newBlocks[index], newBlocks[index - 1]];
+      return newBlocks;
+    });
+  };
+
+  const moveBlockDown = (index: number) => {
+    setBlocks(prev => {
+      if (index >= prev.length - 1) return prev;
+      const newBlocks = [...prev];
+      [newBlocks[index], newBlocks[index + 1]] = [newBlocks[index + 1], newBlocks[index]];
+      return newBlocks;
+    });
   };
 
   const handleSave = async () => {
@@ -241,6 +269,10 @@ export default function StructuredNewsletterEditor({
       }}
       onStopEditing={() => setEditingBlockId(null)}
       onSelect={() => setSelectedBlockId(block.id)}
+      onMoveUp={() => moveBlockUp(index)}
+      onMoveDown={() => moveBlockDown(index)}
+      isFirst={index === 0}
+      isLast={index === blocks.length - 1}
     />
   );
 

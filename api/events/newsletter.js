@@ -30,8 +30,9 @@ module.exports = async function handler(req, res) {
     console.log(`📅 Fetching global events for newsletter selection`);
 
     // Get all global events (business/venue events) that appear on the main events tab
+    // Note: date is stored as VARCHAR, so we get all events and can filter client-side if needed
     const allEvents = await sql`
-      SELECT 
+      SELECT
         id,
         name,
         description,
@@ -50,8 +51,7 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       FROM events
-      WHERE date >= CURRENT_DATE - INTERVAL '30 days'  -- Events from last 30 days to future
-      ORDER BY date ASC, time ASC
+      ORDER BY created_at DESC
     `;
 
     console.log(`✅ Found ${allEvents.length} global events for newsletter`);
@@ -59,11 +59,57 @@ module.exports = async function handler(req, res) {
     // Format events for frontend
     const formattedEvents = allEvents.map(event => {
       console.log(`📅 API Event: ${event.name}, Raw Date: ${event.date}, Type: ${typeof event.date}`);
+
+      // Handle date - could be Date object or VARCHAR string
+      let dateStr = null;
+      let displayDate = '';
+
+      if (event.date) {
+        // If it's a Date object, convert to string
+        if (event.date instanceof Date) {
+          dateStr = event.date.toISOString().split('T')[0];
+        } else if (typeof event.date === 'string') {
+          // It's already a string (VARCHAR) - use as-is
+          dateStr = event.date;
+        }
+
+        // Format for display
+        if (dateStr) {
+          // Handle date ranges like "2025-02-03 to 2025-02-05"
+          if (dateStr.includes(' to ')) {
+            const [startDate, endDate] = dateStr.split(' to ');
+            const formatDate = (d) => {
+              const [year, month, day] = d.split('-').map(Number);
+              const localDate = new Date(year, month - 1, day);
+              return localDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              });
+            };
+            displayDate = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+          } else {
+            // Single date
+            const [year, month, day] = dateStr.split('-').map(Number);
+            if (year && month && day) {
+              const localDate = new Date(year, month - 1, day);
+              displayDate = localDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric'
+              });
+            } else {
+              displayDate = dateStr; // Fallback to raw string
+            }
+          }
+        }
+      }
+
       return {
         id: event.id,
         name: event.name || 'Untitled Event',
         description: event.description || '',
-        date: event.date ? event.date.toISOString().split('T')[0] : null, // Ensure YYYY-MM-DD format
+        date: dateStr,
         time: event.time || '',
         location: event.location || '',
         venueName: event.venue_name || '',
@@ -77,17 +123,7 @@ module.exports = async function handler(req, res) {
         attendanceRequired: event.attendance_required,
         createdAt: event.created_at,
         updatedAt: event.updated_at,
-        // Format date for display (use the corrected date)
-        displayDate: event.date ? (() => {
-          const dateStr = event.date.toISOString().split('T')[0];
-          const [year, month, day] = dateStr.split('-').map(Number);
-          const localDate = new Date(year, month - 1, day);
-          return localDate.toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'short',
-            day: 'numeric'
-          });
-        })() : '',
+        displayDate,
         // Combine location fields for display
         fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - ')
       };

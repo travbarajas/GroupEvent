@@ -22,6 +22,10 @@ interface DraggableBlockProps {
   onEdit: () => void;
   onStopEditing: () => void;
   onSelect: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }
 
 export default function DraggableBlock({
@@ -34,6 +38,10 @@ export default function DraggableBlock({
   onEdit,
   onStopEditing,
   onSelect,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: DraggableBlockProps) {
 
   const blockProps = {
@@ -44,6 +52,10 @@ export default function DraggableBlock({
     onDelete,
     onEdit,
     onStopEditing,
+    onMoveUp,
+    onMoveDown,
+    isFirst,
+    isLast,
   };
 
   const getBlockComponent = () => {
