@@ -99,6 +99,27 @@ export default function EditEventScreen() {
     }));
   };
 
+  const compressImageWeb = (dataUrl: string, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const selectImage = async () => {
     if (Platform.OS === 'web') {
       // Web: use native file input
@@ -109,9 +130,10 @@ export default function EditEventScreen() {
         const file = event.target.files?.[0];
         if (file) {
           const reader = new FileReader();
-          reader.onload = (e) => {
+          reader.onload = async (e) => {
             const dataUrl = e.target?.result as string;
-            setSelectedImage(dataUrl);
+            const compressed = await compressImageWeb(dataUrl);
+            setSelectedImage(compressed);
           };
           reader.readAsDataURL(file);
         }
