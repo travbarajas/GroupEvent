@@ -74,6 +74,10 @@ export default function EventDetailScreen() {
   // Parse the event data from params
   const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
 
+  // Debug: log event data to see if image_url is present
+  console.log('Event detail - image_url:', event?.image_url ? `Present (${event.image_url.length} chars)` : 'MISSING');
+  console.log('Event detail - full event keys:', event ? Object.keys(event) : 'no event');
+
   // Check if user is admin (you can implement your own admin logic)
   useEffect(() => {
     // For now, set to true for testing. Replace with actual admin check
@@ -138,11 +142,11 @@ export default function EventDetailScreen() {
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={styles.imageWrapper}>
-          <Image
-            source={{ uri: 'https://picsum.photos/800/400' }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
+          {event.image_url ? (
+            <Image source={{ uri: event.image_url }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <Image source={{ uri: 'https://picsum.photos/800/400' }} style={styles.heroImage} resizeMode="cover" />
+          )}
 
           {/* Overlay buttons on image */}
           <TouchableOpacity
