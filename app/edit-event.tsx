@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
+  TextInput,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  TextInput,
+  Switch,
   Alert,
   Image,
-  Switch,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +18,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { ApiService } from '@/services/api';
 import { Event } from '@/contexts/GroupsContext';
+import DateRangePicker from '@/components/DateRangePicker';
+
+function parseEventDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+}
 
 export default function EditEventScreen() {
   const insets = useSafeAreaInsets();
@@ -26,7 +34,8 @@ export default function EditEventScreen() {
   const [formData, setFormData] = useState({
     name: event?.name || '',
     description: event?.description || '',
-    date: event?.date || '',
+    startDate: parseEventDate(event?.date || ''),
+    endDate: parseEventDate(event?.date || '') as Date | null,
     time: event?.time || '',
     location: event?.location || '',
     venue_name: event?.venue_name || '',
@@ -34,11 +43,19 @@ export default function EditEventScreen() {
     currency: 'USD',
     is_free: event?.is_free || false,
     category: event?.category || 'music',
-    tags: event?.tags || [],
+    tags: (event?.tags || []) as string[],
   });
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(event?.image_url || null);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Refs for input navigation
+  const nameRef = useRef<TextInput>(null);
+  const descriptionRef = useRef<TextInput>(null);
+  const timeRef = useRef<TextInput>(null);
+  const locationRef = useRef<TextInput>(null);
+  const venueRef = useRef<TextInput>(null);
+  const priceRef = useRef<TextInput>(null);
 
   const categories = [
     { value: 'music', label: 'Music' },
@@ -52,7 +69,7 @@ export default function EditEventScreen() {
   ];
 
   const availableTags = [
-    'free', 'family-friendly', 'music', 'outdoor', 'indoor', 'nightlife', 
+    'free', 'family-friendly', 'music', 'outdoor', 'indoor', 'nightlife',
     'food', 'exercise', 'arts', 'educational', 'social', 'entertainment'
   ];
 
@@ -60,11 +77,12 @@ export default function EditEventScreen() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <View style={[styles.header, { paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
             <Ionicons name="arrow-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Event Not Found</Text>
+          <View style={{ width: 40 }} />
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Event details not available</Text>
@@ -73,35 +91,71 @@ export default function EditEventScreen() {
     );
   }
 
+  const handleDateRangeChange = (startDate: Date, endDate: Date | null) => {
+    setFormData(prev => ({
+      ...prev,
+      startDate: startDate,
+      endDate: endDate
+    }));
+  };
+
   const selectImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow access to your photo library to select an image.');
-        return;
+    if (Platform.OS === 'web') {
+      // Web: use native file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (event: any) => {
+        const file = event.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUrl = e.target?.result as string;
+            setSelectedImage(dataUrl);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    } else {
+      // Native: use expo-image-picker
+      try {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please allow access to your photo library to select an image.');
+          return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaType.Images,
+          allowsEditing: true,
+          aspect: [16, 9],
+          quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets && result.assets[0]) {
+          setSelectedImage(result.assets[0].uri);
+        }
+      } catch (error) {
+        console.error('Error selecting image:', error);
+        Alert.alert('Error', `Failed to select image: ${(error as Error).message}`);
       }
-
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-      });
-
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
-      } else {
-      }
-    } catch (error) {
-      console.error('Error selecting image:', error);
-      Alert.alert('Error', `Failed to select image: ${error.message}`);
     }
   };
 
   const removeImage = () => {
     setSelectedImage(null);
+  };
+
+  const formatDateForApi = (date: Date): string => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
+
+  const formatDateRange = (): string => {
+    if (!formData.endDate || formData.startDate.getTime() === formData.endDate.getTime()) {
+      return formatDateForApi(formData.startDate);
+    }
+    return `${formatDateForApi(formData.startDate)} to ${formatDateForApi(formData.endDate)}`;
   };
 
   const handleSubmit = async () => {
@@ -113,25 +167,34 @@ export default function EditEventScreen() {
     setIsSubmitting(true);
     try {
       let imageUrl = selectedImage;
-      
-      // For now, use the local image URI directly
-      // TODO: Implement proper image upload to a cloud service
-      if (selectedImage) {
-        imageUrl = selectedImage;
-      }
 
-      // Update event logic would go here
       const updateData = {
-        ...formData,
+        id: event.id,
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        date: formatDateRange(),
+        time: formData.time.trim() || null,
+        location: formData.location.trim() || null,
+        venue_name: formData.venue_name.trim() || null,
+        price: formData.is_free ? 0 : parseFloat(formData.price) || 0,
+        currency: formData.currency.trim() || 'USD',
+        is_free: formData.is_free,
+        category: formData.category || null,
+        tags: formData.tags,
         image_url: imageUrl,
       };
-      
-      
-      Alert.alert(
-        'Event Updated!',
-        'The event has been successfully updated.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+
+      await ApiService.updateGlobalEvent(updateData);
+
+      // Show success message
+      setShowSuccess(true);
+
+      // Close after a brief delay to show success
+      setTimeout(() => {
+        setShowSuccess(false);
+        router.back();
+      }, 1000);
+
     } catch (error) {
       console.error('Error updating event:', error);
       Alert.alert('Error', 'Failed to update event. Please try again.');
@@ -143,23 +206,33 @@ export default function EditEventScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Event</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleSubmit}
           style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
           disabled={isSubmitting}
         >
           <Text style={styles.saveButtonText}>
-            {isSubmitting ? 'Saving...' : 'Save'}
+            {isSubmitting ? '...' : 'Save'}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Success Banner */}
+      {showSuccess && (
+        <View style={styles.successBanner}>
+          <Ionicons name="checkmark-circle" size={24} color="#ffffff" />
+          <Text style={styles.successText}>
+            Event "{formData.name}" updated successfully!
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.form}>
@@ -167,11 +240,15 @@ export default function EditEventScreen() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Event Name *</Text>
             <TextInput
+              ref={nameRef}
               style={styles.input}
               value={formData.name}
               onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
               placeholder="Enter event name"
-              placeholderTextColor="#666"
+              placeholderTextColor="#6b7280"
+              returnKeyType="next"
+              onSubmitEditing={() => descriptionRef.current?.focus()}
+              blurOnSubmit={false}
             />
           </View>
 
@@ -179,13 +256,17 @@ export default function EditEventScreen() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Description</Text>
             <TextInput
+              ref={descriptionRef}
               style={[styles.input, styles.textArea]}
               value={formData.description}
               onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
               placeholder="Enter event description"
-              placeholderTextColor="#666"
+              placeholderTextColor="#6b7280"
               multiline
               numberOfLines={3}
+              returnKeyType="next"
+              blurOnSubmit={true}
+              onSubmitEditing={() => timeRef.current?.focus()}
             />
           </View>
 
@@ -201,46 +282,52 @@ export default function EditEventScreen() {
               </View>
             ) : (
               <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
-                <Ionicons name="image-outline" size={32} color="#666" />
+                <Ionicons name="image-outline" size={32} color="#6b7280" />
                 <Text style={styles.imagePickerText}>Tap to add event image</Text>
                 <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Date and Time */}
-          <View style={styles.row}>
-            <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.label}>Date</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.date}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, date: text }))}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#666"
-              />
-            </View>
-            <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.label}>Time</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.time}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, time: text }))}
-                placeholder="HH:MM"
-                placeholderTextColor="#666"
-              />
-            </View>
+          {/* Date */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Date</Text>
+            <DateRangePicker
+              startDate={formData.startDate}
+              endDate={formData.endDate}
+              onDateChange={handleDateRangeChange}
+            />
+          </View>
+
+          {/* Time */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Time</Text>
+            <TextInput
+              ref={timeRef}
+              style={styles.input}
+              value={formData.time}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, time: text }))}
+              placeholder="e.g., 8:30 AM - 1:00 PM, All Day, Evening, etc."
+              placeholderTextColor="#6b7280"
+              returnKeyType="next"
+              onSubmitEditing={() => locationRef.current?.focus()}
+              blurOnSubmit={false}
+            />
           </View>
 
           {/* Location */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Location</Text>
             <TextInput
+              ref={locationRef}
               style={styles.input}
               value={formData.location}
               onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
               placeholder="Enter location"
-              placeholderTextColor="#666"
+              placeholderTextColor="#6b7280"
+              returnKeyType="next"
+              onSubmitEditing={() => venueRef.current?.focus()}
+              blurOnSubmit={false}
             />
           </View>
 
@@ -248,11 +335,13 @@ export default function EditEventScreen() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Venue Name</Text>
             <TextInput
+              ref={venueRef}
               style={styles.input}
               value={formData.venue_name}
               onChangeText={(text) => setFormData(prev => ({ ...prev, venue_name: text }))}
               placeholder="Enter venue name"
-              placeholderTextColor="#666"
+              placeholderTextColor="#6b7280"
+              returnKeyType="done"
             />
           </View>
 
@@ -293,33 +382,6 @@ export default function EditEventScreen() {
             </View>
           </View>
 
-          {!formData.is_free && (
-            <View style={styles.row}>
-              <View style={[styles.formGroup, { flex: 2, marginRight: 8 }]}>
-                <Text style={styles.label}>Price</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.price}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, price: text }))}
-                  placeholder="0.00"
-                  placeholderTextColor="#666"
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.label}>Currency</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.currency}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, currency: text.toUpperCase() }))}
-                  placeholder="USD"
-                  placeholderTextColor="#666"
-                  maxLength={3}
-                />
-              </View>
-            </View>
-          )}
-
           {/* Tags */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Tags</Text>
@@ -350,6 +412,34 @@ export default function EditEventScreen() {
               ))}
             </View>
           </View>
+
+          {!formData.is_free && (
+            <View style={styles.row}>
+              <View style={[styles.formGroup, { flex: 2, marginRight: 8 }]}>
+                <Text style={styles.label}>Price</Text>
+                <TextInput
+                  ref={priceRef}
+                  style={styles.input}
+                  value={formData.price}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, price: text }))}
+                  placeholder="0.00"
+                  placeholderTextColor="#6b7280"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
+                <Text style={styles.label}>Currency</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.currency}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, currency: text.toUpperCase() }))}
+                  placeholder="USD"
+                  placeholderTextColor="#6b7280"
+                  maxLength={3}
+                />
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -367,11 +457,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+    backgroundColor: '#1a1a1a',
   },
-  backButton: {
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  successText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  closeButton: {
     padding: 8,
   },
   headerTitle: {
@@ -509,13 +613,13 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6b7280',
     fontWeight: '500',
     marginTop: 8,
   },
   imagePickerSubtext: {
     fontSize: 14,
-    color: '#888',
+    color: '#4b5563',
     marginTop: 4,
   },
   errorContainer: {

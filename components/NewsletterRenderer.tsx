@@ -672,10 +672,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    marginBottom: 8,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 28,
@@ -896,7 +894,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
-    marginTop: -4,
+    marginTop: 0,
     marginBottom: 16,
   },
   tab: {

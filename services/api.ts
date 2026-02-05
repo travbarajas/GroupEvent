@@ -234,6 +234,13 @@ export class ApiService {
     });
   }
 
+  static async updateGlobalEvent(eventData: Partial<Event> & { id: string | number }): Promise<Event> {
+    return this.request('/events', {
+      method: 'PUT',
+      body: JSON.stringify(eventData)
+    });
+  }
+
   static async createCustomEvent(groupId: string, eventData: {
     name: string;
     description?: string;

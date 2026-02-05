@@ -149,5 +149,69 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  if (req.method === 'PUT') {
+    try {
+      const {
+        id,
+        name,
+        description,
+        date,
+        time,
+        location,
+        venue_name,
+        price,
+        currency = 'USD',
+        is_free = false,
+        category,
+        tags,
+        image_url
+      } = req.body;
+
+      if (!id) {
+        return res.status(400).json({ error: 'Event ID is required' });
+      }
+
+      if (!name) {
+        return res.status(400).json({ error: 'Event name is required' });
+      }
+
+      const cleanDate = date && date.trim() ? date : null;
+      const cleanTime = time && time.trim() ? time : null;
+      const cleanTags = tags || [];
+
+      const [updatedEvent] = await sql`
+        UPDATE events SET
+          name = ${name},
+          description = ${description || null},
+          date = ${cleanDate},
+          time = ${cleanTime},
+          location = ${location || null},
+          venue_name = ${venue_name || null},
+          price = ${price || 0},
+          currency = ${currency},
+          is_free = ${is_free},
+          category = ${category || null},
+          tags = ${cleanTags},
+          image_url = ${image_url || null},
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id}
+        RETURNING *
+      `;
+
+      if (!updatedEvent) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      return res.status(200).json(updatedEvent);
+
+    } catch (error) {
+      console.error('Error updating event:', error);
+      return res.status(500).json({
+        error: 'Internal server error',
+        details: error.message
+      });
+    }
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
 };
