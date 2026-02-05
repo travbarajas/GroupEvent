@@ -48,6 +48,7 @@ module.exports = async function handler(req, res) {
         max_attendees,
         min_attendees,
         attendance_required,
+        image_url,
         created_at,
         updated_at
       FROM events
