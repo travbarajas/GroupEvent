@@ -170,7 +170,10 @@ export default function EventsSearchScreen() {
           price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
           distance: '5 miles away',
           type: (apiEvent.category as Event['type']) || 'music',
-          tags: apiEvent.tags || []
+          tags: apiEvent.tags || [],
+          image_url: apiEvent.image_url || undefined,
+          location: apiEvent.location || undefined,
+          venue_name: apiEvent.venue_name || undefined,
         }));
         
         setEvents(formattedEvents);
