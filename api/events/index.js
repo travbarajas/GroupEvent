@@ -17,11 +17,17 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    // Debug mode: add ?debug=true to see raw data with image_url lengths
+    const debug = req.query.debug === 'true';
+
     try {
-      // Get all events from global registry
-      // This will be used by the Events tab to show all available events
+      // Ensure image_url column exists
+      try {
+        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS image_url TEXT`;
+      } catch (e) { /* column may already exist */ }
+
       const events = await sql`
-        SELECT 
+        SELECT
           id,
           name,
           description,
@@ -43,12 +49,23 @@ module.exports = async function handler(req, res) {
         FROM events
         ORDER BY date DESC, created_at DESC
       `;
-      
+
+      if (debug) {
+        const debugEvents = events.map(e => ({
+          id: e.id,
+          name: e.name,
+          has_image_url: !!e.image_url,
+          image_url_length: e.image_url ? e.image_url.length : 0,
+          image_url_preview: e.image_url ? e.image_url.substring(0, 50) + '...' : null,
+        }));
+        return res.status(200).json({ debug: true, events: debugEvents });
+      }
+
       return res.status(200).json({ events });
 
     } catch (error) {
       console.error('Error fetching events:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
