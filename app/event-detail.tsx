@@ -138,13 +138,11 @@ export default function EventDetailScreen() {
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={styles.imageWrapper}>
-          {event.image_url ? (
-            <Image source={{ uri: event.image_url }} style={styles.heroImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons name="image-outline" size={48} color="#4a4a4a" />
-            </View>
-          )}
+          <Image
+            source={{ uri: 'https://picsum.photos/800/400' }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
 
           {/* Overlay buttons on image */}
           <TouchableOpacity
