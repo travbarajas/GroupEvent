@@ -506,6 +506,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#2a2a2a',
+    resizeMode: 'cover',
   },
   compactEventImagePlaceholder: {
     position: 'absolute',

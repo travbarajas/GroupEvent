@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Share,
   Image,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IMAGE_HEIGHT = 300;
 
 // Format date to show day name if within 7 days, otherwise MM/DD/YY
 const formatEventDate = (dateString: string): string => {
@@ -47,10 +51,15 @@ const formatEventDate = (dateString: string): string => {
   const year = eventDate.getFullYear().toString().slice(-2);
   const formattedDate = `${month}/${day}/${year}`;
 
-  // If within 7 days (including today), show day name
-  if (diffDays >= 0 && diffDays < 7) {
-    const dayName = dayNames[eventDate.getDay()];
-    return `${dayName}, ${formattedDate}`;
+  // If within 7 days (including today), show just the day name
+  if (diffDays === 0) {
+    return 'Today';
+  }
+  if (diffDays === 1) {
+    return 'Tomorrow';
+  }
+  if (diffDays > 1 && diffDays < 7) {
+    return dayNames[eventDate.getDay()];
   }
 
   return formattedDate;
@@ -61,7 +70,7 @@ export default function EventDetailScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const [isAdmin, setIsAdmin] = useState(false);
-  
+
   // Parse the event data from params
   const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
 
@@ -75,11 +84,11 @@ export default function EventDetailScreen() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        <View style={[styles.errorHeader, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.circleButton}>
+            <Ionicons name="arrow-back" size={22} color="#ffffff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Event Not Found</Text>
+          <Text style={styles.errorHeaderTitle}>Event Not Found</Text>
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Event details not available</Text>
@@ -98,7 +107,7 @@ export default function EventDetailScreen() {
         message: `Check out this event: ${event.name}\n\nDate: ${event.date}\nTime: ${event.time}\nLocation: ${event.distance}\nPrice: ${event.price}\n\n${event.description}`,
         title: event.name,
       };
-      
+
       await Share.share(shareContent);
     } catch (error) {
       console.error('Error sharing event:', error);
@@ -120,107 +129,79 @@ export default function EventDetailScreen() {
     });
   };
 
-  const getTypeColor = (type: Event['type']) => {
-    const colors = {
-      festival: '#8b5cf6',
-      music: '#06b6d4',
-      outdoor: '#10b981',
-      food: '#f59e0b',
-    };
-    return colors[type] || '#6b7280';
-  };
-
-  const getTypeIcon = (type: Event['type']) => {
-    const icons = {
-      festival: 'musical-notes',
-      music: 'musical-note',
-      outdoor: 'trail-sign',
-      food: 'restaurant',
-    };
-    return icons[type] || 'calendar';
-  };
-
   const isSaved = isEventSaved(event.id);
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Safe area background extension */}
-      <View style={[styles.safeAreaBackground, { height: insets.top }]} />
-      
+
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Event Header */}
-        <View style={[styles.eventHeader, { paddingTop: insets.top + 20 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        {/* Hero Image */}
+        <View style={styles.imageWrapper}>
+          {event.image_url ? (
+            <Image source={{ uri: event.image_url }} style={styles.heroImage} />
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Ionicons name="image-outline" size={48} color="#4a4a4a" />
+            </View>
+          )}
+
+          {/* Overlay buttons on image */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.circleButton, styles.backButtonOverlay, { top: insets.top + 8 }]}
+          >
+            <Ionicons name="arrow-back" size={22} color="#ffffff" />
           </TouchableOpacity>
-          <View style={[styles.eventTypeIcon, { backgroundColor: getTypeColor(event.type) }]}>
-            <Ionicons name={getTypeIcon(event.type)} size={24} color="#ffffff" />
-          </View>
-          <View style={styles.eventHeaderText}>
-            <Text style={styles.eventName}>{event.name}</Text>
-            <Text style={styles.eventDate}>{formatEventDate(event.date)}</Text>
-          </View>
+
           {isAdmin && (
-            <TouchableOpacity onPress={handleEditEvent} style={styles.editButton}>
-              <Ionicons name="create-outline" size={24} color="#ffffff" />
+            <TouchableOpacity
+              onPress={handleEditEvent}
+              style={[styles.circleButton, styles.editButtonOverlay, { top: insets.top + 8 }]}
+            >
+              <Ionicons name="create-outline" size={20} color="#ffffff" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Event Details Grid */}
-        <View style={styles.detailsContainer}>
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailColumn}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="time" size={16} color="#fb923c" />
-              </View>
-              <Text style={styles.detailLabel}>Time</Text>
-              <Text style={styles.detailValue}>{event.time}</Text>
-            </View>
-            
-            <View style={styles.detailColumn}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="location" size={16} color="#f87171" />
-              </View>
-              <Text style={styles.detailLabel}>Distance</Text>
-              <Text style={styles.detailValue}>{event.distance}</Text>
-            </View>
-            
-            <View style={styles.detailColumn}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="card" size={16} color="#4ade80" />
-              </View>
-              <Text style={styles.detailLabel}>Price</Text>
-              <Text style={styles.detailValue}>{event.price}</Text>
-            </View>
+        <View style={styles.imageDivider} />
+
+        {/* Event Name & Date */}
+        <View style={styles.titleSection}>
+          <Text style={styles.eventName}>{event.name}</Text>
+          <Text style={styles.eventDate}>{formatEventDate(event.date)}</Text>
+        </View>
+
+        {/* Time / Location / Price - Stacked */}
+        <View style={styles.detailsList}>
+          <View style={styles.detailRow}>
+            <Ionicons name="time" size={18} color="#60a5fa" />
+            <Text style={styles.detailLabel}>Time</Text>
+            <Text style={styles.detailValue}>{event.time || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="location" size={18} color="#f87171" />
+            <Text style={styles.detailLabel}>Location</Text>
+            <Text style={styles.detailValue}>{event.distance || '—'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="card" size={18} color="#4ade80" />
+            <Text style={styles.detailLabel}>Price</Text>
+            <Text style={styles.detailValue}>{event.price || 'Free'}</Text>
           </View>
         </View>
 
-        {/* Event Image */}
-        <View style={styles.imageSection}>
-          {event.image_url ? (
-            <Image source={{ uri: event.image_url }} style={styles.eventImage} />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons name="image-outline" size={40} color="#6b7280" />
-              <Text style={styles.placeholderImageText}>Event Photo</Text>
-            </View>
-          )}
-        </View>
-
         {/* Description */}
-        <View style={styles.descriptionSection}>
-          <Text style={styles.descriptionLabel}>About this event</Text>
-          <Text style={styles.eventDescription}>
-            {event.description}
-          </Text>
-        </View>
+        {event.description ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>About this event</Text>
+            <Text style={styles.eventDescription}>{event.description}</Text>
+          </View>
+        ) : null}
 
-        {/* Map Section */}
-        <View style={styles.mapSection}>
-          <Text style={styles.mapLabel}>Location</Text>
+        {/* Location */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Location</Text>
           <View style={styles.placeholderMap}>
             <Ionicons name="map-outline" size={32} color="#6b7280" />
             <Text style={styles.placeholderMapText}>Map View</Text>
@@ -239,8 +220,8 @@ export default function EventDetailScreen() {
 
         {/* Tags */}
         {event.tags && event.tags.length > 0 && (
-          <View style={styles.tagsSection}>
-            <Text style={styles.tagsLabel}>Tags</Text>
+          <View style={[styles.section, { paddingBottom: 120 }]}>
+            <Text style={styles.sectionLabel}>Tags</Text>
             <View style={styles.tagsContainer}>
               {event.tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
@@ -254,7 +235,7 @@ export default function EventDetailScreen() {
 
       {/* Action Buttons */}
       <View style={[styles.actionButtons, { paddingBottom: insets.bottom + 20 }]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.actionButton,
             styles.saveButton,
@@ -262,10 +243,10 @@ export default function EventDetailScreen() {
           ]}
           onPress={handleSaveEvent}
         >
-          <Ionicons 
-            name={isSaved ? "heart" : "heart-outline"} 
-            size={18} 
-            color={isSaved ? "#ef4444" : "#9ca3af"} 
+          <Ionicons
+            name={isSaved ? "heart" : "heart-outline"}
+            size={18}
+            color={isSaved ? "#ef4444" : "#9ca3af"}
           />
           <Text style={[
             styles.actionButtonText,
@@ -274,14 +255,7 @@ export default function EventDetailScreen() {
             {isSaved ? 'Saved' : 'Save'}
           </Text>
         </TouchableOpacity>
-        
-        {/* Add to Group button hidden - preserving functionality for future use
-        <TouchableOpacity style={[styles.actionButton, styles.addButton]} onPress={handleAddToGroup}>
-          <Ionicons name="add" size={18} color="#ffffff" />
-          <Text style={styles.actionButtonText}>Add to Group</Text>
-        </TouchableOpacity>
-        */}
-        
+
         <TouchableOpacity style={[styles.actionButton, styles.shareButton]} onPress={handleShare}>
           <Ionicons name="share-outline" size={18} color="#9ca3af" />
           <Text style={styles.actionButtonText}>Share</Text>
@@ -296,125 +270,101 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a0a0a',
   },
-  safeAreaBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#1a1a1a',
-    zIndex: 1,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  editButton: {
-    padding: 8,
-    marginLeft: 12,
-  },
   scrollContainer: {
     flex: 1,
   },
-  eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+
+  // Hero image
+  imageWrapper: {
+    width: SCREEN_WIDTH,
+    height: IMAGE_HEIGHT,
+    position: 'relative',
   },
-  eventTypeIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  heroImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1a1a',
+    resizeMode: 'cover',
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1a1a',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
   },
-  eventHeaderText: {
+
+  // Circle overlay buttons
+  circleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonOverlay: {
+    position: 'absolute',
+    left: 16,
+  },
+  editButtonOverlay: {
+    position: 'absolute',
+    right: 16,
+  },
+
+  // Title section
+  imageDivider: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+  },
+  titleSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 4,
+  },
+
+  // Stacked details list
+  detailsList: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginLeft: 10,
+    width: 70,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#e5e7eb',
     flex: 1,
   },
   eventName: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#ffffff',
-    marginBottom: 3,
-    lineHeight: 24,
+    marginBottom: 4,
   },
   eventDate: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#9ca3af',
     fontWeight: '500',
   },
-  detailsContainer: {
-    padding: 20,
+
+  // Generic section
+  section: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  detailsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-    gap: 16,
-  },
-  detailColumn: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  detailIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#9ca3af',
-    fontWeight: '500',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#e5e7eb',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  imageSection: {
-    padding: 20,
-    paddingTop: 8,
-  },
-  eventImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 16,
-    backgroundColor: '#2a2a2a',
-  },
-  placeholderImage: {
-    height: 200,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderStyle: 'dashed',
-  },
-  placeholderImageText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-    marginTop: 8,
-  },
-  descriptionSection: {
-    padding: 20,
-    paddingTop: 8,
-  },
-  descriptionLabel: {
+  sectionLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
@@ -425,16 +375,8 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
     lineHeight: 22,
   },
-  mapSection: {
-    padding: 20,
-    paddingTop: 8,
-  },
-  mapLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
-  },
+
+  // Map
   placeholderMap: {
     height: 120,
     backgroundColor: '#2a2a2a',
@@ -467,17 +409,8 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-  tagsSection: {
-    padding: 20,
-    paddingTop: 8,
-    paddingBottom: 120,
-  },
-  tagsLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
-  },
+
+  // Tags
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -496,6 +429,8 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '500',
   },
+
+  // Action buttons
   actionButtons: {
     position: 'absolute',
     bottom: 0,
@@ -527,9 +462,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef2f2',
     borderColor: '#fecaca',
   },
-  addButton: {
-    backgroundColor: '#2563eb',
-  },
   shareButton: {
     backgroundColor: '#2a2a2a',
     borderWidth: 1,
@@ -542,6 +474,21 @@ const styles = StyleSheet.create({
   },
   savedButtonText: {
     color: '#ef4444',
+  },
+
+  // Error state
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#1a1a1a',
+    gap: 12,
+  },
+  errorHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   errorContainer: {
     flex: 1,

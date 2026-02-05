@@ -356,9 +356,9 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Today',
+            title: 'Newsletter',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? 'today' : 'today-outline'} size={24} color={color} />
+              <Ionicons name={focused ? 'newspaper' : 'newspaper-outline'} size={24} color={color} />
             ),
           }}
         />

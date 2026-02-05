@@ -663,6 +663,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     backgroundColor: '#1a1a1a',
+    resizeMode: 'cover',
   },
   removeImageButton: {
     position: 'absolute',

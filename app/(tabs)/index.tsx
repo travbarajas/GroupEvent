@@ -65,14 +65,8 @@ export default function NewsletterScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Newsletter</Text>
+        <Text style={styles.headerTitle}>The Roseville Newsletter</Text>
         <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => setShowPastNewsletters(true)}
-          >
-            <Ionicons name="archive-outline" size={24} color="#60a5fa" />
-          </TouchableOpacity>
           {isAdmin && (
             <TouchableOpacity
               style={styles.headerButton}
