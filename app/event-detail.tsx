@@ -139,7 +139,7 @@ export default function EventDetailScreen() {
         {/* Hero Image */}
         <View style={styles.imageWrapper}>
           {event.image_url ? (
-            <Image source={{ uri: event.image_url }} style={styles.heroImage} />
+            <Image source={{ uri: event.image_url }} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <View style={styles.placeholderImage}>
               <Ionicons name="image-outline" size={48} color="#4a4a4a" />
@@ -284,7 +284,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1a1a',
-    resizeMode: 'cover',
   },
   placeholderImage: {
     width: '100%',

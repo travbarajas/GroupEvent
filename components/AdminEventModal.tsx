@@ -323,7 +323,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
               <Text style={styles.label}>Event Image</Text>
               {selectedImage ? (
                 <View style={styles.imageContainer}>
-                  <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
+                  <Image source={{ uri: selectedImage }} style={styles.selectedImage} resizeMode="cover" />
                   <TouchableOpacity style={styles.removeImageButton} onPress={removeImage}>
                     <Ionicons name="close-circle" size={24} color="#ef4444" />
                   </TouchableOpacity>
@@ -656,14 +656,12 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    alignSelf: 'flex-start',
   },
   selectedImage: {
     width: '100%',
     height: 200,
     borderRadius: 8,
     backgroundColor: '#1a1a1a',
-    resizeMode: 'cover',
   },
   removeImageButton: {
     position: 'absolute',

@@ -114,7 +114,7 @@ const CompactEventCard = ({ event, onPress, onShare }: {
     <TouchableOpacity style={styles.compactEventCard} onPress={onPress} activeOpacity={0.8}>
       {/* Event Image */}
       {event.image_url ? (
-        <Image source={{ uri: event.image_url }} style={styles.compactEventImage} />
+        <Image source={{ uri: event.image_url }} style={styles.compactEventImage} resizeMode="cover" />
       ) : (
         <View style={styles.compactEventImagePlaceholder}>
           <View style={styles.compactEventImageOverlay}>
@@ -506,7 +506,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#2a2a2a',
-    resizeMode: 'cover',
   },
   compactEventImagePlaceholder: {
     position: 'absolute',
