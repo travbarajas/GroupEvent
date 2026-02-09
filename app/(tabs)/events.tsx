@@ -185,11 +185,14 @@ export default function ExploreTab() {
       const { events: apiEvents } = await ApiService.getAllEvents();
 
       // Debug: log raw API response to see if image_url is present
-      console.log('API returned events:', apiEvents?.length);
+      console.log('=== DEBUG IMAGE URL ===');
+      console.log('API returned events count:', apiEvents?.length);
       if (apiEvents?.[0]) {
-        console.log('First event keys:', Object.keys(apiEvents[0]));
-        console.log('First event image_url:', apiEvents[0].image_url ? `Present (${apiEvents[0].image_url.length} chars)` : 'MISSING/NULL');
+        console.log('First event ALL KEYS:', Object.keys(apiEvents[0]));
+        console.log('First event has image_url?:', 'image_url' in apiEvents[0]);
+        console.log('First event image_url value:', apiEvents[0].image_url ? `YES - ${apiEvents[0].image_url.substring(0, 50)}...` : 'NO/NULL/UNDEFINED');
       }
+      console.log('=== END DEBUG ===')
 
       if (apiEvents && apiEvents.length > 0) {
         // Convert API events to the format expected by the UI
