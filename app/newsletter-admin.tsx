@@ -21,6 +21,7 @@ import BlockBasedNewsletterEditor from '@/components/BlockBasedNewsletterEditor'
 import StructuredNewsletterEditor from '@/components/StructuredNewsletterEditor';
 import EnhancedNewsletterCreationModal from '@/components/EnhancedNewsletterCreationModal';
 import NewsletterRenderer from '@/components/NewsletterRenderer';
+import NotificationModal from '@/components/NotificationModal';
 
 export default function NewsletterAdminScreen() {
   const router = useRouter();
@@ -39,6 +40,7 @@ export default function NewsletterAdminScreen() {
   const [useBlockEditor, setUseBlockEditor] = useState(true); // Default to structured editor
   const [showPreview, setShowPreview] = useState(false);
   const [previewNewsletter, setPreviewNewsletter] = useState<Newsletter | null>(null);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -263,12 +265,20 @@ export default function NewsletterAdminScreen() {
           <Ionicons name="arrow-back" size={24} color="#60a5fa" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Newsletter Admin</Text>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setShowCreateModal(true)}
-        >
-          <Ionicons name="add" size={24} color="#60a5fa" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => setShowNotificationModal(true)}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#f59e0b" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => setShowCreateModal(true)}
+          >
+            <Ionicons name="add" size={24} color="#60a5fa" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Editor Toggle */}
@@ -347,6 +357,12 @@ export default function NewsletterAdminScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Notifications Modal */}
+      <NotificationModal
+        visible={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -377,6 +393,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   createButton: {
+    padding: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
     padding: 8,
   },
   list: {

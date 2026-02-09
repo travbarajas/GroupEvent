@@ -642,6 +642,38 @@ export class ApiService {
     return this.request('/health');
   }
 
+  // Notifications
+  static async getNotifications(): Promise<{ notifications: any[] }> {
+    return this.request('/notifications');
+  }
+
+  static async createNotification(data: { title: string; body: string; scheduled_for?: string }): Promise<any> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify({ device_id, ...data })
+    });
+  }
+
+  static async updateNotification(id: string, data: { title?: string; body?: string; scheduled_for?: string; status?: string }): Promise<any> {
+    return this.request(`/notifications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  static async deleteNotification(id: string): Promise<any> {
+    return this.request(`/notifications/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  static async sendNotification(id: string): Promise<any> {
+    return this.request(`/notifications/${id}/send`, {
+      method: 'POST'
+    });
+  }
+
   // Device fingerprint sync methods moved to utils/deviceId.ts to avoid circular dependency
 }
 
