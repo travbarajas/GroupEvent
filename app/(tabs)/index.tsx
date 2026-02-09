@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#86efac',
   },
   headerButtons: {
     flexDirection: 'row',
