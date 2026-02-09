@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { ApiService } from '@/services/api';
+
+// Only import DateTimePicker on native
+let DateTimePicker: any = null;
+if (Platform.OS !== 'web') {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+}
 
 interface Notification {
   id: string;
@@ -419,14 +424,59 @@ export default function NotificationModal({ visible, onClose }: NotificationModa
               </View>
             )}
 
-            {/* Date Picker */}
-            {showDatePicker && (
+            {/* Date Picker - Web */}
+            {showDatePicker && Platform.OS === 'web' && (
+              <View style={styles.webDatePickerContainer}>
+                <Text style={styles.webDatePickerLabel}>Select Date & Time:</Text>
+                <input
+                  type="datetime-local"
+                  style={{
+                    backgroundColor: '#2a2a2a',
+                    color: '#ffffff',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: 8,
+                    padding: 12,
+                    fontSize: 16,
+                    width: '100%',
+                    marginBottom: 12,
+                  }}
+                  min={new Date().toISOString().slice(0, 16)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setScheduledDate(new Date(e.target.value));
+                    }
+                  }}
+                />
+                <View style={styles.webDatePickerButtons}>
+                  <TouchableOpacity
+                    style={styles.webDatePickerCancel}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text style={styles.webDatePickerCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.webDatePickerConfirm}
+                    onPress={() => {
+                      setShowDatePicker(false);
+                      if (scheduledDate) {
+                        handleSchedule();
+                      }
+                    }}
+                  >
+                    <Text style={styles.webDatePickerConfirmText}>Confirm</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Date Picker - Native */}
+            {showDatePicker && Platform.OS !== 'web' && DateTimePicker && (
               <DateTimePicker
                 value={scheduledDate || new Date()}
                 mode="datetime"
                 display="default"
                 minimumDate={new Date()}
-                onChange={(event, date) => {
+                onChange={(event: any, date?: Date) => {
                   setShowDatePicker(false);
                   if (date) {
                     setScheduledDate(date);
@@ -682,5 +732,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 4,
+  },
+  webDatePickerContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  webDatePickerLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 12,
+  },
+  webDatePickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  webDatePickerCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#2a2a2a',
+  },
+  webDatePickerCancelText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  webDatePickerConfirm: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#f59e0b',
+  },
+  webDatePickerConfirmText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
