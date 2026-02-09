@@ -163,9 +163,12 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
       price: event.isFree ? 'Free' : (event.price ? `$${event.price}` : 'TBD'),
       distance: event.fullLocation || event.location || '',
       type: event.category || 'general',
-      tags: event.tags || []
+      tags: event.tags || [],
+      image_url: event.image_url || event.imageUrl || undefined,
+      location: event.location || undefined,
+      venue_name: event.venue_name || event.venueName || undefined,
     };
-    
+
     router.push({
       pathname: '/event-detail',
       params: { event: JSON.stringify(eventForDetail) }

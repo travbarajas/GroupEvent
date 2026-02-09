@@ -126,7 +126,8 @@ module.exports = async function handler(req, res) {
         updatedAt: event.updated_at,
         displayDate,
         // Combine location fields for display
-        fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - ')
+        fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - '),
+        image_url: event.image_url || null,
       };
     });
 
