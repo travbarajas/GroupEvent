@@ -78,36 +78,50 @@ const CompactEventCard = ({ event, onPress, onShare }: {
     return cleanPrice;
   };
 
-  // Format time to just 12 PM/AM
-  const formatTime = (time: string) => {
-    if (time.toLowerCase().includes('tbd') || time.toLowerCase().includes('fallback')) return 'TBD';
-    // Extract time and convert to 12-hour format if needed
-    const timeMatch = time.match(/(\d{1,2}):?(\d{2})?\s?(AM|PM|am|pm)?/i);
-    if (timeMatch) {
-      let hour = parseInt(timeMatch[1]);
-      const minute = timeMatch[2] || '00';
-      const period = timeMatch[3]?.toUpperCase();
-      
-      if (!period) {
-        // Convert 24-hour to 12-hour
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        hour = hour % 12 || 12;
-        return `${hour} ${ampm}`;
-      } else {
-        return `${hour} ${period}`;
+  // Format date + time into "This Monday at 8 PM" or "3/7 at 4 AM"
+  const formatDateTime = (date: string, time: string) => {
+    const timePart = (() => {
+      if (!time || time.toLowerCase().includes('tbd') || time.toLowerCase().includes('fallback')) return null;
+      const timeMatch = time.match(/(\d{1,2}):?(\d{2})?\s?(AM|PM|am|pm)?/i);
+      if (timeMatch) {
+        let hour = parseInt(timeMatch[1]);
+        const period = timeMatch[3]?.toUpperCase();
+        if (!period) {
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          hour = hour % 12 || 12;
+          return `${hour} ${ampm}`;
+        } else {
+          return `${hour} ${period}`;
+        }
       }
-    }
-    return time;
-  };
+      return null;
+    })();
 
-  // Format distance to just "# miles"
-  const formatDistance = (distance: string) => {
-    if (distance.toLowerCase().includes('fallback')) return 'TBD';
-    const match = distance.match(/(\d+)/);
-    if (match) {
-      return `${match[1]} miles`;
+    if (!date) return timePart || 'TBD';
+
+    const datePart = date.split(' to ')[0];
+    const eventDate = new Date(datePart + 'T00:00:00');
+    if (isNaN(eventDate.getTime())) return timePart || 'TBD';
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    let dateStr: string;
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    if (diffDays === 0) {
+      dateStr = 'Today';
+    } else if (diffDays === 1) {
+      dateStr = 'Tomorrow';
+    } else if (diffDays > 1 && diffDays <= 7) {
+      dateStr = 'This ' + dayNames[eventDate.getDay()];
+    } else {
+      dateStr = `${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
     }
-    return distance;
+
+    return timePart ? `${dateStr} - ${timePart}` : dateStr;
   };
 
   return (
@@ -124,38 +138,24 @@ const CompactEventCard = ({ event, onPress, onShare }: {
         </View>
       )}
       
-      {/* Header at Bottom - Three rows */}
+      {/* Caption */}
       <View style={styles.compactEventHeader}>
-        {/* Top Row: Title */}
-        <View style={styles.compactEventTopRow}>
-          <View style={styles.compactEventTitleContainer}>
-            <Text style={styles.compactEventTitle} numberOfLines={1}>{event.name}</Text>
-          </View>
-        </View>
-        
-        {/* Middle Row: Price, Time, Distance */}
-        <View style={styles.compactEventMiddleRow}>
-          <Text style={styles.compactEventPrice}>{formatPrice(event.price)}</Text>
-          <Text style={styles.compactEventTime}>{formatTime(event.time)}</Text>
-          <Text style={styles.compactEventDistance}>{formatDistance(event.distance)}</Text>
-        </View>
-
-        {/* Bottom Row: Action Buttons */}
+        <Text style={styles.compactEventTime}>{formatDateTime(event.date, event.time)}</Text>
+        <Text style={styles.compactEventTitle} numberOfLines={1}>{event.name}</Text>
+        <Text style={styles.compactEventLocation} numberOfLines={1}>
+          {event.venue_name ? `${event.venue_name} - ${event.location || ''}` : event.location || ''}
+        </Text>
         <View style={styles.compactEventBottomRow}>
+          <Text style={styles.compactEventPrice}>{formatPrice(event.price)}</Text>
           <View style={styles.compactActionButtons}>
             <TouchableOpacity style={styles.compactShareButton} onPress={handleShare}>
               <Ionicons name="share-outline" size={18} color="#ffffff" />
             </TouchableOpacity>
-            {/* Add to Group button hidden - preserving functionality for future use
-            <TouchableOpacity style={styles.compactAddButton} onPress={handleAddToGroup}>
-              <Ionicons name="add" size={18} color="#ffffff" />
-            </TouchableOpacity>
-            */}
             <TouchableOpacity style={styles.compactSaveButton} onPress={handleSaveEvent}>
-              <Ionicons 
-                name={isSaved ? "heart" : "heart-outline"} 
-                size={20} 
-                color={isSaved ? "#ef4444" : "#ffffff"} 
+              <Ionicons
+                name={isSaved ? "heart" : "heart-outline"}
+                size={20}
+                color={isSaved ? "#ef4444" : "#ffffff"}
               />
             </TouchableOpacity>
           </View>
@@ -211,7 +211,20 @@ export default function ExploreTab() {
           venue_name: apiEvent.venue_name || undefined,
         }));
         
-        setEvents(formattedEvents);
+        // Filter to events within the next 14 days
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const cutoff = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+        const filteredEvents = formattedEvents.filter(event => {
+          if (!event.date || event.date === 'TBD') return true;
+          const datePart = event.date.split(' to ')[0];
+          const eventDate = new Date(datePart + 'T00:00:00');
+          if (isNaN(eventDate.getTime())) return true;
+          return eventDate >= today && eventDate <= cutoff;
+        });
+
+        setEvents(filteredEvents);
       } else {
         // No events in database, use fallback
         setEvents(getFallbackEvents());
@@ -506,26 +519,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a2a',
     width: width * 0.5,
-    height: 300,
     overflow: 'hidden',
-    position: 'relative',
   },
   compactEventImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     width: '100%',
-    height: '100%',
+    aspectRatio: 1,
     backgroundColor: '#2a2a2a',
   },
   compactEventImagePlaceholder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: width * 0.5,
+    width: '100%',
+    aspectRatio: 1,
     backgroundColor: '#2a2a2a',
     justifyContent: 'center',
     alignItems: 'center',
@@ -541,62 +544,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   compactEventHeader: {
-    position: 'absolute',
-    top: width * 0.5 + 4,
-    left: 0,
-    right: 0,
-    bottom: 0,
     padding: 12,
     backgroundColor: '#1a1a1a',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
   },
-  compactEventTopRow: {
-    marginBottom: 20,
+  compactEventTime: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginBottom: 2,
   },
-  compactEventMiddleRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+  compactEventTitle: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  compactEventLocation: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontWeight: '400',
+    marginBottom: 2,
   },
   compactEventBottomRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  compactEventTitleContainer: {
-    flex: 1,
-    minHeight: 30,
-  },
-  compactEventTitle: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '600',
-    lineHeight: 18,
-    textAlignVertical: 'center',
+    marginTop: 2,
   },
   compactEventPrice: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#4ade80',
     fontWeight: '600',
-    lineHeight: 16,
-    textAlignVertical: 'center',
-  },
-  compactEventTime: {
-    fontSize: 11,
-    color: '#fb923c',
-    fontWeight: '500',
-    lineHeight: 16,
-    textAlignVertical: 'center',
-  },
-  compactEventDistance: {
-    fontSize: 11,
-    color: '#f87171',
-    fontWeight: '500',
-    lineHeight: 16,
-    textAlignVertical: 'center',
   },
   compactActionButtons: {
     flexDirection: 'row',

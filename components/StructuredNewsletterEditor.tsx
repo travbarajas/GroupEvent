@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +54,7 @@ export default function StructuredNewsletterEditor({
 
   // Newsletter blocks (simplified - no preset sections)
   const [blocks, setBlocks] = useState<NewsletterBlock[]>([]);
+  const [showTabBar, setShowTabBar] = useState(true);
 
   // UI state
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -73,7 +75,9 @@ export default function StructuredNewsletterEditor({
             : newsletter.blocks;
           
           if (Array.isArray(existingBlocks)) {
-            setBlocks(existingBlocks);
+            const meta = existingBlocks.find((b: any) => b.type === '_meta');
+            if (meta) setShowTabBar(meta.showTabBar !== false);
+            setBlocks(existingBlocks.filter((b: any) => b.type !== '_meta'));
             return;
           }
         } catch (error) {
@@ -196,6 +200,12 @@ export default function StructuredNewsletterEditor({
         }
       }).join('\n\n');
 
+      // Include metadata block for settings like showTabBar
+      const blocksWithMeta = [
+        { id: '_meta', type: '_meta', order: -1, showTabBar },
+        ...blocks,
+      ];
+
       const newsletterData = {
         title: title.trim(),
         subtitle: subtitle.trim(),
@@ -203,7 +213,7 @@ export default function StructuredNewsletterEditor({
         content,
         events: [],
         // Store blocks data
-        blocks: JSON.stringify(blocks),
+        blocks: JSON.stringify(blocksWithMeta),
       };
 
       if (newsletter) {
@@ -321,6 +331,17 @@ export default function StructuredNewsletterEditor({
             <Text style={styles.titleInput}>{title || 'Newsletter Title'}</Text>
             <Text style={styles.subtitleInput}>{subtitle || 'Subtitle'}</Text>
             <Text style={styles.dateText}>{date}</Text>
+          </View>
+
+          {/* Settings */}
+          <View style={styles.tabBarToggle}>
+            <Text style={styles.tabBarToggleLabel}>Show heading tab bar</Text>
+            <Switch
+              value={showTabBar}
+              onValueChange={setShowTabBar}
+              trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+              thumbColor={showTabBar ? '#2563eb' : '#f4f3f4'}
+            />
           </View>
 
           {/* Blocks */}
@@ -552,6 +573,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     fontStyle: 'italic',
+  },
+  tabBarToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  tabBarToggleLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
   },
   blocksSection: {
     padding: 16,

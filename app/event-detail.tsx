@@ -17,7 +17,7 @@ import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IMAGE_HEIGHT = 300;
+const IMAGE_HEIGHT = SCREEN_WIDTH;
 
 // Format date to show day name if within 7 days, otherwise MM/DD/YY
 const formatEventDate = (dateString: string): string => {

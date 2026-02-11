@@ -52,22 +52,36 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
     loadEventDetails();
   }, [newsletter.blocks]);
 
-  // Get event list blocks and their titles for dynamic tab creation
-  const getEventListTabs = () => {
-    const tabs = [];
-    
+  // Check if tab bar is enabled in newsletter metadata
+  const isTabBarEnabled = (() => {
     if (newsletter.blocks) {
       try {
-        const blocks = typeof newsletter.blocks === 'string' 
-          ? JSON.parse(newsletter.blocks) 
+        const blocks = typeof newsletter.blocks === 'string'
+          ? JSON.parse(newsletter.blocks)
           : newsletter.blocks;
-        
-        // Find all event-list blocks and create tabs from their titles
+        // Look for metadata block
+        const meta = blocks.find((b: any) => b.type === '_meta');
+        if (meta) return meta.showTabBar !== false;
+      } catch (error) {}
+    }
+    return true; // default on
+  })();
+
+  // Get all heading blocks as navigatable tabs
+  const getHeadingTabs = () => {
+    const tabs: { id: string; title: string; blockId: string }[] = [];
+
+    if (newsletter.blocks) {
+      try {
+        const blocks = typeof newsletter.blocks === 'string'
+          ? JSON.parse(newsletter.blocks)
+          : newsletter.blocks;
+
         blocks.forEach((block: any) => {
-          if (block.type === 'event-list' && block.title) {
+          if (block.type?.startsWith('heading-') && block.content) {
             tabs.push({
               id: block.id,
-              title: block.title,
+              title: block.content,
               blockId: block.id
             });
           }
@@ -76,37 +90,12 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
         console.error('Error parsing newsletter blocks:', error);
       }
     }
-    
-    // If structured sections exist, also check those for event lists
-    if (newsletter.sections) {
-      try {
-        const sections = typeof newsletter.sections === 'string' 
-          ? JSON.parse(newsletter.sections) 
-          : newsletter.sections;
-        
-        sections.forEach((section: any) => {
-          if (section.blocks) {
-            section.blocks.forEach((block: any) => {
-              if (block.type === 'event-list' && block.title) {
-                tabs.push({
-                  id: block.id,
-                  title: block.title,
-                  blockId: block.id
-                });
-              }
-            });
-          }
-        });
-      } catch (error) {
-        console.error('Error parsing newsletter sections:', error);
-      }
-    }
-    
+
     return tabs;
   };
 
-  const eventListTabs = getEventListTabs();
-  const hasEventListTabs = eventListTabs.length > 0;
+  const eventListTabs = getHeadingTabs();
+  const hasEventListTabs = isTabBarEnabled && eventListTabs.length > 0;
 
   const scrollToEventList = (blockId: string) => {
     setActiveTab(blockId);
@@ -274,12 +263,6 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
       case 'heading-2':
       case 'heading-3':
       case 'heading-4':
-        const HeadingComponent = {
-          'heading-1': Text,
-          'heading-2': Text,
-          'heading-3': Text,
-          'heading-4': Text,
-        }[block.type];
         const headingStyle = {
           'heading-1': styles.heading1,
           'heading-2': styles.heading2,
@@ -287,9 +270,20 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
           'heading-4': styles.heading4,
         }[block.type];
         return (
-          <HeadingComponent key={`block-${index}`} style={headingStyle}>
-            {(block as any).content || 'Untitled Heading'}
-          </HeadingComponent>
+          <View
+            key={`block-${index}`}
+            onLayout={(event) => {
+              const { y } = event.nativeEvent.layout;
+              setEventListPositions(prev => ({
+                ...prev,
+                [block.id]: y
+              }));
+            }}
+          >
+            <Text style={headingStyle}>
+              {(block as any).content || 'Untitled Heading'}
+            </Text>
+          </View>
         );
 
       case 'paragraph':
@@ -437,7 +431,9 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
           : newsletter.blocks;
         
         if (Array.isArray(blocks) && blocks.length > 0) {
-          return blocks.map((block, index) => renderBlock(block, index));
+          return blocks
+            .filter((block) => block.type !== '_meta')
+            .map((block, index) => renderBlock(block, index));
         }
       } catch (error) {
         console.error('Error parsing newsletter blocks:', error);
@@ -638,9 +634,9 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
         </View>
       </View>
 
-      {/* Tab Navigation for Event Lists */}
-      {hasEventListTabs && (
-        <View style={styles.tabBar}>
+      {/* Tab Navigation for Headings */}
+      {hasEventListTabs ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
           {eventListTabs.map((tab: any) => (
             <TouchableOpacity
               key={tab.blockId}
@@ -653,12 +649,14 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
               <Text style={[
                 styles.tabText,
                 activeTab === tab.blockId && styles.activeTabText
-              ]}>
+              ]} numberOfLines={1}>
                 {tab.title}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.tabDivider} />
       )}
 
       {/* Content */}
@@ -901,11 +899,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tab: {
-    flex: 1,
     paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
+  },
+  tabDivider: {
+    height: 1,
+    backgroundColor: '#333',
+    marginBottom: 16,
   },
   activeTab: {
     borderBottomColor: '#60a5fa',
