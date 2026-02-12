@@ -8,6 +8,7 @@ interface EventBlockProps {
     id?: string;
     name: string;
     description?: string;
+    short_description?: string;
     date: string;
     time?: string;
     price?: number | string;
@@ -83,9 +84,9 @@ export default function EventBlock({ event, onPress }: EventBlockProps) {
         </Text>
 
         {/* Short Description */}
-        {event.description && (
+        {(event.short_description || event.description) && (
           <Text style={[styles.description, { color: iconColor }]} numberOfLines={2}>
-            {event.description}
+            {event.short_description || event.description}
           </Text>
         )}
 

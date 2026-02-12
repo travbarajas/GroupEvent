@@ -43,7 +43,8 @@ export interface Event {
   // Event details (separate fields for easy access)
   name: string;
   description: string;
-  
+  short_description?: string;
+
   // Time & Location
   date: string;           // ISO date string
   time: string;           // Time string  

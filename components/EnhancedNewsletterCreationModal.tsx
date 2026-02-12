@@ -101,7 +101,7 @@ export default function EnhancedNewsletterCreationModal({
         id: `event-${event.id}`,
         originalEventId: event.id,
         title: event.name.replace(/^FALLBACK - /, ''), // Remove fallback prefix
-        description: event.description.replace(/^FALLBACK - /, ''),
+        description: (event.short_description || event.description).replace(/^FALLBACK - /, ''),
         time: event.time.replace(/^FALLBACK - /, ''),
         location: event.distance.replace(/^FALLBACK - /, ''), // Using distance as location for now
         date: formatDateForEvent(start), // Use formatted date

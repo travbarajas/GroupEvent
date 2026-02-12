@@ -70,10 +70,11 @@ const CompactEventCard = ({ event, onPress, onShare }: {
 
   const isSaved = isEventSaved(event.id);
 
-  // Format price to remove decimals and USD
+  // Format price - show "Free" for free/$0 events, otherwise price
   const formatPrice = (price: string) => {
     if (price.toLowerCase().includes('free')) return 'Free';
-    // Remove decimals, USD, and extra text
+    const match = price.match(/\$(\d+)/);
+    if (match && parseInt(match[1]) === 0) return 'Free';
     const cleanPrice = price.replace(/\$(\d+)\.?\d*.*/, '$$$1');
     return cleanPrice;
   };
@@ -82,17 +83,18 @@ const CompactEventCard = ({ event, onPress, onShare }: {
   const formatDateTime = (date: string, time: string) => {
     const timePart = (() => {
       if (!time || time.toLowerCase().includes('tbd') || time.toLowerCase().includes('fallback')) return null;
-      const timeMatch = time.match(/(\d{1,2}):?(\d{2})?\s?(AM|PM|am|pm)?/i);
+      // Only grab the first/start time from ranges like "8:00 PM - 10:00 PM"
+      const timeMatch = time.match(/(\d{1,2}):(\d{2})\s?(AM|PM|am|pm)/i);
       if (timeMatch) {
         let hour = parseInt(timeMatch[1]);
-        const period = timeMatch[3]?.toUpperCase();
-        if (!period) {
-          const ampm = hour >= 12 ? 'PM' : 'AM';
-          hour = hour % 12 || 12;
-          return `${hour} ${ampm}`;
-        } else {
-          return `${hour} ${period}`;
-        }
+        const minute = timeMatch[2];
+        const period = timeMatch[3].toUpperCase();
+        return minute === '00' ? `${hour} ${period}` : `${hour}:${minute} ${period}`;
+      }
+      // Fallback for times without minutes like "8 PM"
+      const simpleMatch = time.match(/(\d{1,2})\s?(AM|PM|am|pm)/i);
+      if (simpleMatch) {
+        return `${parseInt(simpleMatch[1])} ${simpleMatch[2].toUpperCase()}`;
       }
       return null;
     })();
@@ -140,25 +142,21 @@ const CompactEventCard = ({ event, onPress, onShare }: {
       
       {/* Caption */}
       <View style={styles.compactEventHeader}>
-        <Text style={styles.compactEventTime}>{formatDateTime(event.date, event.time)}</Text>
+        <View style={styles.compactEventTopRow}>
+          <Text style={styles.compactEventTime}>{formatDateTime(event.date, event.time)}</Text>
+          <Text style={styles.compactEventPrice}>{formatPrice(event.price)}</Text>
+        </View>
         <Text style={styles.compactEventTitle} numberOfLines={1}>{event.name}</Text>
         <Text style={styles.compactEventLocation} numberOfLines={1}>
           {event.venue_name ? `${event.venue_name} - ${event.location || ''}` : event.location || ''}
         </Text>
         <View style={styles.compactEventBottomRow}>
-          <Text style={styles.compactEventPrice}>{formatPrice(event.price)}</Text>
-          <View style={styles.compactActionButtons}>
-            <TouchableOpacity style={styles.compactShareButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={18} color="#ffffff" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.compactSaveButton} onPress={handleSaveEvent}>
-              <Ionicons
-                name={isSaved ? "heart" : "heart-outline"}
-                size={20}
-                color={isSaved ? "#ef4444" : "#ffffff"}
-              />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={handleSaveEvent} hitSlop={{ top: 16, bottom: 16 }} style={styles.compactSaveButton}>
+            <Text style={styles.compactSaveButtonText}>{isSaved ? 'Saved' : 'Save'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleShare} hitSlop={{ top: 16, bottom: 16 }} style={styles.compactShareButton}>
+            <Ionicons name="share-outline" size={16} color="#ffffff" />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -201,6 +199,7 @@ export default function ExploreTab() {
           name: apiEvent.name,
           date: apiEvent.date || 'TBD',
           description: apiEvent.description || '',
+          short_description: apiEvent.short_description || '',
           time: apiEvent.time || 'TBD',
           price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
           distance: '5 miles away', // This would come from location calculation
@@ -547,11 +546,21 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#1a1a1a',
   },
+  compactEventTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   compactEventTime: {
     fontSize: 12,
     color: '#9ca3af',
     fontWeight: '500',
-    marginBottom: 2,
+  },
+  compactEventPrice: {
+    fontSize: 12,
+    color: '#4ade80',
+    fontWeight: '600',
   },
   compactEventTitle: {
     fontSize: 16,
@@ -563,30 +572,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9ca3af',
     fontWeight: '400',
-    marginBottom: 2,
+    marginBottom: 6,
   },
   compactEventBottomRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  compactEventPrice: {
-    fontSize: 12,
-    color: '#4ade80',
-    fontWeight: '600',
-  },
-  compactActionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
   compactShareButton: {
-    padding: 6,
-    backgroundColor: 'rgba(55, 65, 81, 0.9)',
-    borderRadius: 4,
-    minWidth: 28,
-    minHeight: 28,
+    flex: 1,
+    paddingVertical: 6,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -600,13 +598,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   compactSaveButton: {
-    padding: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderRadius: 4,
-    minWidth: 28,
-    minHeight: 28,
+    flex: 1,
+    paddingVertical: 6,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  compactSaveButtonText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,

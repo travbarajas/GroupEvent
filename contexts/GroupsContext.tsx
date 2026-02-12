@@ -15,6 +15,7 @@ export interface Event {
   name: string;
   date: string;
   description: string;
+  short_description?: string;
   time: string;
   price: string;
   distance: string;

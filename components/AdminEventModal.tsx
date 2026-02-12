@@ -29,6 +29,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
   
   const [formData, setFormData] = useState({
     name: '',
+    short_description: '',
     description: '',
     startDate: new Date(),
     endDate: new Date() as Date | null,
@@ -48,6 +49,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
   // Refs for input navigation
   const nameRef = useRef<TextInput>(null);
+  const shortDescriptionRef = useRef<TextInput>(null);
   const descriptionRef = useRef<TextInput>(null);
   const timeRef = useRef<TextInput>(null);
   const locationRef = useRef<TextInput>(null);
@@ -153,6 +155,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
   const resetForm = () => {
     setFormData({
       name: '',
+      short_description: '',
       description: '',
       startDate: new Date(),
       endDate: new Date(),
@@ -204,6 +207,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
       const eventData = {
         name: formData.name.trim(),
+        short_description: formData.short_description.trim() || null,
         description: formData.description.trim() || null,
         date: formatDateRange(),
         time: formData.time.trim() || null,
@@ -317,14 +321,30 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
                 placeholder="Enter event name"
                 placeholderTextColor="#6b7280"
                 returnKeyType="next"
+                onSubmitEditing={() => shortDescriptionRef.current?.focus()}
+                blurOnSubmit={false}
+              />
+            </View>
+
+            {/* Short Description */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Short Description</Text>
+              <TextInput
+                ref={shortDescriptionRef}
+                style={styles.input}
+                value={formData.short_description}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, short_description: text }))}
+                placeholder="Brief summary for newsletter"
+                placeholderTextColor="#6b7280"
+                returnKeyType="next"
                 onSubmitEditing={() => descriptionRef.current?.focus()}
                 blurOnSubmit={false}
               />
             </View>
 
-            {/* Description */}
+            {/* Full Description */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>Full Description</Text>
               <TextInput
                 ref={descriptionRef}
                 style={[styles.input, styles.textArea]}

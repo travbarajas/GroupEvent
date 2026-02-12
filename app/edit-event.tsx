@@ -33,6 +33,7 @@ export default function EditEventScreen() {
 
   const [formData, setFormData] = useState({
     name: event?.name || '',
+    short_description: event?.short_description || '',
     description: event?.description || '',
     startDate: parseEventDate(event?.date || ''),
     endDate: parseEventDate(event?.date || '') as Date | null,
@@ -51,6 +52,7 @@ export default function EditEventScreen() {
 
   // Refs for input navigation
   const nameRef = useRef<TextInput>(null);
+  const shortDescriptionRef = useRef<TextInput>(null);
   const descriptionRef = useRef<TextInput>(null);
   const timeRef = useRef<TextInput>(null);
   const locationRef = useRef<TextInput>(null);
@@ -193,6 +195,7 @@ export default function EditEventScreen() {
       const updateData = {
         id: event.id,
         name: formData.name.trim(),
+        short_description: formData.short_description.trim() || null,
         description: formData.description.trim() || null,
         date: formatDateRange(),
         time: formData.time.trim() || null,
@@ -269,14 +272,30 @@ export default function EditEventScreen() {
               placeholder="Enter event name"
               placeholderTextColor="#6b7280"
               returnKeyType="next"
+              onSubmitEditing={() => shortDescriptionRef.current?.focus()}
+              blurOnSubmit={false}
+            />
+          </View>
+
+          {/* Short Description */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Short Description</Text>
+            <TextInput
+              ref={shortDescriptionRef}
+              style={styles.input}
+              value={formData.short_description}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, short_description: text }))}
+              placeholder="Brief summary for newsletter"
+              placeholderTextColor="#6b7280"
+              returnKeyType="next"
               onSubmitEditing={() => descriptionRef.current?.focus()}
               blurOnSubmit={false}
             />
           </View>
 
-          {/* Description */}
+          {/* Full Description */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Description</Text>
+            <Text style={styles.label}>Full Description</Text>
             <TextInput
               ref={descriptionRef}
               style={[styles.input, styles.textArea]}
