@@ -31,11 +31,17 @@ module.exports = async function handler(req, res) {
 
     // Get all global events (business/venue events) that appear on the main events tab
     // Note: date is stored as VARCHAR, so we get all events and can filter client-side if needed
+    // Ensure short_description column exists
+    try {
+      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS short_description TEXT`;
+    } catch (e) { /* column may already exist */ }
+
     const allEvents = await sql`
       SELECT
         id,
         name,
         description,
+        short_description,
         date,
         time,
         location,
@@ -110,6 +116,7 @@ module.exports = async function handler(req, res) {
         id: event.id,
         name: event.name || 'Untitled Event',
         description: event.description || '',
+        short_description: event.short_description || '',
         date: dateStr,
         time: event.time || '',
         location: event.location || '',

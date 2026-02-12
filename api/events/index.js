@@ -26,11 +26,17 @@ module.exports = async function handler(req, res) {
         await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS image_url TEXT`;
       } catch (e) { /* column may already exist */ }
 
+      // Ensure short_description column exists
+      try {
+        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS short_description TEXT`;
+      } catch (e) { /* column may already exist */ }
+
       const events = await sql`
         SELECT
           id,
           name,
           description,
+          short_description,
           date,
           time,
           location,
@@ -74,6 +80,7 @@ module.exports = async function handler(req, res) {
       const {
         name,
         description,
+        short_description,
         date,
         time,
         location,
@@ -142,12 +149,12 @@ module.exports = async function handler(req, res) {
       // Create event in global registry
       const [newEvent] = await sql`
         INSERT INTO events (
-          id, name, description, date, time, location, venue_name,
+          id, name, description, short_description, date, time, location, venue_name,
           price, currency, is_free, category, tags,
           max_attendees, min_attendees, attendance_required, image_url
         )
         VALUES (
-          ${eventId}, ${name}, ${description || null}, ${cleanDate}, ${cleanTime},
+          ${eventId}, ${name}, ${description || null}, ${short_description || null}, ${cleanDate}, ${cleanTime},
           ${location || null}, ${venue_name || null}, ${price || 0}, ${currency}, ${is_free},
           ${category || null}, ${cleanTags}, ${max_attendees || null}, ${min_attendees || null},
           ${attendance_required}, ${image_url || null}
@@ -173,6 +180,7 @@ module.exports = async function handler(req, res) {
         id,
         name,
         description,
+        short_description,
         date,
         time,
         location,
@@ -201,6 +209,7 @@ module.exports = async function handler(req, res) {
         UPDATE events SET
           name = ${name},
           description = ${description || null},
+          short_description = ${short_description || null},
           date = ${cleanDate},
           time = ${cleanTime},
           location = ${location || null},
