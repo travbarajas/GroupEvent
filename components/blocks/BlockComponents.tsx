@@ -692,9 +692,9 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
                         📍 {event.fullLocation}
                       </Text>
                     )}
-                    {(block.showDescription !== false) && event.description && (
+                    {(block.showDescription !== false) && (event.short_description || event.description) && (
                       <Text style={styles.eventDisplayDescription} numberOfLines={2}>
-                        {event.description}
+                        {event.short_description || event.description}
                       </Text>
                     )}
                   </View>
@@ -759,9 +759,9 @@ export const EventListBlockComponent: React.FC<BlockComponentProps & { block: Ev
                         📍 {event.fullLocation}
                       </Text>
                     )}
-                    {event.description && (
+                    {(event.short_description || event.description) && (
                       <Text style={styles.eventItemDescription} numberOfLines={2}>
-                        {event.description}
+                        {event.short_description || event.description}
                       </Text>
                     )}
                   </View>
