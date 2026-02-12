@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
 import AdminEventModal from '../components/AdminEventModal';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 const { width } = Dimensions.get('window');
 
@@ -123,6 +124,7 @@ const EventCard = ({ event, onPress, onShare }: {
 
 export default function EventsSearchScreen() {
   const { isLoaded } = useGroups();
+  const isAdmin = useIsAdmin();
   const insets = useSafeAreaInsets();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
@@ -246,10 +248,12 @@ export default function EventsSearchScreen() {
             </Text>
           </View>
           <View style={styles.topBarActions}>
-            <TouchableOpacity style={styles.adminButton} onPress={() => setShowAdminModal(true)}>
-              <Ionicons name="add" size={18} color="#ffffff" />
-              <Text style={styles.adminButtonText}>Admin</Text>
-            </TouchableOpacity>
+            {isAdmin && (
+              <TouchableOpacity style={styles.adminButton} onPress={() => setShowAdminModal(true)}>
+                <Ionicons name="add" size={18} color="#ffffff" />
+                <Text style={styles.adminButtonText}>Admin</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.refreshButton} onPress={loadEvents}>
               <Ionicons name="refresh" size={20} color="#60a5fa" />
             </TouchableOpacity>

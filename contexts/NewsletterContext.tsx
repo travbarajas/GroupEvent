@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Newsletter, NewsletterContextType } from '@/types/newsletter';
 import { ApiService } from '@/services/api';
+import { DeviceIdManager } from '@/utils/deviceId';
 
 const NewsletterContext = createContext<NewsletterContextType | undefined>(undefined);
 
@@ -18,16 +19,16 @@ interface NewsletterProviderProps {
 }
 
 const NEWSLETTERS_KEY = '@newsletters';
-const ADMIN_KEY = '@is_admin'; // For demo purposes, in real app this would be server-side
+const ADMIN_DEVICE_ID = process.env.EXPO_PUBLIC_ADMIN_DEVICE_ID || '';
 
 export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children }) => {
   const [newsletters, setNewsletters] = useState<Newsletter[]>([]);
   const [currentNewsletter, setCurrentNewsletter] = useState<Newsletter | null>(null);
-  const [isAdmin, setIsAdmin] = useState(true); // For demo purposes, always admin
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     loadNewsletters();
-    loadAdminStatus();
+    checkAdminStatus();
   }, []);
 
   const loadNewsletters = async () => {
@@ -132,12 +133,17 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
     }
   };
 
-  const loadAdminStatus = async () => {
+  const checkAdminStatus = async () => {
     try {
-      const adminStatus = await AsyncStorage.getItem(ADMIN_KEY);
-      setIsAdmin(adminStatus === 'true' || adminStatus === null); // Default to true for demo
+      if (!ADMIN_DEVICE_ID) {
+        setIsAdmin(false);
+        return;
+      }
+      const deviceId = await DeviceIdManager.getDeviceId();
+      setIsAdmin(deviceId === ADMIN_DEVICE_ID);
     } catch (error) {
-      console.error('Failed to load admin status:', error);
+      console.error('Failed to check admin status:', error);
+      setIsAdmin(false);
     }
   };
 

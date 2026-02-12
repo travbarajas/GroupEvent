@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_HEIGHT = SCREEN_WIDTH;
@@ -71,20 +72,10 @@ export default function EventDetailScreen() {
   const { toggleSaveEvent, isEventSaved } = useGroups();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = useIsAdmin();
 
   // Parse the event data from params
   const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
-
-  // Debug: log event data to see if image_url is present
-  console.log('Event detail - image_url:', event?.image_url ? `Present (${event.image_url.length} chars)` : 'MISSING');
-  console.log('Event detail - full event keys:', event ? Object.keys(event) : 'no event');
-
-  // Check if user is admin (you can implement your own admin logic)
-  useEffect(() => {
-    // For now, set to true for testing. Replace with actual admin check
-    setIsAdmin(true);
-  }, []);
 
   if (!event) {
     return (
