@@ -392,9 +392,9 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
                     >
                       <Text style={styles.eventTitleText}>{event.name}</Text>
                       
-                      {(eventBlock.showDescription !== false) && event.description && (
+                      {(eventBlock.showDescription !== false) && (event.short_description || event.description) && (
                         <Text style={styles.eventDescription}>
-                          {event.description}
+                          {event.short_description || event.description}
                         </Text>
                       )}
                       
