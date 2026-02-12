@@ -8,7 +8,9 @@ import {
   Share,
   Image,
   Dimensions,
+  Platform,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -204,18 +206,47 @@ export default function EventDetailScreen() {
         {/* Location */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Location</Text>
-          <View style={styles.placeholderMap}>
-            <Ionicons name="map-outline" size={32} color="#6b7280" />
-            <Text style={styles.placeholderMapText}>Map View</Text>
-          </View>
-          {(event.location || event.venue_name) && (
-            <View style={styles.addressContainer}>
-              <Ionicons name="location" size={16} color="#f87171" />
-              <Text style={styles.addressText}>
-                {event.venue_name && event.location
-                  ? `${event.venue_name}, ${event.location}`
-                  : event.venue_name || event.location}
-              </Text>
+          {(event.location || event.venue_name) ? (() => {
+            const query = encodeURIComponent(
+              [event.venue_name, event.location].filter(Boolean).join(', ')
+            );
+            const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+            const mapUrl = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${query}`;
+
+            return (
+              <>
+                <View style={styles.mapContainer}>
+                  {Platform.OS === 'web' ? (
+                    <iframe
+                      src={mapUrl}
+                      style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  ) : (
+                    <WebView
+                      source={{ uri: mapUrl }}
+                      style={{ flex: 1 }}
+                      scrollEnabled={false}
+                      nestedScrollEnabled={false}
+                    />
+                  )}
+                </View>
+                <View style={styles.addressContainer}>
+                  <Ionicons name="location" size={16} color="#f87171" />
+                  <Text style={styles.addressText}>
+                    {event.venue_name && event.location
+                      ? `${event.venue_name}, ${event.location}`
+                      : event.venue_name || event.location}
+                  </Text>
+                </View>
+              </>
+            );
+          })() : (
+            <View style={styles.placeholderMap}>
+              <Ionicons name="map-outline" size={32} color="#6b7280" />
+              <Text style={styles.placeholderMapText}>No location provided</Text>
             </View>
           )}
         </View>
@@ -378,8 +409,15 @@ const styles = StyleSheet.create({
   },
 
   // Map
+  mapContainer: {
+    height: 180,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    backgroundColor: '#2a2a2a',
+  },
   placeholderMap: {
-    height: 120,
+    height: 180,
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     borderWidth: 1,
