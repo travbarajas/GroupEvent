@@ -140,6 +140,7 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
         return;
       }
       const deviceId = await DeviceIdManager.getDeviceId();
+      console.log('🔑 Your device ID:', deviceId);
       setIsAdmin(deviceId === ADMIN_DEVICE_ID);
     } catch (error) {
       console.error('Failed to check admin status:', error);
