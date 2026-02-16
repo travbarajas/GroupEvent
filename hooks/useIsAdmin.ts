@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DeviceIdManager } from '@/utils/deviceId';
 
-const ADMIN_DEVICE_ID = process.env.EXPO_PUBLIC_ADMIN_DEVICE_ID || '';
+const ADMIN_DEVICE_ID = process.env.EXPO_PUBLIC_ADMIN_DEVICE_ID || process.env.NEXT_PUBLIC_ADMIN_DEVICE_ID || '';
 
 export function useIsAdmin(): boolean {
   const [isAdmin, setIsAdmin] = useState(false);

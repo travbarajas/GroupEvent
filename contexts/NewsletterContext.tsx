@@ -19,7 +19,7 @@ interface NewsletterProviderProps {
 }
 
 const NEWSLETTERS_KEY = '@newsletters';
-const ADMIN_DEVICE_ID = process.env.EXPO_PUBLIC_ADMIN_DEVICE_ID || '';
+const ADMIN_DEVICE_ID = process.env.EXPO_PUBLIC_ADMIN_DEVICE_ID || process.env.NEXT_PUBLIC_ADMIN_DEVICE_ID || '';
 
 export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children }) => {
   const [newsletters, setNewsletters] = useState<Newsletter[]>([]);
@@ -135,14 +135,14 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
 
   const checkAdminStatus = async () => {
     try {
+      const deviceId = await DeviceIdManager.getDeviceId();
+      console.log('🔑 Your device ID:', deviceId);
+      console.log('🔑 Admin device ID from env:', ADMIN_DEVICE_ID || '(not set)');
+      console.log('🔑 Match:', deviceId === ADMIN_DEVICE_ID);
       if (!ADMIN_DEVICE_ID) {
         setIsAdmin(false);
         return;
       }
-      const deviceId = await DeviceIdManager.getDeviceId();
-      console.log('🔑 Your device ID:', deviceId);
-      console.log('🔑 Admin device ID from env:', ADMIN_DEVICE_ID);
-      console.log('🔑 Match:', deviceId === ADMIN_DEVICE_ID);
       setIsAdmin(deviceId === ADMIN_DEVICE_ID);
     } catch (error) {
       console.error('Failed to check admin status:', error);
