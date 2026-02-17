@@ -158,6 +158,8 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
       venue_name: event.venue_name || event.venueName || undefined,
     };
 
+    ApiService.trackEvent('click', 'newsletter', newsletter.id, { target_name: newsletter.title });
+
     router.push({
       pathname: '/event-detail',
       params: { event: JSON.stringify(eventForDetail), source: 'newsletter' }

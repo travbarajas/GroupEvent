@@ -135,6 +135,13 @@ export default function AnalyticsModal({ visible, onClose }: AnalyticsModalProps
                           <Text style={styles.metricValue}>{stats.page_view?.unique || 0}</Text>
                           <Text style={styles.metricLabel}>unique</Text>
                         </View>
+                        {stats.click && (
+                          <View style={styles.metric}>
+                            <Ionicons name="hand-left-outline" size={14} color="#10b981" />
+                            <Text style={styles.metricValue}>{stats.click.total}</Text>
+                            <Text style={styles.metricLabel}>clicks</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                   ))}
