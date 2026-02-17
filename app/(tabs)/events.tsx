@@ -57,6 +57,9 @@ const CompactEventCard = ({ event, onPress, onShare }: {
   };
 
   const handleSaveEvent = () => {
+    if (!isEventSaved(event.id)) {
+      ApiService.trackEvent('save', 'event', String(event.id), { target_name: event.name, source: 'explore' });
+    }
     toggleSaveEvent(event);
   };
 

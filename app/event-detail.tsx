@@ -115,6 +115,9 @@ export default function EventDetailScreen() {
   }
 
   const handleSaveEvent = () => {
+    if (!isEventSaved(event.id)) {
+      ApiService.trackEvent('save', 'event', String(event.id), { target_name: event.name, source: 'detail' });
+    }
     toggleSaveEvent(event);
   };
 
