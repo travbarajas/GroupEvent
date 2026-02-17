@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ApiService } from '@/services/api';
 import { Event } from '@/contexts/GroupsContext';
+import AdminEventModal from './AdminEventModal';
 
 interface EventManagerModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -160,8 +162,10 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
           <TouchableOpacity onPress={onClose} style={styles.headerSideButton}>
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Events</Text>
-          <Text style={[styles.headerSideButton, styles.eventCount]}>{events.length}</Text>
+          <Text style={styles.headerTitle}>Events ({events.length})</Text>
+          <TouchableOpacity onPress={() => setShowCreateModal(true)} style={[styles.headerSideButton, { alignItems: 'flex-end' }]}>
+            <Ionicons name="add-circle-outline" size={26} color="#60a5fa" />
+          </TouchableOpacity>
         </View>
 
         {/* Search */}
@@ -224,6 +228,15 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
           />
         )}
       </View>
+
+      <AdminEventModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onEventCreated={() => {
+          setShowCreateModal(false);
+          loadEvents();
+        }}
+      />
     </Modal>
   );
 }
