@@ -18,14 +18,9 @@ interface AnalyticsModalProps {
   onClose: () => void;
 }
 
-interface AnalyticsStat {
-  page_view?: { total: number; unique: number };
-  click?: { total: number; unique: number };
-}
-
 export default function AnalyticsModal({ visible, onClose }: AnalyticsModalProps) {
   const insets = useSafeAreaInsets();
-  const [analytics, setAnalytics] = useState<Record<string, Record<string, AnalyticsStat>>>({});
+  const [analytics, setAnalytics] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -53,6 +48,10 @@ export default function AnalyticsModal({ visible, onClose }: AnalyticsModalProps
     setRefreshing(false);
   };
 
+  const getDisplayName = (stats: any, id: string): string => {
+    return stats._name || id;
+  };
+
   const renderStatCard = (label: string, total: number, unique: number, icon: string, color: string) => (
     <View style={styles.statCard}>
       <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
@@ -64,7 +63,7 @@ export default function AnalyticsModal({ visible, onClose }: AnalyticsModalProps
     </View>
   );
 
-  const renderSection = (title: string, icon: string, items: Record<string, AnalyticsStat>) => {
+  const renderSection = (title: string, icon: string, items: any) => {
     if (!items || Object.keys(items).length === 0) return null;
 
     return (
@@ -74,56 +73,57 @@ export default function AnalyticsModal({ visible, onClose }: AnalyticsModalProps
           <Text style={styles.sectionTitle}>{title}</Text>
         </View>
         {Object.entries(items)
-          .sort((a, b) => (b[1].page_view?.total || 0) - (a[1].page_view?.total || 0))
-          .map(([id, stats]) => (
-            <View key={id} style={styles.itemRow}>
-              <Text style={styles.itemName} numberOfLines={1}>{id}</Text>
-              <View style={styles.itemStats}>
-                {stats.page_view && (
-                  <View style={styles.itemStat}>
-                    <Ionicons name="eye-outline" size={14} color="#60a5fa" />
-                    <Text style={styles.itemStatText}>{stats.page_view.total}</Text>
-                    <Text style={styles.itemStatUnique}>({stats.page_view.unique})</Text>
-                  </View>
-                )}
-                {stats.click && (
-                  <View style={styles.itemStat}>
-                    <Ionicons name="hand-left-outline" size={14} color="#10b981" />
-                    <Text style={styles.itemStatText}>{stats.click.total}</Text>
-                    <Text style={styles.itemStatUnique}>({stats.click.unique})</Text>
-                  </View>
-                )}
+          .sort((a: any, b: any) => (b[1].page_view?.total || 0) - (a[1].page_view?.total || 0))
+          .map(([id, stats]: [string, any]) => (
+            <View key={id} style={styles.itemCard}>
+              <View style={styles.itemHeader}>
+                <Text style={styles.itemName} numberOfLines={1}>{getDisplayName(stats, id)}</Text>
+                <View style={styles.itemStats}>
+                  {stats.page_view && (
+                    <View style={styles.itemStat}>
+                      <Ionicons name="eye-outline" size={14} color="#60a5fa" />
+                      <Text style={styles.itemStatText}>{stats.page_view.total}</Text>
+                      <Text style={styles.itemStatUnique}>({stats.page_view.unique})</Text>
+                    </View>
+                  )}
+                </View>
               </View>
+              {/* Source breakdown */}
+              {stats._sources && Object.keys(stats._sources).length > 0 && (
+                <View style={styles.sourcesContainer}>
+                  {Object.entries(stats._sources).map(([source, sourceStats]: [string, any]) => (
+                    <View key={source} style={styles.sourceTag}>
+                      <Text style={styles.sourceLabel}>{source}</Text>
+                      <Text style={styles.sourceCount}>{sourceStats.total}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           ))}
       </View>
     );
   };
 
-  // Calculate page-level totals
+  // Calculate totals
+  const sumStats = (items: any) => {
+    if (!items) return { total: 0, unique: 0 };
+    return Object.values(items).reduce(
+      (sum: any, s: any) => ({
+        total: sum.total + (s.page_view?.total || 0),
+        unique: sum.unique + (s.page_view?.unique || 0),
+      }),
+      { total: 0, unique: 0 }
+    );
+  };
+
   const pageStats = analytics.page || {};
-  const totalPageViews = Object.values(pageStats).reduce(
-    (sum, s) => sum + (s.page_view?.total || 0), 0
-  );
-  const uniquePageViews = Object.values(pageStats).reduce(
-    (sum, s) => sum + (s.page_view?.unique || 0), 0
-  );
-
   const newsletterStats = analytics.newsletter || {};
-  const totalNewsletterViews = Object.values(newsletterStats).reduce(
-    (sum, s) => sum + (s.page_view?.total || 0), 0
-  );
-  const uniqueNewsletterViews = Object.values(newsletterStats).reduce(
-    (sum, s) => sum + (s.page_view?.unique || 0), 0
-  );
-
   const eventStats = analytics.event || {};
-  const totalEventViews = Object.values(eventStats).reduce(
-    (sum, s) => sum + (s.page_view?.total || 0), 0
-  );
-  const uniqueEventViews = Object.values(eventStats).reduce(
-    (sum, s) => sum + (s.page_view?.unique || 0), 0
-  );
+
+  const pageTotals = sumStats(pageStats);
+  const newsletterTotals = sumStats(newsletterStats);
+  const eventTotals = sumStats(eventStats);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -152,10 +152,14 @@ export default function AnalyticsModal({ visible, onClose }: AnalyticsModalProps
             {/* Overview Cards */}
             <Text style={styles.overviewTitle}>Overview</Text>
             <View style={styles.statsGrid}>
-              {renderStatCard('Page Views', totalPageViews, uniquePageViews, 'layers-outline', '#60a5fa')}
-              {renderStatCard('Newsletters', totalNewsletterViews, uniqueNewsletterViews, 'newspaper-outline', '#f59e0b')}
-              {renderStatCard('Events', totalEventViews, uniqueEventViews, 'calendar-outline', '#10b981')}
+              {renderStatCard('Page Views', pageTotals.total, pageTotals.unique, 'layers-outline', '#60a5fa')}
+              {renderStatCard('Newsletters', newsletterTotals.total, newsletterTotals.unique, 'newspaper-outline', '#f59e0b')}
+              {renderStatCard('Events', eventTotals.total, eventTotals.unique, 'calendar-outline', '#10b981')}
             </View>
+
+            <Text style={styles.legendText}>
+              <Ionicons name="eye-outline" size={12} color="#60a5fa" /> views (unique)  |  source tags show where clicks came from
+            </Text>
 
             {/* Detailed Breakdowns */}
             {renderSection('Pages', 'layers-outline', pageStats)}
@@ -218,10 +222,15 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 12,
   },
+  legendText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 16,
+  },
   statsGrid: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   statCard: {
     flex: 1,
@@ -270,10 +279,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  itemCard: {
     backgroundColor: '#1a1a1a',
     borderRadius: 10,
     borderWidth: 1,
@@ -281,6 +287,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 6,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   itemName: {
     fontSize: 14,
@@ -306,6 +317,31 @@ const styles = StyleSheet.create({
   itemStatUnique: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  sourcesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  sourceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  sourceLabel: {
+    fontSize: 11,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  sourceCount: {
+    fontSize: 11,
+    color: '#e5e7eb',
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',

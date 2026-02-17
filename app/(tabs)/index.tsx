@@ -43,7 +43,7 @@ export default function NewsletterScreen() {
   useEffect(() => {
     const newsletter = currentNewsletter || latestNewsletter;
     if (newsletter) {
-      ApiService.trackEvent('page_view', 'newsletter', newsletter.id);
+      ApiService.trackEvent('page_view', 'newsletter', newsletter.id, { target_name: newsletter.title });
     }
   }, [currentNewsletter, latestNewsletter?.id]);
 

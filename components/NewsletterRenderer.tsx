@@ -160,7 +160,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
 
     router.push({
       pathname: '/event-detail',
-      params: { event: JSON.stringify(eventForDetail) }
+      params: { event: JSON.stringify(eventForDetail), source: 'newsletter' }
     });
   };
 

@@ -89,7 +89,11 @@ export default function EventDetailScreen() {
 
   useEffect(() => {
     if (event) {
-      ApiService.trackEvent('page_view', 'event', String(event.id));
+      const source = (params.source as string) || undefined;
+      ApiService.trackEvent('page_view', 'event', String(event.id), {
+        target_name: event.name,
+        source,
+      });
     }
   }, [event?.id]);
 

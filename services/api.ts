@@ -702,12 +702,24 @@ export class ApiService {
   }
 
   // Analytics
-  static async trackEvent(event_type: string, target_type: string, target_id: string): Promise<void> {
+  static async trackEvent(
+    event_type: string,
+    target_type: string,
+    target_id: string,
+    options?: { target_name?: string; source?: string }
+  ): Promise<void> {
     try {
       const device_id = await DeviceIdManager.getDeviceId();
       await this.request('/analytics', {
         method: 'POST',
-        body: JSON.stringify({ event_type, target_type, target_id, device_id }),
+        body: JSON.stringify({
+          event_type,
+          target_type,
+          target_id,
+          target_name: options?.target_name,
+          source: options?.source,
+          device_id,
+        }),
       });
     } catch (error) {
       // Silent fail - analytics should never block the user

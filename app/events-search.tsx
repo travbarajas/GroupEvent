@@ -204,7 +204,7 @@ export default function EventsSearchScreen() {
   const handleEventPress = (event: Event) => {
     router.push({
       pathname: '/event-detail',
-      params: { event: JSON.stringify(event) }
+      params: { event: JSON.stringify(event), source: 'search' }
     });
   };
 
