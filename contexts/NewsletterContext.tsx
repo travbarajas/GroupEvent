@@ -25,6 +25,7 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
   const [newsletters, setNewsletters] = useState<Newsletter[]>([]);
   const [currentNewsletter, setCurrentNewsletter] = useState<Newsletter | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(true);
 
   useEffect(() => {
     loadNewsletters();
@@ -144,6 +145,8 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
     } catch (error) {
       console.error('Failed to check admin status:', error);
       setIsAdmin(false);
+    } finally {
+      setAdminLoading(false);
     }
   };
 
@@ -294,6 +297,7 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
     deleteNewsletter,
     loadNewsletters,
     isAdmin,
+    adminLoading,
   };
 
   return (

@@ -124,7 +124,7 @@ const EventCard = ({ event, onPress, onShare }: {
 
 export default function EventsSearchScreen() {
   const { isLoaded } = useGroups();
-  const isAdmin = useIsAdmin();
+  const { isAdmin } = useIsAdmin();
   const insets = useSafeAreaInsets();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);

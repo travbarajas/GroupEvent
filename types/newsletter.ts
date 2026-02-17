@@ -46,4 +46,5 @@ export interface NewsletterContextType {
   deleteNewsletter: (id: string) => Promise<void>;
   loadNewsletters: () => Promise<void>;
   isAdmin: boolean;
+  adminLoading: boolean;
 }

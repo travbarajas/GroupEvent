@@ -71,7 +71,7 @@ export default function EventDetailScreen() {
   const { toggleSaveEvent, isEventSaved } = useGroups();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const isAdmin = useIsAdmin();
+  const { isAdmin } = useIsAdmin();
 
   const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH);
 

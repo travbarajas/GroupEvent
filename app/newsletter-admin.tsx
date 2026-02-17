@@ -34,6 +34,7 @@ export default function NewsletterAdminScreen() {
     publishNewsletter,
     deleteNewsletter,
     isAdmin,
+    adminLoading,
   } = useNewsletter();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -47,6 +48,7 @@ export default function NewsletterAdminScreen() {
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
+    if (adminLoading) return;
     if (!isAdmin) {
       if (Platform.OS === 'web') {
         window.alert('Access Denied: You do not have permission to access this page.');
@@ -57,7 +59,7 @@ export default function NewsletterAdminScreen() {
       return;
     }
     loadNewsletters();
-  }, [isAdmin]);
+  }, [isAdmin, adminLoading]);
 
   const handleNewsletterCreated = (newsletter: Newsletter) => {
     setEditingNewsletter(newsletter);
