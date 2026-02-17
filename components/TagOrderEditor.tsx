@@ -73,10 +73,10 @@ export default function TagOrderEditor({ visible, onClose }: TagOrderEditorProps
   };
 
   const handleAddTag = async () => {
-    const trimmed = newTagName.trim().toLowerCase();
+    const trimmed = newTagName.trim();
     if (!trimmed) return;
 
-    if (tags.some(t => t.tag_name === trimmed)) {
+    if (tags.some(t => t.tag_name.toLowerCase() === trimmed.toLowerCase())) {
       const msg = 'This tag already exists';
       if (Platform.OS === 'web') {
         window.alert(msg);

@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
       const newOrder = maxResult.max_order + 1;
       const [newTag] = await sql`
         INSERT INTO tag_order (tag_name, sort_order)
-        VALUES (${tag_name.trim().toLowerCase()}, ${newOrder})
+        VALUES (${tag_name.trim()}, ${newOrder})
         ON CONFLICT (tag_name) DO NOTHING
         RETURNING *
       `;

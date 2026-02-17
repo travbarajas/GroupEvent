@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -70,10 +70,13 @@ export default function EditEventScreen() {
     { value: 'community', label: 'Community' },
   ];
 
-  const availableTags = [
-    'free', 'family-friendly', 'music', 'outdoor', 'indoor', 'nightlife',
-    'food', 'exercise', 'arts', 'educational', 'social', 'entertainment'
-  ];
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    ApiService.getTagOrder().then(({ tags }) => {
+      setAvailableTags(tags.map(t => t.tag_name));
+    }).catch(() => {});
+  }, []);
 
   if (!event) {
     return (

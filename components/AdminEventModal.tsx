@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -67,10 +67,15 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     { value: 'community', label: 'Community' },
   ];
 
-  const availableTags = [
-    'free', 'family-friendly', 'music', 'outdoor', 'indoor', 'nightlife', 
-    'food', 'exercise', 'arts', 'educational', 'social', 'entertainment'
-  ];
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (visible) {
+      ApiService.getTagOrder().then(({ tags }) => {
+        setAvailableTags(tags.map(t => t.tag_name));
+      }).catch(() => {});
+    }
+  }, [visible]);
 
   const handleDateRangeChange = (startDate: Date, endDate: Date | null) => {
     setFormData(prev => ({
