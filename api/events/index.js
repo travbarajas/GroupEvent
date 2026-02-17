@@ -9,7 +9,7 @@ const sql = neon(process.env.DATABASE_URL);
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
@@ -237,6 +237,20 @@ module.exports = async function handler(req, res) {
         error: 'Internal server error',
         details: error.message
       });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const { event_id } = req.body;
+      if (!event_id) {
+        return res.status(400).json({ error: 'event_id is required' });
+      }
+      const result = await sql`DELETE FROM events WHERE id = ${event_id}`;
+      return res.status(200).json({ success: true, message: `Deleted event ${event_id}` });
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 

@@ -24,6 +24,7 @@ import NewsletterRenderer from '@/components/NewsletterRenderer';
 import NotificationModal from '@/components/NotificationModal';
 import TagOrderEditor from '@/components/TagOrderEditor';
 import AnalyticsModal from '@/components/AnalyticsModal';
+import EventManagerModal from '@/components/EventManagerModal';
 
 export default function NewsletterAdminScreen() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function NewsletterAdminScreen() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showTagOrderEditor, setShowTagOrderEditor] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showEventManager, setShowEventManager] = useState(false);
 
   useEffect(() => {
     if (adminLoading) return;
@@ -274,6 +276,12 @@ export default function NewsletterAdminScreen() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerButton}
+            onPress={() => setShowEventManager(true)}
+          >
+            <Ionicons name="list-outline" size={24} color="#38bdf8" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
             onPress={() => setShowAnalytics(true)}
           >
             <Ionicons name="analytics-outline" size={24} color="#a78bfa" />
@@ -388,6 +396,10 @@ export default function NewsletterAdminScreen() {
       <AnalyticsModal
         visible={showAnalytics}
         onClose={() => setShowAnalytics(false)}
+      />
+      <EventManagerModal
+        visible={showEventManager}
+        onClose={() => setShowEventManager(false)}
       />
     </SafeAreaView>
   );

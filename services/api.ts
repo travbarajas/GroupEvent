@@ -242,6 +242,13 @@ export class ApiService {
     });
   }
 
+  static async deleteGlobalEvent(eventId: string | number): Promise<{ success: boolean }> {
+    return this.request('/events', {
+      method: 'DELETE',
+      body: JSON.stringify({ event_id: eventId }),
+    });
+  }
+
   static async createCustomEvent(groupId: string, eventData: {
     name: string;
     description?: string;
