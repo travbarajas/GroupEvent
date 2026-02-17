@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useGroups, Event } from '../../contexts/GroupsContext';
+import { ApiService } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -122,6 +123,10 @@ export default function SavedTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [showPastEvents, setShowPastEvents] = useState(false);
+
+  useEffect(() => {
+    ApiService.trackEvent('page_view', 'page', 'saved');
+  }, []);
 
   // Filter and sort events
   useEffect(() => {

@@ -701,6 +701,27 @@ export class ApiService {
     });
   }
 
+  // Analytics
+  static async trackEvent(event_type: string, target_type: string, target_id: string): Promise<void> {
+    try {
+      const device_id = await DeviceIdManager.getDeviceId();
+      await this.request('/analytics', {
+        method: 'POST',
+        body: JSON.stringify({ event_type, target_type, target_id, device_id }),
+      });
+    } catch (error) {
+      // Silent fail - analytics should never block the user
+    }
+  }
+
+  static async getAnalytics(target_type?: string, target_id?: string): Promise<any> {
+    const params = new URLSearchParams();
+    if (target_type) params.append('target_type', target_type);
+    if (target_id) params.append('target_id', target_id);
+    const query = params.toString();
+    return this.request(`/analytics${query ? `?${query}` : ''}`);
+  }
+
   // Device fingerprint sync methods moved to utils/deviceId.ts to avoid circular dependency
 }
 

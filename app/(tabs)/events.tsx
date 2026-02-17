@@ -175,6 +175,7 @@ export default function ExploreTab() {
   useEffect(() => {
     loadEvents();
     loadTagOrder();
+    ApiService.trackEvent('page_view', 'page', 'explore');
   }, []);
 
   const loadTagOrder = async () => {

@@ -87,6 +87,12 @@ export default function EventDetailScreen() {
     });
   }, [event?.image_url]);
 
+  useEffect(() => {
+    if (event) {
+      ApiService.trackEvent('page_view', 'event', String(event.id));
+    }
+  }, [event?.id]);
+
   if (!event) {
     return (
       <View style={styles.container}>

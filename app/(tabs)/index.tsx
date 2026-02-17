@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 import { Newsletter } from '@/types/newsletter';
 import NewsletterRenderer from '@/components/NewsletterRenderer';
+import { ApiService } from '@/services/api';
 
 export default function NewsletterScreen() {
   const router = useRouter();
@@ -30,12 +31,21 @@ export default function NewsletterScreen() {
 
   useEffect(() => {
     loadNewsletters();
+    ApiService.trackEvent('page_view', 'page', 'newsletter');
   }, []);
 
   // Get the latest published newsletter
   const latestNewsletter = newsletters
     .filter(n => n.isPublished)
     .sort((a, b) => new Date(b.publishedAt!).getTime() - new Date(a.publishedAt!).getTime())[0];
+
+  // Track specific newsletter views
+  useEffect(() => {
+    const newsletter = currentNewsletter || latestNewsletter;
+    if (newsletter) {
+      ApiService.trackEvent('page_view', 'newsletter', newsletter.id);
+    }
+  }, [currentNewsletter, latestNewsletter?.id]);
 
   const handleNewsletterPress = (newsletter: Newsletter) => {
     setCurrentNewsletter(newsletter);

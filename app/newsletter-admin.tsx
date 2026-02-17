@@ -23,6 +23,7 @@ import EnhancedNewsletterCreationModal from '@/components/EnhancedNewsletterCrea
 import NewsletterRenderer from '@/components/NewsletterRenderer';
 import NotificationModal from '@/components/NotificationModal';
 import TagOrderEditor from '@/components/TagOrderEditor';
+import AnalyticsModal from '@/components/AnalyticsModal';
 
 export default function NewsletterAdminScreen() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function NewsletterAdminScreen() {
   const [previewNewsletter, setPreviewNewsletter] = useState<Newsletter | null>(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showTagOrderEditor, setShowTagOrderEditor] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -270,6 +272,12 @@ export default function NewsletterAdminScreen() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerButton}
+            onPress={() => setShowAnalytics(true)}
+          >
+            <Ionicons name="analytics-outline" size={24} color="#a78bfa" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
             onPress={() => setShowTagOrderEditor(true)}
           >
             <Ionicons name="pricetags-outline" size={24} color="#10b981" />
@@ -374,6 +382,10 @@ export default function NewsletterAdminScreen() {
       <TagOrderEditor
         visible={showTagOrderEditor}
         onClose={() => setShowTagOrderEditor(false)}
+      />
+      <AnalyticsModal
+        visible={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
       />
     </SafeAreaView>
   );
