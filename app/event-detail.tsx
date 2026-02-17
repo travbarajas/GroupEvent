@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,6 @@ import { ApiService } from '../services/api';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IMAGE_HEIGHT = SCREEN_WIDTH;
 
 // Format date to show day name if within 7 days, otherwise MM/DD/YY
 const formatEventDate = (dateString: string): string => {
@@ -74,8 +73,19 @@ export default function EventDetailScreen() {
   const params = useLocalSearchParams();
   const isAdmin = useIsAdmin();
 
+  const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH);
+
   // Parse the event data from params
   const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
+
+  useEffect(() => {
+    const imageUrl = event?.image_url || 'https://picsum.photos/800/400';
+    Image.getSize(imageUrl, (width, height) => {
+      setImageHeight(SCREEN_WIDTH * (height / width));
+    }, () => {
+      setImageHeight(SCREEN_WIDTH);
+    });
+  }, [event?.image_url]);
 
   if (!event) {
     return (
@@ -134,11 +144,11 @@ export default function EventDetailScreen() {
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
-        <View style={styles.imageWrapper}>
+        <View style={[styles.imageWrapper, { height: imageHeight + insets.top, paddingTop: insets.top }]}>
           {event.image_url ? (
-            <Image source={{ uri: event.image_url }} style={styles.heroImage} resizeMode="cover" />
+            <Image source={{ uri: event.image_url }} style={styles.heroImage} resizeMode="contain" />
           ) : (
-            <Image source={{ uri: 'https://picsum.photos/800/400' }} style={styles.heroImage} resizeMode="cover" />
+            <Image source={{ uri: 'https://picsum.photos/800/400' }} style={styles.heroImage} resizeMode="contain" />
           )}
 
           {/* Overlay buttons on image */}
@@ -198,9 +208,7 @@ export default function EventDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Location</Text>
           {(event.location || event.venue_name) ? (() => {
-            const query = encodeURIComponent(
-              [event.venue_name, event.location].filter(Boolean).join(', ')
-            );
+            const query = encodeURIComponent(event.location);
             const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
             const mapUrl = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${query}`;
 
@@ -301,7 +309,6 @@ const styles = StyleSheet.create({
   // Hero image
   imageWrapper: {
     width: SCREEN_WIDTH,
-    height: IMAGE_HEIGHT,
     position: 'relative',
   },
   heroImage: {

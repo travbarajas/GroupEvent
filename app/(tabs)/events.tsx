@@ -170,10 +170,21 @@ export default function ExploreTab() {
   const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tagOrder, setTagOrder] = useState<string[]>([]);
 
   useEffect(() => {
     loadEvents();
+    loadTagOrder();
   }, []);
+
+  const loadTagOrder = async () => {
+    try {
+      const { tags } = await ApiService.getTagOrder();
+      setTagOrder(tags.map(t => t.tag_name));
+    } catch (error) {
+      console.log('Failed to load tag order, using defaults');
+    }
+  };
 
 
   const loadEvents = async () => {
@@ -313,7 +324,9 @@ export default function ExploreTab() {
     const categories: { [key: string]: Event[] } = {};
     
     // Priority categories that should appear first if they have events
-    const priorityCategories = ['free', 'popular', 'music', 'family-friendly', 'outdoor', 'food', 'nightlife'];
+    const priorityCategories = tagOrder.length > 0
+      ? tagOrder
+      : ['free', 'popular', 'music', 'family-friendly', 'outdoor', 'food', 'nightlife'];
     
     events.forEach(event => {
       (event.tags || []).forEach(tag => {

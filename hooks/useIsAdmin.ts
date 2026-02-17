@@ -9,7 +9,6 @@ export function useIsAdmin(): boolean {
   useEffect(() => {
     const checkAdmin = async () => {
       const deviceId = await DeviceIdManager.getDeviceId();
-      console.log('🔑 Your device ID:', deviceId);
       if (!ADMIN_DEVICE_ID) {
         setIsAdmin(false);
         return;

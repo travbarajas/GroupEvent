@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Share, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Share, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Newsletter, NewsletterEvent } from '@/types/newsletter';
@@ -329,17 +329,32 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
 
         // Group events by date (using date string to avoid timezone issues)
         const eventsByDate = blockEvents.reduce((groups: any, event: any) => {
-          // Handle both ISO datetime strings and simple date strings
           let dateKey = event.date;
+
+          // Handle ISO datetime strings
           if (typeof dateKey === 'string' && dateKey.includes('T')) {
-            // Extract just the date part from ISO datetime string
             dateKey = dateKey.split('T')[0];
           }
-          console.log(`📅 Event: ${event.name}, Date: ${event.date}, DateKey: ${dateKey}`);
-          if (!groups[dateKey]) {
-            groups[dateKey] = [];
+
+          // Handle multi-day events: "YYYY-MM-DD to YYYY-MM-DD"
+          if (typeof dateKey === 'string' && dateKey.includes(' to ')) {
+            const [startStr, endStr] = dateKey.split(' to ');
+            const [sy, sm, sd] = startStr.split('-').map(Number);
+            const [ey, em, ed] = endStr.split('-').map(Number);
+            const start = new Date(sy, sm - 1, sd);
+            const end = new Date(ey, em - 1, ed);
+            const current = new Date(start);
+            while (current <= end) {
+              const key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(event);
+              current.setDate(current.getDate() + 1);
+            }
+          } else {
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(event);
           }
-          groups[dateKey].push(event);
+
           return groups;
         }, {});
 
@@ -384,29 +399,41 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
                   <Text style={styles.dayHeader}>{dayHeader}</Text>
                   
                   {dayEvents.map((event: any, eventIndex: number) => (
-                    <TouchableOpacity 
-                      key={`event-${eventIndex}`} 
+                    <TouchableOpacity
+                      key={`event-${eventIndex}`}
                       style={styles.eventItem}
                       onPress={() => handleNewsletterEventPress(event)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.eventTitleText}>{event.name}</Text>
-                      
-                      {(eventBlock.showDescription !== false) && (event.short_description || event.description) && (
-                        <Text style={styles.eventDescription}>
-                          {event.short_description || event.description}
-                        </Text>
-                      )}
-                      
-                      <View style={styles.eventMetaContainer}>
-                        {event.time && (
-                          <Text style={styles.eventTime}>{event.time}</Text>
+                      <View style={styles.eventItemRow}>
+                        {event.image_url && (
+                          <Image
+                            source={{ uri: event.image_url }}
+                            style={styles.eventItemImage}
+                            resizeMode="cover"
+                          />
                         )}
-                        {(eventBlock.showLocation !== false) && event.fullLocation && (
-                          <Text style={styles.eventLocation}>
-                            @ {event.fullLocation}
-                          </Text>
-                        )}
+
+                        <View style={styles.eventItemContent}>
+                          <Text style={styles.eventTitleText}>{event.name}</Text>
+
+                          {(eventBlock.showDescription !== false) && (event.short_description || event.description) && (
+                            <Text style={styles.eventDescription}>
+                              {event.short_description || event.description}
+                            </Text>
+                          )}
+
+                          <View style={styles.eventMetaContainer}>
+                            {event.time && (
+                              <Text style={styles.eventTime}>{event.time}</Text>
+                            )}
+                            {(eventBlock.showLocation !== false) && event.fullLocation && (
+                              <Text style={styles.eventLocation}>
+                                @ {event.fullLocation}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -856,6 +883,20 @@ const styles = StyleSheet.create({
   eventItem: {
     marginBottom: 16,
     paddingLeft: 0,
+  },
+  eventItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  eventItemContent: {
+    flex: 1,
+  },
+  eventItemImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    backgroundColor: '#2a2a2a',
+    marginRight: 12,
   },
   eventTitleText: {
     fontSize: 18,

@@ -675,6 +675,32 @@ export class ApiService {
     });
   }
 
+  // Tag ordering
+  static async getTagOrder(): Promise<{ tags: Array<{ tag_name: string; sort_order: number }> }> {
+    return this.request('/tags');
+  }
+
+  static async saveTagOrder(tags: Array<{ tag_name: string; sort_order: number }>): Promise<{ success: boolean }> {
+    return this.request('/tags', {
+      method: 'PUT',
+      body: JSON.stringify({ tags }),
+    });
+  }
+
+  static async addTag(tag_name: string): Promise<any> {
+    return this.request('/tags', {
+      method: 'POST',
+      body: JSON.stringify({ tag_name }),
+    });
+  }
+
+  static async deleteTag(tag_name: string): Promise<{ success: boolean }> {
+    return this.request('/tags', {
+      method: 'DELETE',
+      body: JSON.stringify({ tag_name }),
+    });
+  }
+
   // Device fingerprint sync methods moved to utils/deviceId.ts to avoid circular dependency
 }
 

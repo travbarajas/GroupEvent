@@ -136,9 +136,6 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
   const checkAdminStatus = async () => {
     try {
       const deviceId = await DeviceIdManager.getDeviceId();
-      console.log('🔑 Your device ID:', deviceId);
-      console.log('🔑 Admin device ID from env:', ADMIN_DEVICE_ID || '(not set)');
-      console.log('🔑 Match:', deviceId === ADMIN_DEVICE_ID);
       if (!ADMIN_DEVICE_ID) {
         setIsAdmin(false);
         return;
