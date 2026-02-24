@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import AdminPasswordGate from '../components/AdminPasswordGate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -71,7 +72,7 @@ export default function EventDetailScreen() {
   const { toggleSaveEvent, isEventSaved } = useGroups();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin, passwordVerified, verifyPassword } = useIsAdmin();
 
   const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH);
 
@@ -277,6 +278,11 @@ export default function EventDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      <AdminPasswordGate
+        visible={isAdmin && !passwordVerified}
+        onVerify={verifyPassword}
+      />
 
       {/* Action Buttons */}
       <View style={[styles.actionButtons, { paddingBottom: insets.bottom + 20 }]}>

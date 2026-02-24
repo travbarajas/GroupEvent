@@ -314,7 +314,7 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`GroupEvent API running on port ${PORT}`);
+  console.log(`TheRosevilleNewsletter API running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 });
 

@@ -1,17 +1,25 @@
 {
   "expo": {
-    "name": "GroupEvent",
-    "slug": "GroupEvent",
+    "name": "The Roseville Newsletter",
+    "slug": "theroseville",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "groupevent",
+    "scheme": "theroseville",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/707ed8ad-c24a-48b9-8f03-26fdec71231a"
+    },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.travbarajas.theroseville",
       "jsEngine": "jsc"
     },
     "android": {
+      "package": "com.travbarajas.theroseville",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -40,6 +48,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "707ed8ad-c24a-48b9-8f03-26fdec71231a"
+      }
+    },
+    "owner": "travbarajas"
   }
 }

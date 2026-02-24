@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { useGroups, Event } from '../contexts/GroupsContext';
 import { ApiService } from '../services/api';
 import AdminEventModal from '../components/AdminEventModal';
+import AdminPasswordGate from '../components/AdminPasswordGate';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 const { width } = Dimensions.get('window');
@@ -124,7 +125,7 @@ const EventCard = ({ event, onPress, onShare }: {
 
 export default function EventsSearchScreen() {
   const { isLoaded } = useGroups();
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin, passwordVerified, verifyPassword } = useIsAdmin();
   const insets = useSafeAreaInsets();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
@@ -231,21 +232,36 @@ export default function EventsSearchScreen() {
             <Ionicons name="arrow-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <View style={styles.topBarCenter}>
-            <View style={styles.topBarTitleRow}>
-              <Text style={styles.topBarTitle}>Search Events</Text>
-              <View style={styles.pastEventsToggle}>
-                <Text style={styles.pastEventsToggleText}>Past events</Text>
-                <Switch
-                  value={showPastEvents}
-                  onValueChange={setShowPastEvents}
-                  trackColor={{ false: '#374151', true: '#93c5fd' }}
-                  thumbColor={showPastEvents ? '#60a5fa' : '#9ca3af'}
-                />
-              </View>
-            </View>
+            <Text style={styles.topBarTitle}>Search Events</Text>
             <Text style={styles.topBarSubtitle}>
-              {searchQuery ? `${filteredEvents.length} of ${events.length}` : `${events.length}`} event{events.length === 1 ? '' : 's'} {searchQuery ? 'found' : 'available'}
+              {(() => {
+                // Get the base count (date-filtered but not search-filtered)
+                let baseCount = events.length;
+                if (!showPastEvents) {
+                  const now = new Date();
+                  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  baseCount = events.filter(event => {
+                    const datePart = event.date?.split(' to ')[0];
+                    if (!datePart) return true;
+                    const eventDate = new Date(datePart + 'T00:00:00');
+                    if (isNaN(eventDate.getTime())) return true;
+                    return eventDate >= today;
+                  }).length;
+                }
+                const count = searchQuery ? filteredEvents.length : baseCount;
+                const total = searchQuery ? baseCount : null;
+                return `${total !== null ? `${count} of ${total}` : `${count}`} event${count === 1 ? '' : 's'} ${searchQuery ? 'found' : 'available'}`;
+              })()}
             </Text>
+          </View>
+          <View style={styles.pastEventsToggle}>
+            <Text style={styles.pastEventsToggleText}>Past events</Text>
+            <Switch
+              value={showPastEvents}
+              onValueChange={setShowPastEvents}
+              trackColor={{ false: '#374151', true: '#93c5fd' }}
+              thumbColor={showPastEvents ? '#60a5fa' : '#9ca3af'}
+            />
           </View>
           <View style={styles.topBarActions}>
             {isAdmin && (
@@ -254,9 +270,6 @@ export default function EventsSearchScreen() {
                 <Text style={styles.adminButtonText}>Admin</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.refreshButton} onPress={loadEvents}>
-              <Ionicons name="refresh" size={20} color="#60a5fa" />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -318,6 +331,11 @@ export default function EventsSearchScreen() {
           setShowAdminModal(false);
         }}
       />
+
+      <AdminPasswordGate
+        visible={isAdmin && !passwordVerified}
+        onVerify={verifyPassword}
+      />
     </View>
   );
 }
@@ -345,11 +363,6 @@ const styles = StyleSheet.create({
   },
   topBarCenter: {
     flex: 1,
-  },
-  topBarTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   topBarTitle: {
     fontSize: 20,
@@ -534,8 +547,5 @@ const styles = StyleSheet.create({
     borderColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  refreshButton: {
-    padding: 6,
   },
 });

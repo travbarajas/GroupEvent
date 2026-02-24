@@ -54,18 +54,18 @@ export class PlatformDetector {
   static getAppStoreUrl(): string {
     if (Platform.OS === 'ios') {
       // TODO: Replace with actual App Store URL when app is published
-      return 'https://apps.apple.com/app/groupevent/id123456789';
+      return 'https://apps.apple.com/app/theroseville/id123456789';
     } else if (Platform.OS === 'android') {
-      // TODO: Replace with actual Google Play URL when app is published  
-      return 'https://play.google.com/store/apps/details?id=com.groupevent';
+      // TODO: Replace with actual Google Play URL when app is published
+      return 'https://play.google.com/store/apps/details?id=com.travbarajas.theroseville';
     }
-    
+
     // For web users, detect platform and show appropriate store
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
     if (userAgent.includes('iPhone') || userAgent.includes('iPad')) {
-      return 'https://apps.apple.com/app/groupevent/id123456789';
+      return 'https://apps.apple.com/app/theroseville/id123456789';
     } else {
-      return 'https://play.google.com/store/apps/details?id=com.groupevent';
+      return 'https://play.google.com/store/apps/details?id=com.travbarajas.theroseville';
     }
   }
 
@@ -74,6 +74,6 @@ export class PlatformDetector {
    */
   static getDownloadMessage(): string {
     const platform = this.getPlatformDescription();
-    return `You're using ${platform}. For the best experience and to create groups, download the GroupEvent app!`;
+    return `You're using ${platform}. For the best experience and to create groups, download The Roseville Newsletter app!`;
   }
 }

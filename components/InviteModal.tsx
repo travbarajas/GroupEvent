@@ -23,7 +23,7 @@ export default function InviteModal({ visible, onClose, groupName, inviteLink }:
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Join "${groupName}" on GroupEvent!\n\n${inviteLink}`,
+        message: `Join "${groupName}" on The Roseville Newsletter!\n\n${inviteLink}`,
         url: inviteLink, // iOS will use this for sharing
         title: `Join ${groupName}`,
       });

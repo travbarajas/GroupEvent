@@ -334,7 +334,7 @@ module.exports = async function handler(req, res) {
     console.log('Include events:', includeEvents);
 
     // Build the system message with context
-    let systemMessage = `You are LocalAI, a helpful AI assistant for the GroupEvent app, which helps users plan group events and social activities. You can help with event recommendations, restaurant suggestions, activity planning, and general questions about organizing group events.
+    let systemMessage = `You are LocalAI, a helpful AI assistant for The Roseville Newsletter app, which helps users find local events and social activities in Roseville. You can help with event recommendations, restaurant suggestions, activity planning, and general questions about organizing group events.
 
 When displaying events, always format them in this clean, readable style:
 
