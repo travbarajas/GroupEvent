@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Newsletter, NewsletterContextType } from '@/types/newsletter';
 import { ApiService } from '@/services/api';
@@ -136,6 +137,11 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
 
   const checkAdminStatus = async () => {
     try {
+      // On web, skip device ID check — password gate is the auth layer
+      if (Platform.OS === 'web') {
+        setIsAdmin(true);
+        return;
+      }
       const deviceId = await DeviceIdManager.getDeviceId();
       if (!ADMIN_DEVICE_ID) {
         setIsAdmin(false);
