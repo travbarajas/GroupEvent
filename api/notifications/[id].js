@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -79,7 +79,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json(notification);
     } catch (error) {
       console.error('Error updating notification:', error);
-      return res.status(500).json({ error: 'Failed to update notification', details: error.message });
+      return res.status(500).json({ error: 'Failed to update notification' });
     }
   }
 

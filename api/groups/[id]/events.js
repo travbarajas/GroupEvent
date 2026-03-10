@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
@@ -254,7 +254,7 @@ module.exports = async function handler(req, res) {
     } catch (error) {
       console.error('Error adding event to group:', error);
       console.error('Error details:', error.message);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -327,7 +327,7 @@ module.exports = async function handler(req, res) {
 
     } catch (error) {
       console.error('Error updating event:', error);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 

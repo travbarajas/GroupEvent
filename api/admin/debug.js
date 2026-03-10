@@ -1,8 +1,10 @@
+const crypto = require('crypto');
+
 const ADMIN_KEY = process.env.ADMIN_KEY;
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -14,8 +16,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Get admin key from Authorization header or query string
-  const adminKey = req.headers.authorization?.replace('Bearer ', '') || req.query.admin_key;
+  // Get admin key from Authorization header only (never accept in query string — it appears in logs)
+  const adminKey = req.headers.authorization?.replace('Bearer ', '');
 
   if (!ADMIN_KEY) {
     return res.status(500).json({
@@ -31,7 +33,11 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const keysMatch = adminKey.trim() === ADMIN_KEY.trim();
+  const providedBuf = Buffer.from(adminKey.trim());
+  const expectedBuf = Buffer.from(ADMIN_KEY.trim());
+  const keysMatch =
+    providedBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(providedBuf, expectedBuf);
 
   if (!keysMatch) {
     return res.status(401).json({

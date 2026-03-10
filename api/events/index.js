@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
 
     } catch (error) {
       console.error('Error fetching events:', error);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 
@@ -169,7 +169,6 @@ module.exports = async function handler(req, res) {
       console.error('Request body:', req.body);
       return res.status(500).json({ 
         error: 'Internal server error',
-        details: error.message 
       });
     }
   }
@@ -235,7 +234,6 @@ module.exports = async function handler(req, res) {
       console.error('Error updating event:', error);
       return res.status(500).json({
         error: 'Internal server error',
-        details: error.message
       });
     }
   }
@@ -250,7 +248,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, message: `Deleted event ${event_id}` });
     } catch (error) {
       console.error('Error deleting event:', error);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 

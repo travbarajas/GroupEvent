@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -64,6 +64,6 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error sending notification:', error);
-    return res.status(500).json({ error: 'Failed to send notification', details: error.message });
+    return res.status(500).json({ error: 'Failed to send notification' });
   }
 };

@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
   console.log(`📧 Newsletter [ID] API: ${req.method} ${req.url}`);
   
   // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
@@ -39,7 +39,6 @@ module.exports = async function handler(req, res) {
     console.error('❌ Newsletter [ID] API Error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      details: error.message 
     });
   }
 }

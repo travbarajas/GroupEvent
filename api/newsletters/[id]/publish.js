@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
   console.log(`📧 Newsletter Publish API: ${req.method} ${req.url}`);
   
   // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
@@ -66,10 +66,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // For now, allow all publishing. In production, check device_id permissions
-    // if (existingNewsletter.created_by_device_id !== device_id) {
-    //   return res.status(403).json({ error: 'Not authorized to publish this newsletter' });
-    // }
+    if (existingNewsletter.created_by_device_id && existingNewsletter.created_by_device_id !== device_id) {
+      return res.status(403).json({ error: 'Not authorized to publish this newsletter' });
+    }
 
     // Update newsletter to published status
     const newsletters = await sql`
@@ -115,7 +114,6 @@ module.exports = async function handler(req, res) {
     console.error('❌ Newsletter Publish Error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      details: error.message 
     });
   }
 }

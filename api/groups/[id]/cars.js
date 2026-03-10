@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
@@ -151,8 +151,6 @@ module.exports = async function handler(req, res) {
       console.error('Error stack:', error.stack);
       return res.status(500).json({ 
         error: 'Internal server error', 
-        details: error.message,
-        stack: error.stack?.substring(0, 500)
       });
     }
   }

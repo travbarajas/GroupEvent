@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS for all origins
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -59,6 +59,6 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Error looking up device by fingerprint:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 }

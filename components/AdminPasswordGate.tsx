@@ -11,15 +11,18 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface AdminPasswordGateProps {
   visible: boolean;
-  onVerify: (pw: string) => boolean;
+  onVerify: (pw: string) => Promise<boolean>;
 }
 
 export default function AdminPasswordGate({ visible, onVerify }: AdminPasswordGateProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    const success = onVerify(password);
+  const handleSubmit = async () => {
+    setLoading(true);
+    const success = await onVerify(password);
+    setLoading(false);
     if (!success) {
       setError(true);
       setPassword('');
@@ -49,8 +52,8 @@ export default function AdminPasswordGate({ visible, onVerify }: AdminPasswordGa
             <Text style={styles.errorText}>Incorrect password</Text>
           )}
 
-          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-            <Text style={styles.buttonText}>Unlock</Text>
+          <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleSubmit} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? 'Verifying...' : 'Unlock'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -117,6 +120,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     fontSize: 16,

@@ -8,7 +8,7 @@ const sql = neon(process.env.DATABASE_URL);
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://group-event.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
@@ -147,7 +147,6 @@ module.exports = async function handler(req, res) {
     console.error('❌ Error fetching all events:', error);
     return res.status(500).json({ 
       error: 'Failed to fetch events',
-      details: error.message 
     });
   }
 };
