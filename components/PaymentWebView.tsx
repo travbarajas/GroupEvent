@@ -63,7 +63,7 @@ const PaymentWebView: React.FC<PaymentWebViewProps> = ({
     setCurrentUrl(navState.url);
     setCanGoBack(navState.canGoBack);
     setLoading(navState.loading);
-
+    console.log({
       url: navState.url,
       title: navState.title,
       loading: navState.loading,
