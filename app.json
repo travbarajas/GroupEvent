@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.travbarajas.theroseville",
+      "buildNumber": "1",
       "jsEngine": "jsc",
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -63,7 +64,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photoLibraryUsageDescription": "The Roseville Newsletter uses your photo library to add images to events."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
