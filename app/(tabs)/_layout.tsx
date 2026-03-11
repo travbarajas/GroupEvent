@@ -225,7 +225,7 @@ const ExpandedEventModal = ({ event, visible, onClose, sourceLayout, onSaveEvent
             </View>
             <View style={styles.addressContainer}>
               <Ionicons name="location" size={16} color="#f87171" />
-              <Text style={styles.addressText}>123 Main Street, Downtown District, San Francisco, CA 94102</Text>
+              <Text style={styles.addressText}>{event?.location || 'Location not specified'}</Text>
             </View>
           </View>
         </ScrollView>
