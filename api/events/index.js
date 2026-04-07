@@ -31,6 +31,11 @@ module.exports = async function handler(req, res) {
         await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS short_description TEXT`;
       } catch (e) { /* column may already exist */ }
 
+      // Ensure website_url column exists
+      try {
+        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS website_url TEXT`;
+      } catch (e) { /* column may already exist */ }
+
       const events = await sql`
         SELECT
           id,
@@ -50,6 +55,7 @@ module.exports = async function handler(req, res) {
           min_attendees,
           attendance_required,
           image_url,
+          website_url,
           created_at,
           updated_at
         FROM events
@@ -92,7 +98,8 @@ module.exports = async function handler(req, res) {
         tags,
         max_attendees,
         min_attendees,
-        attendance_required = false
+        attendance_required = false,
+        website_url
       } = req.body;
 
       if (!name) {
@@ -151,13 +158,13 @@ module.exports = async function handler(req, res) {
         INSERT INTO events (
           id, name, description, short_description, date, time, location, venue_name,
           price, currency, is_free, category, tags,
-          max_attendees, min_attendees, attendance_required, image_url
+          max_attendees, min_attendees, attendance_required, image_url, website_url
         )
         VALUES (
           ${eventId}, ${name}, ${description || null}, ${short_description || null}, ${cleanDate}, ${cleanTime},
           ${location || null}, ${venue_name || null}, ${price || 0}, ${currency}, ${is_free},
           ${category || null}, ${cleanTags}, ${max_attendees || null}, ${min_attendees || null},
-          ${attendance_required}, ${image_url || null}
+          ${attendance_required}, ${image_url || null}, ${website_url || null}
         )
         RETURNING *
       `;
@@ -189,7 +196,8 @@ module.exports = async function handler(req, res) {
         is_free = false,
         category,
         tags,
-        image_url
+        image_url,
+        website_url
       } = req.body;
 
       if (!id) {
@@ -219,6 +227,7 @@ module.exports = async function handler(req, res) {
           category = ${category || null},
           tags = ${cleanTags},
           image_url = ${image_url || null},
+          website_url = ${website_url || null},
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id}
         RETURNING *

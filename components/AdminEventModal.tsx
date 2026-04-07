@@ -36,6 +36,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     time: '',
     location: '',
     venue_name: '',
+    website_url: '',
     price: '',
     currency: 'USD',
     is_free: false,
@@ -167,6 +168,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       time: '',
       location: '',
       venue_name: '',
+      website_url: '',
       price: '',
       currency: 'USD',
       is_free: false,
@@ -227,6 +229,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         min_attendees: null,
         attendance_required: false,
         image_url: imageUrl,
+        website_url: formData.website_url.trim() || null,
       };
 
       await ApiService.createGlobalEvent(eventData);
@@ -436,6 +439,21 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
                 onChangeText={(text) => setFormData(prev => ({ ...prev, venue_name: text }))}
                 placeholder="Enter venue name"
                 placeholderTextColor="#6b7280"
+                returnKeyType="done"
+              />
+            </View>
+
+            {/* Website URL */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Website / Ticket Link</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.website_url}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, website_url: text }))}
+                placeholder="https://..."
+                placeholderTextColor="#6b7280"
+                keyboardType="url"
+                autoCapitalize="none"
                 returnKeyType="done"
               />
             </View>

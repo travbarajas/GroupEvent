@@ -254,31 +254,34 @@ export class ApiService {
     description?: string;
     startDate: Date;
     endDate?: Date | null;
-    time?: string; // Changed to string to allow any text input
+    time?: string;
     location?: string;
+    image_url?: string | null;
+    website_url?: string | null;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
-    
-    // Format the dates and time to match the expected format
-    const formattedStartDate = eventData.startDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    const formattedEndDate = eventData.endDate 
-      ? eventData.endDate.toISOString().split('T')[0] 
+
+    const formattedStartDate = eventData.startDate.toISOString().split('T')[0];
+    const formattedEndDate = eventData.endDate
+      ? eventData.endDate.toISOString().split('T')[0]
       : null;
-    const formattedTime = eventData.time || null; // Use time string directly
-    
+    const formattedTime = eventData.time || null;
+
+    const dateValue = formattedEndDate && formattedEndDate !== formattedStartDate
+      ? `${formattedStartDate} to ${formattedEndDate}`
+      : formattedStartDate;
+
     return this.request(`/groups/${groupId}/custom-events`, {
       method: 'POST',
       body: JSON.stringify({
         device_id,
         name: eventData.name,
         description: eventData.description || '',
-        date: formattedStartDate, // Use start date as the main date
+        date: dateValue,
         time: formattedTime,
         location: eventData.location || '',
-        // For now, we'll store end_date in description if it's a range
-        ...(formattedEndDate && formattedEndDate !== formattedStartDate && {
-          description: `${eventData.description || ''}${eventData.description ? '\n\n' : ''}📅 Multi-day event: ${formattedStartDate} to ${formattedEndDate}`
-        })
+        image_url: eventData.image_url || null,
+        website_url: eventData.website_url || null,
       })
     });
   }
@@ -679,6 +682,14 @@ export class ApiService {
   static async sendNotification(id: string): Promise<any> {
     return this.request(`/notifications/${id}/send`, {
       method: 'POST'
+    });
+  }
+
+  static async registerPushToken(token: string): Promise<void> {
+    const device_id = await DeviceIdManager.getDeviceId();
+    await this.request('/push-tokens', {
+      method: 'POST',
+      body: JSON.stringify({ device_id, token }),
     });
   }
 
