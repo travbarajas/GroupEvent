@@ -24,6 +24,8 @@ export interface Event {
   location?: string;
   venue_name?: string;
   image_url?: string;
+  website_url?: string;
+  link_label?: string;
 }
 
 interface GroupsContextType {

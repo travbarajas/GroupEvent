@@ -258,6 +258,7 @@ export class ApiService {
     location?: string;
     image_url?: string | null;
     website_url?: string | null;
+    link_label?: string | null;
   }): Promise<any> {
     const device_id = await DeviceIdManager.getDeviceId();
 
@@ -282,6 +283,7 @@ export class ApiService {
         location: eventData.location || '',
         image_url: eventData.image_url || null,
         website_url: eventData.website_url || null,
+        link_label: eventData.link_label || null,
       })
     });
   }

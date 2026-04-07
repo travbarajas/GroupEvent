@@ -226,7 +226,7 @@ export default function EventDetailScreen() {
                 onPress={() => Linking.openURL(event.website_url!)}
               >
                 <Ionicons name="globe-outline" size={16} color="#ffffff" />
-                <Text style={styles.websiteButtonText}>Learn More</Text>
+                <Text style={styles.websiteButtonText}>{event.link_label || 'Learn More'}</Text>
               </TouchableOpacity>
             ) : null}
           </View>

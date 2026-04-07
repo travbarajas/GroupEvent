@@ -156,6 +156,8 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
       image_url: event.image_url || event.imageUrl || undefined,
       location: event.location || undefined,
       venue_name: event.venue_name || event.venueName || undefined,
+      website_url: event.website_url || undefined,
+      link_label: event.link_label || undefined,
     };
 
     ApiService.trackEvent('click', 'newsletter', newsletter.id, { target_name: newsletter.title });
@@ -419,22 +421,31 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
                         <View style={styles.eventItemContent}>
                           <Text style={styles.eventTitleText}>{event.name}</Text>
 
-                          {(eventBlock.showDescription !== false) && (event.short_description || event.description) && (
+                          {false && (event.short_description || event.description) && (
                             <Text style={styles.eventDescription}>
                               {event.short_description || event.description}
                             </Text>
                           )}
 
-                          <View style={styles.eventMetaContainer}>
-                            {event.time && (
-                              <Text style={styles.eventTime}>{event.time}</Text>
-                            )}
-                            {(eventBlock.showLocation !== false) && event.fullLocation && (
-                              <Text style={styles.eventLocation}>
-                                @ {event.fullLocation}
-                              </Text>
-                            )}
-                          </View>
+                          {event.time && (
+                            <View style={styles.eventMetaRow}>
+                              <Ionicons name="time" size={13} color="#60a5fa" style={styles.eventMetaIcon} />
+                              <Text style={styles.eventMeta}>{event.time}</Text>
+                            </View>
+                          )}
+                          {(eventBlock.showLocation !== false) && event.fullLocation && (() => {
+                            const [venue, ...rest] = event.fullLocation.split(' - ');
+                            const address = rest.join(' - ');
+                            return (
+                              <View style={styles.eventMetaRow}>
+                                <Ionicons name="location" size={13} color="#f87171" style={styles.eventMetaIcon} />
+                                <View>
+                                  <Text style={styles.eventMeta}>{venue}</Text>
+                                  {address ? <Text style={styles.eventMeta}>{address}</Text> : null}
+                                </View>
+                              </View>
+                            );
+                          })()}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -888,43 +899,42 @@ const styles = StyleSheet.create({
   },
   eventItemRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   eventItemContent: {
     flex: 1,
+    gap: 5,
   },
   eventItemImage: {
-    width: 70,
-    height: 70,
+    width: 88,
+    height: 88,
     borderRadius: 8,
     backgroundColor: '#2a2a2a',
     marginRight: 12,
   },
   eventTitleText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#60a5fa',
-    marginBottom: 6,
   },
   eventDescription: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#e5e7eb',
-    lineHeight: 20,
+    lineHeight: 21,
     marginBottom: 4,
   },
-  eventMetaContainer: {
+  eventMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
   },
-  eventTime: {
-    fontSize: 14,
-    color: '#d1d5db',
-    marginRight: 8,
+  eventMetaIcon: {
+    marginRight: 4,
   },
-  eventLocation: {
-    fontSize: 14,
+  eventMeta: {
+    fontSize: 15,
     color: '#d1d5db',
+    lineHeight: 21,
+    flex: 1,
   },
   heading4: {
     fontSize: 20,

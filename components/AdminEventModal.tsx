@@ -37,6 +37,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     location: '',
     venue_name: '',
     website_url: '',
+    link_label: '',
     price: '',
     currency: 'USD',
     is_free: false,
@@ -169,6 +170,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       location: '',
       venue_name: '',
       website_url: '',
+      link_label: '',
       price: '',
       currency: 'USD',
       is_free: false,
@@ -230,6 +232,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         attendance_required: false,
         image_url: imageUrl,
         website_url: formData.website_url.trim() || null,
+        link_label: formData.link_label.trim() || null,
       };
 
       await ApiService.createGlobalEvent(eventData);
@@ -454,6 +457,20 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
                 placeholderTextColor="#6b7280"
                 keyboardType="url"
                 autoCapitalize="none"
+                returnKeyType="done"
+              />
+            </View>
+
+            {/* Button Label */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Button Label</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.link_label}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, link_label: text }))}
+                placeholder="e.g. Buy Tickets, Visit Website, Learn More"
+                placeholderTextColor="#6b7280"
+                autoCapitalize="words"
                 returnKeyType="done"
               />
             </View>

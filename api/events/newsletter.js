@@ -36,6 +36,16 @@ module.exports = async function handler(req, res) {
       await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS short_description TEXT`;
     } catch (e) { /* column may already exist */ }
 
+    // Ensure website_url column exists
+    try {
+      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS website_url TEXT`;
+    } catch (e) { /* column may already exist */ }
+
+    // Ensure link_label column exists
+    try {
+      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS link_label TEXT`;
+    } catch (e) { /* column may already exist */ }
+
     const allEvents = await sql`
       SELECT
         id,
@@ -55,6 +65,8 @@ module.exports = async function handler(req, res) {
         min_attendees,
         attendance_required,
         image_url,
+        website_url,
+        link_label,
         created_at,
         updated_at
       FROM events
@@ -135,6 +147,8 @@ module.exports = async function handler(req, res) {
         // Combine location fields for display
         fullLocation: [event.venue_name, event.location].filter(Boolean).join(' - '),
         image_url: event.image_url || null,
+        website_url: event.website_url || null,
+        link_label: event.link_label || null,
       };
     });
 

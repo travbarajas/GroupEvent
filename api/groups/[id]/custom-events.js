@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const { id } = req.query;
-      const { device_id, name, description, date, time, location, image_url, website_url } = req.body;
+      const { device_id, name, description, date, time, location, image_url, website_url, link_label } = req.body;
       
       // Debug logging
       console.log('Received data:', { device_id, name, description, date, time, location });
@@ -87,6 +87,7 @@ module.exports = async function handler(req, res) {
           'source_event_id VARCHAR(255)',
           'image_url TEXT',
           'website_url TEXT',
+          'link_label TEXT',
           'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
           'updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
         ];
@@ -152,6 +153,7 @@ module.exports = async function handler(req, res) {
             source_type,
             image_url,
             website_url,
+            link_label,
             added_at
           )
           VALUES (
@@ -179,6 +181,7 @@ module.exports = async function handler(req, res) {
             'custom',
             ${image_url || null},
             ${website_url || null},
+            ${link_label || null},
             CURRENT_TIMESTAMP
           )
           RETURNING *

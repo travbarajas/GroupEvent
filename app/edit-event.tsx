@@ -45,6 +45,8 @@ export default function EditEventScreen() {
     is_free: event?.is_free || false,
     category: event?.category || 'music',
     tags: (event?.tags || []) as string[],
+    website_url: event?.website_url || '',
+    link_label: event?.link_label || '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(event?.image_url || null);
@@ -58,6 +60,7 @@ export default function EditEventScreen() {
   const locationRef = useRef<TextInput>(null);
   const venueRef = useRef<TextInput>(null);
   const priceRef = useRef<TextInput>(null);
+  const websiteRef = useRef<TextInput>(null);
 
   const categories = [
     { value: 'music', label: 'Music' },
@@ -210,6 +213,8 @@ export default function EditEventScreen() {
         category: formData.category || null,
         tags: formData.tags,
         image_url: imageUrl,
+        website_url: formData.website_url.trim() || null,
+        link_label: formData.link_label.trim() || null,
       };
 
       await ApiService.updateGlobalEvent(updateData);
@@ -385,6 +390,36 @@ export default function EditEventScreen() {
               onChangeText={(text) => setFormData(prev => ({ ...prev, venue_name: text }))}
               placeholder="Enter venue name"
               placeholderTextColor="#6b7280"
+              returnKeyType="done"
+            />
+          </View>
+
+          {/* Website URL */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Website / Ticket Link</Text>
+            <TextInput
+              ref={websiteRef}
+              style={styles.input}
+              value={formData.website_url}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, website_url: text }))}
+              placeholder="https://..."
+              placeholderTextColor="#6b7280"
+              keyboardType="url"
+              autoCapitalize="none"
+              returnKeyType="done"
+            />
+          </View>
+
+          {/* Button Label */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Button Label</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.link_label}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, link_label: text }))}
+              placeholder="e.g. Buy Tickets, Visit Website, Learn More"
+              placeholderTextColor="#6b7280"
+              autoCapitalize="words"
               returnKeyType="done"
             />
           </View>

@@ -22,9 +22,11 @@ interface CreateEventForm {
   name: string;
   description: string;
   startDate: Date;
-  endDate: Date | null; // null means single day event
-  time: string; // Changed to string to allow any text input
+  endDate: Date | null;
+  time: string;
   location: string;
+  website_url: string;
+  link_label: string;
 }
 
 export default function CreateEventScreen() {
@@ -35,9 +37,11 @@ export default function CreateEventScreen() {
     name: '',
     description: '',
     startDate: new Date(),
-    endDate: new Date(), // Initialize with today as end date too
+    endDate: new Date(),
     time: '',
     location: '',
+    website_url: '',
+    link_label: '',
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,6 +131,8 @@ export default function CreateEventScreen() {
         time: form.time,
         location: form.location,
         image_url: imageUrl,
+        website_url: form.website_url.trim() || null,
+        link_label: form.link_label.trim() || null,
       });
       
       Alert.alert(
@@ -240,6 +246,35 @@ export default function CreateEventScreen() {
               placeholder="Where is it happening? (optional)"
               placeholderTextColor="#666"
               maxLength={200}
+            />
+          </View>
+
+          {/* Website URL */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Website / Ticket Link</Text>
+            <TextInput
+              style={styles.textInput}
+              value={form.website_url}
+              onChangeText={(text) => setForm(prev => ({ ...prev, website_url: text }))}
+              placeholder="https://..."
+              placeholderTextColor="#666"
+              keyboardType="url"
+              autoCapitalize="none"
+              maxLength={500}
+            />
+          </View>
+
+          {/* Button Label */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Button Label</Text>
+            <TextInput
+              style={styles.textInput}
+              value={form.link_label}
+              onChangeText={(text) => setForm(prev => ({ ...prev, link_label: text }))}
+              placeholder="e.g. Buy Tickets, Visit Website, Learn More"
+              placeholderTextColor="#666"
+              autoCapitalize="words"
+              maxLength={100}
             />
           </View>
 
