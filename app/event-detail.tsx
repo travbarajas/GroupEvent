@@ -9,6 +9,7 @@ import {
   Image,
   Dimensions,
   Platform,
+  Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -156,7 +157,7 @@ export default function EventDetailScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={[styles.imageWrapper, { height: imageHeight + insets.top, paddingTop: insets.top }]}>
           {event.image_url ? (
@@ -211,10 +212,23 @@ export default function EventDetailScreen() {
         </View>
 
         {/* Description */}
-        {event.description ? (
+        {(event.description || event.website_url) ? (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>About this event</Text>
-            <Text style={styles.eventDescription}>{event.description}</Text>
+            {event.description ? (
+              <>
+                <Text style={styles.sectionLabel}>About this event</Text>
+                <Text style={styles.eventDescription}>{event.description}</Text>
+              </>
+            ) : null}
+            {event.website_url ? (
+              <TouchableOpacity
+                style={[styles.websiteButton, !event.description && { marginTop: 0 }]}
+                onPress={() => Linking.openURL(event.website_url!)}
+              >
+                <Ionicons name="globe-outline" size={16} color="#ffffff" />
+                <Text style={styles.websiteButtonText}>Learn More</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : null}
 
@@ -239,7 +253,7 @@ export default function EventDetailScreen() {
                     />
                   ) : (
                     <WebView
-                      source={{ uri: mapUrl }}
+                      source={{ html: `<html><body style="margin:0;padding:0;overflow:hidden;"><iframe src="${mapUrl}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe></body></html>` }}
                       style={{ flex: 1 }}
                       scrollEnabled={false}
                       nestedScrollEnabled={false}
@@ -266,7 +280,7 @@ export default function EventDetailScreen() {
 
         {/* Tags */}
         {event.tags && event.tags.length > 0 && (
-          <View style={[styles.section, { paddingBottom: 120 }]}>
+          <View style={styles.section}>
             <Text style={styles.sectionLabel}>Tags</Text>
             <View style={styles.tagsContainer}>
               {event.tags.map((tag, index) => (
@@ -423,6 +437,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#e5e7eb',
     lineHeight: 22,
+  },
+  websiteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+  },
+  websiteButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 
   // Map

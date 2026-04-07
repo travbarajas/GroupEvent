@@ -209,6 +209,7 @@ export default function ExploreTab() {
           image_url: apiEvent.image_url || undefined,
           location: apiEvent.location || undefined,
           venue_name: apiEvent.venue_name || undefined,
+          website_url: apiEvent.website_url || undefined,
         }));
         
         // Filter to events within the next 14 days
