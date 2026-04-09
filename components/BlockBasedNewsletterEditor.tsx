@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -276,11 +277,31 @@ export default function BlockBasedNewsletterEditor({
       {/* Document Content */}
       <ScrollView style={styles.documentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.document}>
-          {/* Header Section - Same as before but simplified */}
+          {/* Header Section */}
           <View style={styles.headerSection}>
-            <Text style={styles.titleInput}>{title || 'Newsletter Title'}</Text>
-            <Text style={styles.subtitleInput}>{subtitle || 'Subtitle'}</Text>
-            <Text style={styles.dateText}>{date}</Text>
+            <TextInput
+              style={styles.titleInput}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Newsletter Title"
+              placeholderTextColor="#9ca3af"
+              multiline
+            />
+            <TextInput
+              style={styles.subtitleInput}
+              value={subtitle}
+              onChangeText={setSubtitle}
+              placeholder="Subtitle (optional)"
+              placeholderTextColor="#9ca3af"
+              multiline
+            />
+            <TextInput
+              style={styles.dateText}
+              value={date}
+              onChangeText={setDate}
+              placeholder="Date"
+              placeholderTextColor="#9ca3af"
+            />
           </View>
 
           {/* Blocks Section */}
