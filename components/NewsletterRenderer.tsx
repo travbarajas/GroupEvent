@@ -20,6 +20,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
   const internalScrollViewRef = useRef<ScrollView>(null);
   const scrollViewRef = externalScrollViewRef || internalScrollViewRef;
   const [eventListPositions, setEventListPositions] = useState<{[key: string]: number}>({});
+  const [contentAreaY, setContentAreaY] = useState(0);
 
   // Load event details for event blocks
   useEffect(() => {
@@ -107,8 +108,8 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
     setActiveTab(blockId);
 
     if (scrollViewRef.current) {
-      if (eventListPositions[blockId]) {
-        scrollViewRef.current.scrollTo({ y: Math.max(0, eventListPositions[blockId] - 8), animated: true });
+      if (eventListPositions[blockId] !== undefined) {
+        scrollViewRef.current.scrollTo({ y: Math.max(0, contentAreaY + eventListPositions[blockId] - 8), animated: true });
       }
     } else {
       console.log(`🚫 ScrollView ref is null`);
@@ -675,7 +676,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
       )}
 
       {/* Content */}
-      <View style={styles.content}>
+      <View style={styles.content} onLayout={(e) => setContentAreaY(e.nativeEvent.layout.y)}>
         {renderBlocksOrContent()}
       </View>
     </View>
