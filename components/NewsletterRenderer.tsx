@@ -67,7 +67,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
     return true; // default on
   })();
 
-  // Get all heading blocks as navigatable tabs
+  // Get all heading and event-list blocks as navigatable tabs
   const getHeadingTabs = () => {
     const tabs: { id: string; title: string; blockId: string }[] = [];
 
@@ -82,6 +82,12 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
             tabs.push({
               id: block.id,
               title: block.content,
+              blockId: block.id
+            });
+          } else if (block.type === 'event-list' && block.title) {
+            tabs.push({
+              id: block.id,
+              title: block.title,
               blockId: block.id
             });
           }
@@ -676,7 +682,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
 
       {/* Tab Navigation for Headings */}
       {hasEventListTabs ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
           {eventListTabs.map((tab: any) => (
             <TouchableOpacity
               key={tab.blockId}
@@ -949,6 +955,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#333',
     marginTop: 0,
+  },
+  tabBarContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     marginBottom: 16,
   },
   tab: {
