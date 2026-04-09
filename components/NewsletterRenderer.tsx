@@ -105,41 +105,10 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
 
   const scrollToEventList = (blockId: string) => {
     setActiveTab(blockId);
-    
+
     if (scrollViewRef.current) {
-      
-      // First check if we have a stored position for this block
       if (eventListPositions[blockId]) {
-        // Position the section title in the upper portion of the screen
-        // Smaller offset to prevent over-scrolling
-        const screenOffset = -200; // Small offset to position title in upper area
-        const exactPosition = Math.max(0, eventListPositions[blockId] - screenOffset);
-        
-        console.log(`🎯 Original position: ${eventListPositions[blockId]}, Adjusted position: ${exactPosition}`);
-        
-        scrollViewRef.current.scrollTo({ y: exactPosition, animated: true });
-        return;
-      }
-      
-      // Find the index of this event list in all event lists
-      const eventListIndex = eventListTabs.findIndex(tab => tab.blockId === blockId);
-      console.log(`🎯 Found event list at index: ${eventListIndex}`);
-      
-      if (eventListIndex >= 0) {
-        // Use a more aggressive scroll estimate, positioning title in upper area
-        const headerHeight = 200; // Newsletter header
-        const tabHeight = 50; // Tab bar
-        const averageBlockHeight = 400; // Average height per block/event list
-        const screenOffset = -200; // Sweet spot offset for positioning
-        
-        const estimatedPosition = headerHeight + tabHeight + (eventListIndex * averageBlockHeight);
-        const adjustedScrollY = Math.max(0, estimatedPosition - screenOffset);
-        
-        console.log(`🎯 Estimated position: ${estimatedPosition}, Adjusted for upper half: ${adjustedScrollY}`);
-        
-        scrollViewRef.current.scrollTo({ y: adjustedScrollY, animated: true });
-      } else {
-        console.log(`🚫 Event list ${blockId} not found in tabs`);
+        scrollViewRef.current.scrollTo({ y: Math.max(0, eventListPositions[blockId] - 8), animated: true });
       }
     } else {
       console.log(`🚫 ScrollView ref is null`);
