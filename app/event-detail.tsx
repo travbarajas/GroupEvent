@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   Platform,
   Linking,
+  InteractionManager,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,9 +77,18 @@ export default function EventDetailScreen() {
   const { isAdmin, passwordVerified, verifyPassword } = useIsAdmin();
 
   const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH);
+  const [mapReady, setMapReady] = useState(false);
 
   // Parse the event data from params
   const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
+
+  // Delay map render until after screen transition completes
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapReady(true);
+    });
+    return () => task.cancel();
+  }, []);
 
   useEffect(() => {
     const imageUrl = event?.image_url || 'https://picsum.photos/800/400';
@@ -255,13 +265,15 @@ export default function EventDetailScreen() {
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                     />
-                  ) : (
+                  ) : mapReady ? (
                     <WebView
                       source={{ html: `<html><body style="margin:0;padding:0;overflow:hidden;"><iframe src="${mapUrl}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe></body></html>` }}
                       style={{ flex: 1 }}
                       scrollEnabled={false}
                       nestedScrollEnabled={false}
                     />
+                  ) : (
+                    <View style={{ flex: 1, backgroundColor: '#1a1a1a' }} />
                   )}
                 </View>
                 <View style={styles.addressContainer}>
