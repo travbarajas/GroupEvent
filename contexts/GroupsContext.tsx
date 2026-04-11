@@ -44,6 +44,10 @@ interface GroupsContextType {
   isLoaded: boolean;
   updateGroupAccess: (groupId: string) => void;
   getMostRecentGroup: () => Group | null;
+  exploreEvents: Event[];
+  exploreEventsLoading: boolean;
+  tagOrder: string[];
+  refreshExploreEvents: () => Promise<void>;
 }
 
 const GroupsContext = createContext<GroupsContextType | undefined>(undefined);
@@ -68,10 +72,14 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   const [sourceLayout, setSourceLayout] = useState<any>(null);
   const [savedEvents, setSavedEvents] = useState<Event[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [exploreEvents, setExploreEvents] = useState<Event[]>([]);
+  const [exploreEventsLoading, setExploreEventsLoading] = useState(true);
+  const [tagOrder, setTagOrder] = useState<string[]>([]);
 
   // Load saved events from AsyncStorage on app start
   useEffect(() => {
     loadSavedEvents();
+    refreshExploreEvents();
   }, []);
 
   const loadSavedEvents = async () => {
@@ -93,6 +101,56 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
       await AsyncStorage.setItem(SAVED_EVENTS_KEY, JSON.stringify(events));
     } catch (error) {
       console.error('Failed to save events:', error);
+    }
+  };
+
+  const refreshExploreEvents = async () => {
+    setExploreEventsLoading(true);
+    try {
+      const [{ events: apiEvents }, tagResult] = await Promise.all([
+        ApiService.getAllEvents(),
+        ApiService.getTagOrder().catch(() => ({ tags: [] })),
+      ]);
+
+      setTagOrder(tagResult.tags.map((t: any) => t.tag_name));
+
+      if (apiEvents && apiEvents.length > 0) {
+        const formatted: Event[] = apiEvents.map((apiEvent: any) => ({
+          id: parseInt(apiEvent.id.replace('EVT_', '')) || Math.random(),
+          name: apiEvent.name,
+          date: apiEvent.date || 'TBD',
+          description: apiEvent.description || '',
+          short_description: apiEvent.short_description || '',
+          time: apiEvent.time || 'TBD',
+          price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
+          distance: '',
+          type: apiEvent.category || 'music',
+          tags: apiEvent.tags || [],
+          image_url: apiEvent.image_url || undefined,
+          location: apiEvent.location || undefined,
+          venue_name: apiEvent.venue_name || undefined,
+          website_url: apiEvent.website_url || undefined,
+          link_label: apiEvent.link_label || undefined,
+        }));
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const cutoff = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+        setExploreEvents(formatted.filter(event => {
+          if (!event.date || event.date === 'TBD') return true;
+          const datePart = event.date.split(' to ')[0];
+          const eventDate = new Date(datePart + 'T00:00:00');
+          if (isNaN(eventDate.getTime())) return true;
+          return eventDate >= today && eventDate <= cutoff;
+        }));
+      } else {
+        setExploreEvents([]);
+      }
+    } catch {
+      setExploreEvents([]);
+    } finally {
+      setExploreEventsLoading(false);
     }
   };
 
@@ -205,6 +263,10 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
     isLoaded,
     updateGroupAccess,
     getMostRecentGroup,
+    exploreEvents,
+    exploreEventsLoading,
+    tagOrder,
+    refreshExploreEvents,
   };
 
   return (

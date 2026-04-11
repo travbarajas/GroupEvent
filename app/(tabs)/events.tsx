@@ -167,80 +167,11 @@ export default function ExploreTab() {
   const insets = useSafeAreaInsets();
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [tagOrder, setTagOrder] = useState<string[]>([]);
+  const { exploreEvents: events, exploreEventsLoading: isLoading, tagOrder } = useGroups();
 
   useEffect(() => {
-    loadEvents();
-    loadTagOrder();
     ApiService.trackEvent('page_view', 'page', 'explore');
   }, []);
-
-  const loadTagOrder = async () => {
-    try {
-      const { tags } = await ApiService.getTagOrder();
-      setTagOrder(tags.map(t => t.tag_name));
-    } catch (error) {
-      console.log('Failed to load tag order, using defaults');
-    }
-  };
-
-
-  const loadEvents = async () => {
-    try {
-      setIsLoading(true);
-      
-      const { events: apiEvents } = await ApiService.getAllEvents();
-
-      if (apiEvents && apiEvents.length > 0) {
-        // Convert API events to the format expected by the UI
-        const formattedEvents: Event[] = apiEvents.map(apiEvent => ({
-          id: parseInt(apiEvent.id.replace('EVT_', '')) || Math.random(), // Convert back to number for compatibility
-          name: apiEvent.name,
-          date: apiEvent.date || 'TBD',
-          description: apiEvent.description || '',
-          short_description: apiEvent.short_description || '',
-          time: apiEvent.time || 'TBD',
-          price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
-          distance: '5 miles away', // This would come from location calculation
-          type: (apiEvent.category as Event['type']) || 'music',
-          tags: apiEvent.tags || [],
-          image_url: apiEvent.image_url || undefined,
-          location: apiEvent.location || undefined,
-          venue_name: apiEvent.venue_name || undefined,
-          website_url: apiEvent.website_url || undefined,
-          link_label: apiEvent.link_label || undefined,
-        }));
-        
-        // Filter to events within the next 14 days
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const cutoff = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
-
-        const filteredEvents = formattedEvents.filter(event => {
-          if (!event.date || event.date === 'TBD') return true;
-          const datePart = event.date.split(' to ')[0];
-          const eventDate = new Date(datePart + 'T00:00:00');
-          if (isNaN(eventDate.getTime())) return true;
-          return eventDate >= today && eventDate <= cutoff;
-        });
-
-        setEvents(filteredEvents);
-      } else {
-        // No events in database, use fallback
-        setEvents(getFallbackEvents());
-      }
-    } catch (error) {
-      // Fallback to hardcoded events if API fails
-      setEvents(getFallbackEvents());
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-
-  const getFallbackEvents = (): Event[] => [];
 
   const handleEventPress = (event: Event) => {
     router.push({
