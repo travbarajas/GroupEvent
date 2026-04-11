@@ -1,5 +1,6 @@
 {
   "outputDirectory": "dist",
+  "regions": ["sfo1"],
   "functions": {
     "api/**": {
       "maxDuration": 30
