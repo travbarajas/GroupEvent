@@ -126,7 +126,7 @@ export default function EventDetailScreen() {
   const handleShare = async () => {
     try {
       const shareContent = {
-        message: `Check out this event: ${event.name}\n\nDate: ${event.date}\nTime: ${event.time}\nLocation: ${event.distance}\nPrice: ${event.price}\n\n${event.description}`,
+        message: `Check out this event: ${event.name}\n\nDate: ${event.date}\nTime: ${event.time}\nLocation: ${event.venue_name && event.location ? `${event.venue_name}, ${event.location}` : event.venue_name || event.location || ''}\nPrice: ${event.price}\n\n${event.description}`,
         title: event.name,
       };
 
@@ -202,7 +202,11 @@ export default function EventDetailScreen() {
           <View style={styles.detailRow}>
             <Ionicons name="location" size={18} color="#f87171" />
             <Text style={styles.detailLabel}>Location</Text>
-            <Text style={styles.detailValue}>{event.distance || '—'}</Text>
+            <Text style={styles.detailValue}>
+              {event.venue_name && event.location
+                ? `${event.venue_name}, ${event.location}`
+                : event.venue_name || event.location || '—'}
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Ionicons name="card" size={18} color="#4ade80" />
