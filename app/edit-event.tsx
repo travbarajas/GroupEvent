@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import { ApiService } from '@/services/api';
 import { Event } from '@/contexts/GroupsContext';
 import DateRangePicker from '@/components/DateRangePicker';
@@ -177,6 +178,19 @@ export default function EditEventScreen() {
     setSelectedImage(null);
   };
 
+  const pasteImage = async () => {
+    try {
+      const result = await Clipboard.getImageAsync({ format: 'png' });
+      if (result?.data) {
+        setSelectedImage(`data:image/png;base64,${result.data}`);
+      } else {
+        Alert.alert('No image', 'No image found in clipboard.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not paste image from clipboard.');
+    }
+  };
+
   const formatDateForApi = (date: Date): string => {
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
   };
@@ -330,11 +344,17 @@ export default function EditEventScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
-                <Ionicons name="image-outline" size={32} color="#6b7280" />
-                <Text style={styles.imagePickerText}>Tap to add event image</Text>
-                <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
+                  <Ionicons name="image-outline" size={32} color="#6b7280" />
+                  <Text style={styles.imagePickerText}>Tap to add event image</Text>
+                  <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.pasteButton} onPress={pasteImage}>
+                  <Ionicons name="clipboard-outline" size={16} color="#60a5fa" />
+                  <Text style={styles.pasteButtonText}>Paste from Clipboard</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 
@@ -699,6 +719,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4b5563',
     marginTop: 4,
+  },
+  pasteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2a3a4a',
+    backgroundColor: '#111a22',
+  },
+  pasteButtonText: {
+    fontSize: 14,
+    color: '#60a5fa',
+    fontWeight: '500',
   },
   errorContainer: {
     flex: 1,

@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
+  Platform,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -27,11 +29,18 @@ export default function NewsletterScreen() {
   } = useNewsletter();
 
   const [showPastNewsletters, setShowPastNewsletters] = useState(false);
+  const [showNotifBanner, setShowNotifBanner] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadNewsletters();
     ApiService.trackEvent('page_view', 'page', 'newsletter');
+
+    if (Platform.OS !== 'web') {
+      Notifications.getPermissionsAsync().then(({ status }) => {
+        setShowNotifBanner(status !== 'granted');
+      });
+    }
   }, []);
 
   // Get the latest published newsletter
@@ -46,6 +55,13 @@ export default function NewsletterScreen() {
       ApiService.trackEvent('page_view', 'newsletter', newsletter.id, { target_name: newsletter.title });
     }
   }, [currentNewsletter, latestNewsletter?.id]);
+
+  const handleEnableNotifications = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status === 'granted') {
+      setShowNotifBanner(false);
+    }
+  };
 
   const handleNewsletterPress = (newsletter: Newsletter) => {
     setCurrentNewsletter(newsletter);
@@ -87,6 +103,17 @@ export default function NewsletterScreen() {
           )}
         </View>
       </View>
+
+      {/* Notification Banner */}
+      {showNotifBanner && (
+        <View style={styles.notifBanner}>
+          <Ionicons name="notifications-off-outline" size={18} color="#f59e0b" />
+          <Text style={styles.notifBannerText}>Turn on notifications to get weekly updates about new events</Text>
+          <TouchableOpacity style={styles.notifBannerButton} onPress={handleEnableNotifications}>
+            <Text style={styles.notifBannerButtonText}>Enable</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Main Content */}
       <ScrollView ref={scrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
@@ -136,6 +163,33 @@ export default function NewsletterScreen() {
 }
 
 const styles = StyleSheet.create({
+  notifBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1c1a0f',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3a3000',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  notifBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#d97706',
+    lineHeight: 18,
+  },
+  notifBannerButton: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  notifBannerButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#000000',
+  },
   container: {
     flex: 1,
     backgroundColor: '#121212',
