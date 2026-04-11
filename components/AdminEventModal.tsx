@@ -162,11 +162,31 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
 
   const pasteImage = async () => {
     try {
-      const result = await Clipboard.getImageAsync({ format: 'png' });
-      if (result?.data) {
-        setSelectedImage(`data:image/png;base64,${result.data}`);
-      } else {
+      if (Platform.OS === 'web') {
+        // Use browser native clipboard API
+        const clipboardItems = await (navigator.clipboard as any).read();
+        for (const item of clipboardItems) {
+          const imageType = item.types.find((t: string) => t.startsWith('image/'));
+          if (imageType) {
+            const blob = await item.getType(imageType);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              if (e.target?.result) {
+                setSelectedImage(e.target.result as string);
+              }
+            };
+            reader.readAsDataURL(blob);
+            return;
+          }
+        }
         Alert.alert('No image', 'No image found in clipboard.');
+      } else {
+        const result = await Clipboard.getImageAsync({ format: 'png' });
+        if (result?.data) {
+          setSelectedImage(`data:image/png;base64,${result.data}`);
+        } else {
+          Alert.alert('No image', 'No image found in clipboard.');
+        }
       }
     } catch {
       Alert.alert('Error', 'Could not paste image from clipboard.');
@@ -402,12 +422,10 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
                     <Text style={styles.imagePickerText}>Tap to add event image</Text>
                     <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
                   </TouchableOpacity>
-                  {Platform.OS !== 'web' && (
-                    <TouchableOpacity style={styles.pasteButton} onPress={pasteImage}>
-                      <Ionicons name="clipboard-outline" size={16} color="#60a5fa" />
-                      <Text style={styles.pasteButtonText}>Paste from Clipboard</Text>
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity style={styles.pasteButton} onPress={pasteImage}>
+                    <Ionicons name="clipboard-outline" size={16} color="#60a5fa" />
+                    <Text style={styles.pasteButtonText}>Paste from Clipboard</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
