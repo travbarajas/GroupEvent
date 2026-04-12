@@ -167,17 +167,15 @@ export default function ExploreTab() {
   const insets = useSafeAreaInsets();
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedEventForGroup, setSelectedEventForGroup] = useState<Event | null>(null);
-  const { exploreEvents: events, exploreEventsLoading: isLoading, tagOrder } = useGroups();
+  const { exploreEvents: events, exploreEventsLoading: isLoading, tagOrder, setSelectedEvent } = useGroups();
 
   useEffect(() => {
     ApiService.trackEvent('page_view', 'page', 'explore');
   }, []);
 
   const handleEventPress = (event: Event) => {
-    router.push({
-      pathname: '/event-detail',
-      params: { event: JSON.stringify(event), source: 'explore' }
-    });
+    setSelectedEvent(event);
+    router.push({ pathname: '/event-detail', params: { source: 'explore' } });
   };
 
   const handleShareEvent = async (event: Event) => {

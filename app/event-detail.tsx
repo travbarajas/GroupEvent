@@ -71,16 +71,24 @@ const formatEventDate = (dateString: string): string => {
 };
 
 export default function EventDetailScreen() {
-  const { toggleSaveEvent, isEventSaved } = useGroups();
+  const { toggleSaveEvent, isEventSaved, selectedEvent } = useGroups();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { isAdmin, passwordVerified, verifyPassword } = useIsAdmin();
 
-  const imageHeight = SCREEN_WIDTH * (9 / 16);
+  // Prefer context (fast, no serialization) — fall back to params for edge cases
+  const event: Event | null = selectedEvent ?? (params.event ? JSON.parse(params.event as string) : null);
+
+  const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH * (9 / 16));
   const [mapReady, setMapReady] = useState(false);
 
-  // Parse the event data from params
-  const event: Event | null = params.event ? JSON.parse(params.event as string) : null;
+  useEffect(() => {
+    if (event?.image_url) {
+      Image.getSize(event.image_url, (w, h) => {
+        setImageHeight(SCREEN_WIDTH * (h / w));
+      }, () => {});
+    }
+  }, [event?.image_url]);
 
   // Delay map render until after screen transition completes
   useEffect(() => {
