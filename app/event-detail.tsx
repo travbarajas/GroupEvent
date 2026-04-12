@@ -363,7 +363,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
+    paddingTop: 8,
     backgroundColor: '#0a0a0a',
   },
   scrollContainer: {
@@ -390,9 +391,9 @@ const styles = StyleSheet.create({
 
   // Circle overlay buttons
   circleButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
