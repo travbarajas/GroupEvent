@@ -170,30 +170,29 @@ export default function EventDetailScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
+      {/* Fixed header — always visible, never scrolls */}
+      <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.circleButton}>
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
+        </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity onPress={handleEditEvent} style={styles.circleButton}>
+            <Ionicons name="create-outline" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <ScrollView style={[styles.scrollContainer, { paddingTop: insets.top + 56 }]} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
-        <View style={[styles.imageWrapper, { height: imageHeight + insets.top, paddingTop: insets.top }]}>
+        <View style={[styles.imageWrapper, { height: imageHeight }]}>
           {event.image_url ? (
             <Image source={{ uri: event.image_url }} style={styles.heroImage} resizeMode="contain" />
           ) : (
             <Image source={{ uri: 'https://picsum.photos/800/400' }} style={styles.heroImage} resizeMode="contain" />
           )}
 
-          {/* Overlay buttons on image */}
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[styles.circleButton, styles.backButtonOverlay, { top: insets.top + 8 }]}
-          >
-            <Ionicons name="arrow-back" size={22} color="#ffffff" />
-          </TouchableOpacity>
-
           {isAdmin && (
-            <TouchableOpacity
-              onPress={handleEditEvent}
-              style={[styles.circleButton, styles.editButtonOverlay, { top: insets.top + 8 }]}
-            >
-              <Ionicons name="create-outline" size={20} color="#ffffff" />
-            </TouchableOpacity>
+            <View />
           )}
         </View>
 
@@ -352,6 +351,19 @@ export default function EventDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
     backgroundColor: '#0a0a0a',
   },
   scrollContainer: {
