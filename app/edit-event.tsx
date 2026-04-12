@@ -48,6 +48,7 @@ export default function EditEventScreen() {
     tags: (event?.tags || []) as string[],
     website_url: event?.website_url || '',
     link_label: event?.link_label || '',
+    priority: String(event?.priority ?? 0),
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(event?.image_url || null);
@@ -229,6 +230,7 @@ export default function EditEventScreen() {
         image_url: imageUrl,
         website_url: formData.website_url.trim() || null,
         link_label: formData.link_label.trim() || null,
+        priority: parseInt(formData.priority) || 0,
       };
 
       await ApiService.updateGlobalEvent(updateData);
@@ -479,6 +481,19 @@ export default function EditEventScreen() {
                 thumbColor={formData.is_free ? '#ffffff' : '#9ca3af'}
               />
             </View>
+          </View>
+
+          {/* Priority */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Priority</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.priority}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, priority: text.replace(/[^0-9]/g, '') }))}
+              placeholder="0"
+              placeholderTextColor="#6b7280"
+              keyboardType="number-pad"
+            />
           </View>
 
           {/* Tags */}

@@ -173,7 +173,7 @@ export default function EventDetailScreen() {
       {/* Fixed header — always visible, never scrolls */}
       <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.circleButton}>
-          <Ionicons name="arrow-back" size={30} color="#ffffff" />
+          <Ionicons name="arrow-back" size={26} color="#ffffff" />
         </TouchableOpacity>
         {isAdmin && (
           <TouchableOpacity onPress={handleEditEvent} style={styles.circleButton}>
@@ -182,7 +182,7 @@ export default function EventDetailScreen() {
         )}
       </View>
 
-      <ScrollView style={[styles.scrollContainer, { paddingTop: insets.top + 56 }]} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.scrollContainer, { paddingTop: insets.top + 40 }]} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={[styles.imageWrapper, { height: imageHeight }]}>
           {event.image_url ? (
@@ -364,8 +364,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 4,
     paddingRight: 16,
-    paddingBottom: 16,
-    paddingTop: 12,
+    paddingBottom: 6,
+    paddingTop: 6,
     backgroundColor: '#0a0a0a',
   },
   scrollContainer: {
@@ -392,10 +392,10 @@ const styles = StyleSheet.create({
 
   // Circle overlay buttons
   circleButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

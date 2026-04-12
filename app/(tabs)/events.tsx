@@ -117,7 +117,7 @@ const CompactEventCard = ({ event, onPress, onShare }: {
     } else if (diffDays === 1) {
       dateStr = 'Tomorrow';
     } else if (diffDays > 1 && diffDays <= 7) {
-      dateStr = 'This ' + dayNames[eventDate.getDay()];
+      dateStr = dayNames[eventDate.getDay()];
     } else {
       dateStr = `${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
     }
@@ -242,7 +242,9 @@ export default function ExploreTab() {
 
     return sortedCategories.map(category => ({
       name: category,
-      events: categories[category].slice(0, 10) // Limit to 10 events per category
+      events: categories[category]
+        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+        .slice(0, 10) // Limit to 10 events per category
     }));
   };
 

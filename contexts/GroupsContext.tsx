@@ -26,6 +26,7 @@ export interface Event {
   image_url?: string;
   website_url?: string;
   link_label?: string;
+  priority?: number;
 }
 
 interface GroupsContextType {
