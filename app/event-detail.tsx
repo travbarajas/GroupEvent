@@ -173,7 +173,7 @@ export default function EventDetailScreen() {
       {/* Fixed header — always visible, never scrolls */}
       <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.circleButton}>
-          <Ionicons name="arrow-back" size={22} color="#ffffff" />
+          <Ionicons name="arrow-back" size={30} color="#ffffff" />
         </TouchableOpacity>
         {isAdmin && (
           <TouchableOpacity onPress={handleEditEvent} style={styles.circleButton}>
