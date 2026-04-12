@@ -391,9 +391,9 @@ const styles = StyleSheet.create({
 
   // Circle overlay buttons
   circleButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
