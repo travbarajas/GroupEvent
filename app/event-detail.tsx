@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -76,7 +76,7 @@ export default function EventDetailScreen() {
   const params = useLocalSearchParams();
   const { isAdmin, passwordVerified, verifyPassword } = useIsAdmin();
 
-  const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH);
+  const imageHeight = SCREEN_WIDTH * (9 / 16);
   const [mapReady, setMapReady] = useState(false);
 
   // Parse the event data from params
@@ -89,15 +89,6 @@ export default function EventDetailScreen() {
     });
     return () => task.cancel();
   }, []);
-
-  useEffect(() => {
-    const imageUrl = event?.image_url || 'https://picsum.photos/800/400';
-    Image.getSize(imageUrl, (width, height) => {
-      setImageHeight(SCREEN_WIDTH * (height / width));
-    }, () => {
-      setImageHeight(SCREEN_WIDTH);
-    });
-  }, [event?.image_url]);
 
   useEffect(() => {
     if (event) {
