@@ -362,9 +362,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 8,
+    paddingLeft: 4,
+    paddingRight: 16,
+    paddingBottom: 16,
+    paddingTop: 12,
     backgroundColor: '#0a0a0a',
   },
   scrollContainer: {
