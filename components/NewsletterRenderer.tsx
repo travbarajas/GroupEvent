@@ -14,7 +14,7 @@ interface NewsletterRendererProps {
 
 export default function NewsletterRenderer({ newsletter, scrollViewRef: externalScrollViewRef }: NewsletterRendererProps) {
   const router = useRouter();
-  const { savedEvents, toggleSaveEvent, isEventSaved } = useGroups();
+  const { savedEvents, toggleSaveEvent, isEventSaved, setSelectedEvent } = useGroups();
   const [eventDetails, setEventDetails] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('');
   const internalScrollViewRef = useRef<ScrollView>(null);
@@ -138,10 +138,8 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
 
     ApiService.trackEvent('click', 'newsletter', newsletter.id, { target_name: newsletter.title });
 
-    router.push({
-      pathname: '/event-detail',
-      params: { event: JSON.stringify(eventForDetail), source: 'newsletter' }
-    });
+    setSelectedEvent(eventForDetail as any);
+    router.push({ pathname: '/event-detail', params: { source: 'newsletter' } });
   };
 
   const handleEventPress = (event: NewsletterEvent) => {

@@ -71,7 +71,7 @@ const formatEventDate = (dateString: string): string => {
 };
 
 export default function EventDetailScreen() {
-  const { toggleSaveEvent, isEventSaved, selectedEvent } = useGroups();
+  const { toggleSaveEvent, isEventSaved, selectedEvent, setSelectedEvent } = useGroups();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { isAdmin, passwordVerified, verifyPassword } = useIsAdmin();
@@ -91,11 +91,15 @@ export default function EventDetailScreen() {
   }, [event?.image_url]);
 
   // Delay map render until after screen transition completes
+  // Clear selectedEvent on unmount so the tab modal overlay doesn't linger
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       setMapReady(true);
     });
-    return () => task.cancel();
+    return () => {
+      task.cancel();
+      setSelectedEvent(null);
+    };
   }, []);
 
   useEffect(() => {
