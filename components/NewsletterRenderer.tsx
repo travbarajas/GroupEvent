@@ -922,12 +922,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
-    marginTop: 0,
   },
   tabBarContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    marginBottom: 16,
   },
   tab: {
     paddingVertical: 12,

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiService } from '@/services/api';
 
@@ -105,8 +106,10 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
     }
   };
 
+  const hasLoadedOnce = useRef(false);
+
   const refreshExploreEvents = async () => {
-    setExploreEventsLoading(true);
+    if (!hasLoadedOnce.current) setExploreEventsLoading(true);
     try {
       const [{ events: apiEvents }, tagResult] = await Promise.all([
         ApiService.getAllEvents(),
@@ -132,6 +135,7 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
           venue_name: apiEvent.venue_name || undefined,
           website_url: apiEvent.website_url || undefined,
           link_label: apiEvent.link_label || undefined,
+          priority: apiEvent.priority != null ? Number(apiEvent.priority) : 0,
         }));
 
         const now = new Date();
@@ -149,11 +153,26 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
         setExploreEvents([]);
       }
     } catch {
-      setExploreEvents([]);
+      // On error, leave existing events visible
     } finally {
+      hasLoadedOnce.current = true;
       setExploreEventsLoading(false);
     }
   };
+
+  // Refetch events when app comes back to foreground (defined after refreshExploreEvents)
+  const appState = useRef(AppState.currentState);
+  const refreshRef = useRef(refreshExploreEvents);
+  refreshRef.current = refreshExploreEvents;
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        refreshRef.current();
+      }
+      appState.current = nextState;
+    });
+    return () => subscription.remove();
+  }, []);
 
   const loadGroups = async () => {
     try {

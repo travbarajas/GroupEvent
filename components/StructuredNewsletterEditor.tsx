@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -328,8 +329,24 @@ export default function StructuredNewsletterEditor({
         <View style={styles.document}>
           {/* Header Section */}
           <View style={styles.headerSection}>
-            <Text style={styles.titleInput}>{title || 'Newsletter Title'}</Text>
-            <Text style={styles.subtitleInput}>{subtitle || 'Subtitle'}</Text>
+            <TextInput
+              style={styles.titleInput}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Newsletter Title"
+              placeholderTextColor="#9ca3af"
+              textAlign="center"
+              returnKeyType="next"
+            />
+            <TextInput
+              style={styles.subtitleInput}
+              value={subtitle}
+              onChangeText={setSubtitle}
+              placeholder="Subtitle"
+              placeholderTextColor="#9ca3af"
+              textAlign="center"
+              returnKeyType="done"
+            />
             <Text style={styles.dateText}>{date}</Text>
           </View>
 

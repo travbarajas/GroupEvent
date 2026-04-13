@@ -20,8 +20,8 @@ import GroupSelectionModal from '../../components/GroupSelectionModal';
 const { width } = Dimensions.get('window');
 
 // Compact Event Card for horizontal scrolling
-const CompactEventCard = ({ event, onPress, onShare }: { 
-  event: Event; 
+const CompactEventCard = ({ event, onPress, onShare }: {
+  event: Event;
   onPress: () => void;
   /* onAddToGroup: (event: Event) => void; // Hidden - preserving for future use */
   onShare: (event: Event) => void;
@@ -138,14 +138,13 @@ const CompactEventCard = ({ event, onPress, onShare }: {
           </View>
         </View>
       )}
-      
+
       {/* Caption */}
       <View style={styles.compactEventHeader}>
         <View style={styles.compactEventTopRow}>
           <Text style={styles.compactEventTime}>{formatDateTime(event.date, event.time)}</Text>
-          <Text style={styles.compactEventPrice}>{formatPrice(event.price)}</Text>
         </View>
-        <Text style={styles.compactEventTitle} numberOfLines={1}>{event.name}</Text>
+        <Text style={styles.compactEventTitle} numberOfLines={2}>{event.name}</Text>
         <Text style={styles.compactEventLocation} numberOfLines={1}>
           {event.venue_name ? `${event.venue_name} - ${event.location || ''}` : event.location || ''}
         </Text>
@@ -162,6 +161,27 @@ const CompactEventCard = ({ event, onPress, onShare }: {
   );
 };
 
+const CategoryRow = ({ events, onPress, onShare }: {
+  events: Event[];
+  onPress: (event: Event) => void;
+  onShare: (event: Event) => void;
+}) => (
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    style={styles.categoryScrollView}
+    contentContainerStyle={styles.categoryScrollContent}
+  >
+    {events.map((event) => (
+      <CompactEventCard
+        key={event.id}
+        event={event}
+        onPress={() => onPress(event)}
+        onShare={onShare}
+      />
+    ))}
+  </ScrollView>
+);
 
 export default function ExploreTab() {
   const insets = useSafeAreaInsets();
@@ -298,22 +318,11 @@ export default function ExploreTab() {
                   </Text>
                 </View>
                 
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.categoryScrollView}
-                  contentContainerStyle={styles.categoryScrollContent}
-                >
-                  {category.events.map((event) => (
-                    <CompactEventCard
-                      key={event.id}
-                      event={event}
-                      onPress={() => handleEventPress(event)}
-                      /* onAddToGroup={handleAddToGroup} // Hidden - preserving for future use */
-                      onShare={handleShareEvent}
-                    />
-                  ))}
-                </ScrollView>
+                <CategoryRow
+                  events={category.events}
+                  onPress={handleEventPress}
+                  onShare={handleShareEvent}
+                />
               </View>
             ))}
             
@@ -394,7 +403,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     marginBottom: 12,
   },
   categoryTitle: {
@@ -407,7 +416,7 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
   categoryScrollView: {
-    paddingLeft: 20,
+    paddingLeft: 10,
   },
   categoryScrollContent: {
     paddingRight: 20,
@@ -419,7 +428,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#2a2a2a',
-    width: width * 0.5,
+    width: (width - 34) * 3 / 7,
     overflow: 'hidden',
   },
   compactEventImage: {
@@ -439,13 +448,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   compactEventImageText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6b7280',
-    marginTop: 8,
+    marginTop: 6,
     textAlign: 'center',
   },
   compactEventHeader: {
-    padding: 12,
+    padding: 10,
     backgroundColor: '#1a1a1a',
   },
   compactEventTopRow: {
@@ -455,12 +464,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   compactEventTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9ca3af',
     fontWeight: '500',
   },
   compactEventPrice: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#4ade80',
     fontWeight: '600',
   },
@@ -468,10 +477,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '700',
-    marginBottom: 2,
+    lineHeight: 22,
   },
   compactEventLocation: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#9ca3af',
     fontWeight: '400',
     marginBottom: 6,
