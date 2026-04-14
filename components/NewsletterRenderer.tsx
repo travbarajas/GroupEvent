@@ -125,7 +125,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
       description: event.description,
       date: event.displayDate || event.date,
       time: event.time || '',
-      price: event.isFree ? 'Free' : (event.price ? `$${event.price}` : 'TBD'),
+      price: event.isFree ? 'Free' : (event.price != null && event.price !== '' ? String(event.price) : 'TBD'),
       distance: event.fullLocation || event.location || '',
       type: event.category || 'general',
       tags: event.tags || [],
