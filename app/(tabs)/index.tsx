@@ -91,7 +91,7 @@ export default function NewsletterScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>The Roseville Newsletter</Text>
+        <Text style={styles.headerTitle}>Roseville Now</Text>
         <View style={styles.headerButtons}>
           {isAdmin && (
             <TouchableOpacity

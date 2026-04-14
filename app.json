@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "The Roseville Newsletter",
-    "slug": "GroupEvent",
+    "name": "Roseville Now",
+    "slug": "roseville-now",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -87,7 +87,7 @@
       [
         "expo-image-picker",
         {
-          "photoLibraryUsageDescription": "The Roseville Newsletter uses your photo library to add images to events."
+          "photoLibraryUsageDescription": "Roseville Now uses your photo library to add images to events."
         }
       ]
     ],
