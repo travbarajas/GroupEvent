@@ -51,6 +51,7 @@ const formatDateTime = (date: string, time: string) => {
 
   let dateStr: string;
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   if (diffDays === 0) {
     dateStr = 'Today';
@@ -59,7 +60,7 @@ const formatDateTime = (date: string, time: string) => {
   } else if (diffDays > 1 && diffDays <= 7) {
     dateStr = 'This ' + dayNames[eventDate.getDay()];
   } else {
-    dateStr = `${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
+    dateStr = `${monthNames[eventDate.getMonth()]} ${eventDate.getDate()}`;
   }
 
   return timePart ? `${dateStr} - ${timePart}` : dateStr;

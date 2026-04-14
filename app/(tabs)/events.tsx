@@ -111,6 +111,7 @@ const CompactEventCard = ({ event, onPress, onShare }: {
 
     let dateStr: string;
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     if (diffDays === 0) {
       dateStr = 'Today';
@@ -119,7 +120,7 @@ const CompactEventCard = ({ event, onPress, onShare }: {
     } else if (diffDays > 1 && diffDays <= 7) {
       dateStr = dayNames[eventDate.getDay()];
     } else {
-      dateStr = `${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
+      dateStr = `${monthNames[eventDate.getMonth()]} ${eventDate.getDate()}`;
     }
 
     return timePart ? `${dateStr} - ${timePart}` : dateStr;

@@ -51,10 +51,8 @@ const formatEventDate = (dateString: string): string => {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const month = (eventDate.getMonth() + 1).toString().padStart(2, '0');
-  const day = eventDate.getDate().toString().padStart(2, '0');
-  const year = eventDate.getFullYear().toString().slice(-2);
-  const formattedDate = `${month}/${day}/${year}`;
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const formattedDate = `${monthNames[eventDate.getMonth()]} ${eventDate.getDate()}`;
 
   // If within 7 days (including today), show just the day name
   if (diffDays === 0) {

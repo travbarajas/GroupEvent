@@ -140,14 +140,13 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
 
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const cutoff = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
         setExploreEvents(formatted.filter(event => {
           if (!event.date || event.date === 'TBD') return true;
           const datePart = event.date.split(' to ')[0];
           const eventDate = new Date(datePart + 'T00:00:00');
           if (isNaN(eventDate.getTime())) return true;
-          return eventDate >= today && eventDate <= cutoff;
+          return eventDate >= today;
         }));
       } else {
         setExploreEvents([]);

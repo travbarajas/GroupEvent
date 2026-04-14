@@ -40,7 +40,7 @@ export default function TagOrderEditor({ visible, onClose }: TagOrderEditorProps
   }, [visible]);
 
   const loadTags = async () => {
-    setIsLoading(true);
+    if (tags.length === 0) setIsLoading(true);
     try {
       const { tags: serverTags } = await ApiService.getTagOrder();
       setTags(serverTags);
