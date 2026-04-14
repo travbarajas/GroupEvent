@@ -126,7 +126,7 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
           description: apiEvent.description || '',
           short_description: apiEvent.short_description || '',
           time: apiEvent.time || 'TBD',
-          price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
+          price: apiEvent.is_free ? 'Free' : (apiEvent.price != null ? String(apiEvent.price) : ''),
           distance: '',
           type: apiEvent.category || 'music',
           tags: apiEvent.tags || [],

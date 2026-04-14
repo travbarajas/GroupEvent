@@ -51,7 +51,7 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
         short_description: e.short_description || '',
         date: e.date || '',
         time: e.time || '',
-        price: e.is_free ? 'Free' : (e.price ? `$${e.price}` : ''),
+        price: e.is_free ? 'Free' : (e.price != null ? String(e.price) : ''),
         distance: e.location || '',
         type: e.category || 'general',
         tags: e.tags || [],
