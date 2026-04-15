@@ -258,7 +258,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
         time: formData.time.trim() || null,
         location: formData.location.trim() || null,
         venue_name: formData.venue_name.trim() || null,
-        price: formData.is_free ? 0 : parseFloat(formData.price) || 0,
+        price: formData.is_free ? '0' : (formData.price.trim() || '0'),
         currency: formData.currency.trim() || 'USD',
         is_free: formData.is_free,
         category: formData.category || null,

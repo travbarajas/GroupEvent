@@ -183,7 +183,7 @@ export default function EventsSearchScreen() {
           description: apiEvent.description || '',
           short_description: apiEvent.short_description || '',
           time: apiEvent.time || 'TBD',
-          price: apiEvent.is_free ? 'Free' : `$${apiEvent.price} ${apiEvent.currency}`,
+          price: apiEvent.is_free ? 'Free' : (apiEvent.price != null ? String(apiEvent.price) : ''),
           distance: '5 miles away',
           type: (apiEvent.category as Event['type']) || 'music',
           tags: apiEvent.tags || [],
