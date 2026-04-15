@@ -46,6 +46,11 @@ module.exports = async function handler(req, res) {
         await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0`;
       } catch (e) { /* column may already exist */ }
 
+      // Ensure price column is TEXT to support ranges like "$100-$200"
+      try {
+        await sql`ALTER TABLE events ALTER COLUMN price TYPE TEXT USING price::TEXT`;
+      } catch (e) { /* already TEXT or migration not needed */ }
+
       const events = await sql`
         SELECT
           id,
@@ -176,7 +181,7 @@ module.exports = async function handler(req, res) {
         )
         VALUES (
           ${eventId}, ${name}, ${description || null}, ${short_description || null}, ${cleanDate}, ${cleanTime},
-          ${location || null}, ${venue_name || null}, ${price || 0}, ${currency}, ${is_free},
+          ${location || null}, ${venue_name || null}, ${price || null}, ${currency}, ${is_free},
           ${category || null}, ${cleanTags}, ${max_attendees || null}, ${min_attendees || null},
           ${attendance_required}, ${image_url || null}, ${website_url || null}, ${link_label || null}, ${priority}
         )
@@ -237,7 +242,7 @@ module.exports = async function handler(req, res) {
           time = ${cleanTime},
           location = ${location || null},
           venue_name = ${venue_name || null},
-          price = ${price || 0},
+          price = ${price || null},
           currency = ${currency},
           is_free = ${is_free},
           category = ${category || null},
