@@ -8,6 +8,7 @@ import {
   Modal,
   FlatList,
   Platform,
+  Linking,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,6 +58,11 @@ export default function NewsletterScreen() {
   }, [currentNewsletter, latestNewsletter?.id]);
 
   const handleEnableNotifications = async () => {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    if (existingStatus === 'denied') {
+      Linking.openSettings();
+      return;
+    }
     const { status } = await Notifications.requestPermissionsAsync();
     if (status === 'granted') {
       setShowNotifBanner(false);
@@ -111,6 +117,9 @@ export default function NewsletterScreen() {
           <Text style={styles.notifBannerText}>Turn on notifications to get weekly updates about new events</Text>
           <TouchableOpacity style={styles.notifBannerButton} onPress={handleEnableNotifications}>
             <Text style={styles.notifBannerButtonText}>Enable</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowNotifBanner(false)} style={styles.notifBannerClose}>
+            <Ionicons name="close" size={16} color="#d97706" />
           </TouchableOpacity>
         </View>
       )}
@@ -184,6 +193,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
+  },
+  notifBannerClose: {
+    padding: 4,
   },
   notifBannerButtonText: {
     fontSize: 13,
