@@ -89,6 +89,48 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
     }
   };
 
+  const handleDeletePast = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const pastEvents = events.filter(e => {
+      if (!e.date) return false;
+      const endDateStr = e.date.includes(' to ') ? e.date.split(' to ')[1] : e.date;
+      const [y, m, d] = endDateStr.split('-').map(Number);
+      if (!y || !m || !d) return false;
+      return new Date(y, m - 1, d) < today;
+    });
+
+    if (pastEvents.length === 0) {
+      if (Platform.OS === 'web') {
+        window.alert('No past events to delete.');
+      } else {
+        Alert.alert('No Past Events', 'There are no past events to delete.');
+      }
+      return;
+    }
+
+    const doDelete = async () => {
+      try {
+        await Promise.all(pastEvents.map(e => ApiService.deleteGlobalEvent(e.id)));
+        await ApiService.clearCache('explore_events_cache');
+        await ApiService.clearCache('events_cache');
+        setEvents(prev => prev.filter(e => !pastEvents.find(p => p.id === e.id)));
+      } catch (error) {
+        console.error('Failed to delete past events:', error);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete ${pastEvents.length} past event(s)?`)) doDelete();
+    } else {
+      Alert.alert('Delete Past Events', `Delete ${pastEvents.length} past event(s)?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
+  };
+
   const handleEdit = (event: Event) => {
     onClose();
     setTimeout(() => {
@@ -163,9 +205,14 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Events ({events.length})</Text>
-          <TouchableOpacity onPress={() => setShowCreateModal(true)} style={[styles.headerSideButton, { alignItems: 'flex-end' }]}>
-            <Ionicons name="add-circle-outline" size={26} color="#60a5fa" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'flex-end', width: 70 }}>
+            <TouchableOpacity onPress={handleDeletePast}>
+              <Ionicons name="trash-outline" size={22} color="#ef4444" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowCreateModal(true)}>
+              <Ionicons name="add-circle-outline" size={26} color="#60a5fa" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search */}
