@@ -255,15 +255,6 @@ export default function EventsSearchScreen() {
               })()}
             </Text>
           </View>
-          <View style={styles.pastEventsToggle}>
-            <Text style={styles.pastEventsToggleText}>Past events</Text>
-            <Switch
-              value={showPastEvents}
-              onValueChange={setShowPastEvents}
-              trackColor={{ false: '#374151', true: '#93c5fd' }}
-              thumbColor={showPastEvents ? '#60a5fa' : '#9ca3af'}
-            />
-          </View>
           <View style={styles.topBarActions}>
             {isAdmin && (
               <TouchableOpacity style={styles.adminButton} onPress={() => setShowAdminModal(true)}>
