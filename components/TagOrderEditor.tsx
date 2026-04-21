@@ -88,6 +88,7 @@ export default function TagOrderEditor({ visible, onClose }: TagOrderEditorProps
 
     try {
       await ApiService.addTag(trimmed);
+      await ApiService.clearCache('tag_order_cache');
       setNewTagName('');
       await loadTags();
     } catch (error) {
@@ -99,6 +100,7 @@ export default function TagOrderEditor({ visible, onClose }: TagOrderEditorProps
     const doDelete = async () => {
       try {
         await ApiService.deleteTag(tagName);
+        await ApiService.clearCache('tag_order_cache');
         await loadTags();
       } catch (error) {
         console.error('Failed to delete tag:', error);
@@ -121,6 +123,7 @@ export default function TagOrderEditor({ visible, onClose }: TagOrderEditorProps
     setIsSaving(true);
     try {
       await ApiService.saveTagOrder(tags);
+      await ApiService.clearCache('tag_order_cache');
       setHasChanges(false);
       const msg = 'Tag order saved';
       if (Platform.OS === 'web') {

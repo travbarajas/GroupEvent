@@ -595,6 +595,11 @@ export class ApiService {
     await this.request('/admin/cache-version', { method: 'POST' });
   }
 
+  static async clearCache(cacheKey: string): Promise<void> {
+    await AsyncStorage.removeItem(cacheKey);
+    await AsyncStorage.removeItem(`${cacheKey}_meta`);
+  }
+
   private static async getWithCache<T>(
     cacheKey: string,
     fetcher: () => Promise<T>,
