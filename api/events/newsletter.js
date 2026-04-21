@@ -29,23 +29,6 @@ module.exports = async function handler(req, res) {
 
     console.log(`📅 Fetching global events for newsletter selection`);
 
-    // Get all global events (business/venue events) that appear on the main events tab
-    // Note: date is stored as VARCHAR, so we get all events and can filter client-side if needed
-    // Ensure short_description column exists
-    try {
-      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS short_description TEXT`;
-    } catch (e) { /* column may already exist */ }
-
-    // Ensure website_url column exists
-    try {
-      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS website_url TEXT`;
-    } catch (e) { /* column may already exist */ }
-
-    // Ensure link_label column exists
-    try {
-      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS link_label TEXT`;
-    } catch (e) { /* column may already exist */ }
-
     const allEvents = await sql`
       SELECT
         id,

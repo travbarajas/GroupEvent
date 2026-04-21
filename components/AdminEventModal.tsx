@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { ApiService } from '@/services/api';
+import { supabase } from '@/lib/supabase';
 import DateRangePicker from './DateRangePicker';
 
 interface AdminEventModalProps {
@@ -244,10 +245,22 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     try {
       let imageUrl = null;
 
-      // For now, use the local image URI directly
-      // TODO: Implement proper image upload to a cloud service
       if (selectedImage) {
-        imageUrl = selectedImage;
+        try {
+          const filename = `event-${Date.now()}.jpg`;
+          const blob = await fetch(selectedImage).then(r => r.blob());
+          const { error } = await supabase.storage
+            .from('event-images')
+            .upload(filename, blob, { contentType: 'image/jpeg', upsert: true });
+          if (error) throw error;
+          const { data: { publicUrl } } = supabase.storage
+            .from('event-images')
+            .getPublicUrl(filename);
+          imageUrl = publicUrl;
+        } catch (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          Alert.alert('Image Upload Failed', 'Event will be saved without the image.');
+        }
       }
 
       const eventData = {
