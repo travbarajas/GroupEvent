@@ -79,7 +79,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
           : newsletter.blocks;
 
         blocks.forEach((block: any) => {
-          if (block.type?.startsWith('heading-') && block.content) {
+          if (block.type === 'heading-1' && block.content) {
             tabs.push({
               id: block.id,
               title: block.content,
@@ -635,17 +635,13 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
           <Text style={styles.subtitle}>{newsletter.subtitle}</Text>
         )}
         
-        <View style={styles.metaRow}>
-          <Text style={styles.date}>{newsletter.date}</Text>
-          {newsletter.readOnlineUrl && (
-            <>
-              <Text style={styles.separator}>   |   </Text>
-              <TouchableOpacity onPress={handleReadOnlinePress}>
-                <Text style={styles.readOnline}>Read Online</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+        {newsletter.readOnlineUrl && (
+          <View style={styles.metaRow}>
+            <TouchableOpacity onPress={handleReadOnlinePress}>
+              <Text style={styles.readOnline}>Read Online</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Tab Navigation for Headings */}
@@ -790,14 +786,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff',
     marginTop: 24,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   heading2: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '600',
     color: '#ffffff',
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 6,
   },
   heading3: {
     fontSize: 24,
@@ -842,7 +838,8 @@ const styles = StyleSheet.create({
     width: '60%',
   },
   eventListContainer: {
-    marginVertical: 16,
+    marginTop: 8,
+    marginBottom: 16,
   },
   eventListTitle: {
     fontSize: 28,
@@ -854,7 +851,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#ffffff',
-    marginTop: 24,
+    marginTop: 0,
     marginBottom: 20,
     textAlign: 'left',
   },
@@ -868,7 +865,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   eventItem: {
-    marginBottom: 16,
+    marginBottom: 8,
     paddingLeft: 0,
   },
   eventItemRow: {

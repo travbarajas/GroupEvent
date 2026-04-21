@@ -21,36 +21,6 @@ module.exports = async function handler(req, res) {
     const debug = req.query.debug === 'true';
 
     try {
-      // Ensure image_url column exists
-      try {
-        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS image_url TEXT`;
-      } catch (e) { /* column may already exist */ }
-
-      // Ensure short_description column exists
-      try {
-        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS short_description TEXT`;
-      } catch (e) { /* column may already exist */ }
-
-      // Ensure website_url column exists
-      try {
-        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS website_url TEXT`;
-      } catch (e) { /* column may already exist */ }
-
-      // Ensure link_label column exists
-      try {
-        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS link_label TEXT`;
-      } catch (e) { /* column may already exist */ }
-
-      // Ensure priority column exists
-      try {
-        await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0`;
-      } catch (e) { /* column may already exist */ }
-
-      // Ensure price column is TEXT to support ranges like "$100-$200"
-      try {
-        await sql`ALTER TABLE events ALTER COLUMN price TYPE TEXT USING price::TEXT`;
-      } catch (e) { /* already TEXT or migration not needed */ }
-
       const events = await sql`
         SELECT
           id,

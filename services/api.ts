@@ -223,9 +223,11 @@ export class ApiService {
     });
   }
 
-  // Global Events System (unused - kept for potential future use)
+  // Global Events System
   static async getAllEvents(): Promise<{ events: Event[] }> {
-    return this.request('/events');
+    return this.getWithCache('explore_events_cache', () =>
+      this.request('/events'), this.isNewsletterTime()
+    );
   }
 
   static async createGlobalEvent(eventData: Partial<Event>): Promise<Event> {
@@ -577,10 +579,68 @@ export class ApiService {
     });
   }
 
+  // Cache helpers
+  private static CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+  private static async getCacheVersion(): Promise<string> {
+    try {
+      const result = await this.request<{ version: string }>('/admin/cache-version');
+      return result.version;
+    } catch {
+      return '0';
+    }
+  }
+
+  static async bumpCacheVersion(): Promise<void> {
+    await this.request('/admin/cache-version', { method: 'POST' });
+  }
+
+  private static async getWithCache<T>(
+    cacheKey: string,
+    fetcher: () => Promise<T>,
+    skipTTL = false
+  ): Promise<T> {
+    const metaKey = `${cacheKey}_meta`;
+    try {
+      const metaRaw = await AsyncStorage.getItem(metaKey);
+      const meta = metaRaw ? JSON.parse(metaRaw) : null;
+      const now = Date.now();
+
+      // Within TTL — skip even the version check (unless skipTTL is set)
+      if (!skipTTL && meta && now - meta.timestamp < this.CACHE_TTL_MS) {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+      }
+
+      // Outside TTL — check version from server
+      const serverVersion = await this.getCacheVersion();
+      if (meta && meta.version === serverVersion) {
+        // Version unchanged — refresh timestamp and return cached data
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          await AsyncStorage.setItem(metaKey, JSON.stringify({ version: serverVersion, timestamp: now }));
+          return JSON.parse(cached);
+        }
+      }
+
+      // Cache miss or version changed — fetch fresh
+      const fresh = await fetcher();
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(fresh));
+      await AsyncStorage.setItem(metaKey, JSON.stringify({ version: serverVersion, timestamp: now }));
+      return fresh;
+    } catch {
+      // On any cache error, fall through to fresh fetch
+      return fetcher();
+    }
+  }
+
   // Newsletter endpoints
   static async getAllNewsletters(): Promise<{ newsletters: any[] }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/newsletters?device_id=${device_id}`);
+    // skipTTL=true: always check version so push notification recipients get fresh content immediately
+    return this.getWithCache('newsletters_cache', () =>
+      this.request(`/newsletters?device_id=${device_id}`), true
+    );
   }
 
   static async createNewsletter(newsletterData: {
@@ -647,7 +707,15 @@ export class ApiService {
   // Newsletter events - get global events for newsletter selection
   static async getNewsletterEvents(): Promise<{ events: any[]; total: number }> {
     const device_id = await DeviceIdManager.getDeviceId();
-    return this.request(`/events/newsletter?device_id=${device_id}`);
+    return this.getWithCache('events_cache', () =>
+      this.request(`/events/newsletter?device_id=${device_id}`), this.isNewsletterTime()
+    );
+  }
+
+  // Returns true on Wednesdays between 10-11am — skip TTL so fresh events load with the newsletter
+  private static isNewsletterTime(): boolean {
+    const now = new Date();
+    return now.getDay() === 3 && now.getHours() === 10;
   }
 
   // Health check
@@ -697,7 +765,7 @@ export class ApiService {
 
   // Tag ordering
   static async getTagOrder(): Promise<{ tags: Array<{ tag_name: string; sort_order: number }> }> {
-    return this.request('/tags');
+    return this.getWithCache('tag_order_cache', () => this.request('/tags'));
   }
 
   static async saveTagOrder(tags: Array<{ tag_name: string; sort_order: number }>): Promise<{ success: boolean }> {

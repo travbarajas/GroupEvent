@@ -90,6 +90,19 @@ module.exports = async function handler(req, res) {
 
     console.log('✅ Newsletter published:', id);
 
+    // Bump cache version so all clients fetch fresh data on next open
+    try {
+      const newVersion = Date.now().toString();
+      await sql`
+        INSERT INTO app_config (key, value, updated_at)
+        VALUES ('cache_version', ${newVersion}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = ${newVersion}, updated_at = NOW()
+      `;
+      console.log('✅ Cache version bumped:', newVersion);
+    } catch (cacheError) {
+      console.error('⚠️ Failed to bump cache version (non-fatal):', cacheError);
+    }
+
     // TODO: Send push notifications here
     // You would integrate with your push notification service
     console.log('📱 Push notifications would be sent here for newsletter:', newsletter.title);

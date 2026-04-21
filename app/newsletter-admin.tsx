@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useNewsletter } from '@/contexts/NewsletterContext';
 import { Newsletter } from '@/types/newsletter';
+import { ApiService } from '@/services/api';
 import GoogleDocsNewsletterEditor from '@/components/GoogleDocsNewsletterEditor';
 import BlockBasedNewsletterEditor from '@/components/BlockBasedNewsletterEditor';
 import StructuredNewsletterEditor from '@/components/StructuredNewsletterEditor';
@@ -175,6 +176,23 @@ export default function NewsletterAdminScreen() {
     setEditingNewsletter(null);
   };
 
+  const handleRefreshCache = async () => {
+    try {
+      await ApiService.bumpCacheVersion();
+      if (Platform.OS === 'web') {
+        window.alert('Cache refreshed. All users will get fresh data on next open.');
+      } else {
+        Alert.alert('Cache Refreshed', 'All users will get fresh data on next open.');
+      }
+    } catch (error) {
+      if (Platform.OS === 'web') {
+        window.alert('Failed to refresh cache');
+      } else {
+        Alert.alert('Error', 'Failed to refresh cache');
+      }
+    }
+  };
+
   const handlePreviewNewsletter = (newsletter: Newsletter) => {
     setPreviewNewsletter(newsletter);
     setShowPreview(true);
@@ -274,6 +292,12 @@ export default function NewsletterAdminScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Newsletter Admin</Text>
         <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={handleRefreshCache}
+          >
+            <Ionicons name="refresh-outline" size={24} color="#f97316" />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => setShowEventManager(true)}
