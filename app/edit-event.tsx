@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { ApiService } from '@/services/api';
+import { supabase } from '@/lib/supabase';
 import { Event } from '@/contexts/GroupsContext';
 import DateRangePicker from '@/components/DateRangePicker';
 
@@ -212,6 +213,26 @@ export default function EditEventScreen() {
     setIsSubmitting(true);
     try {
       let imageUrl = selectedImage;
+
+      // If the image is a local URI or base64, upload to Supabase Storage
+      if (selectedImage && !selectedImage.startsWith('http')) {
+        try {
+          const filename = `event-${Date.now()}.jpg`;
+          const blob = await fetch(selectedImage).then(r => r.blob());
+          const { error } = await supabase.storage
+            .from('event-images')
+            .upload(filename, blob, { contentType: 'image/jpeg', upsert: true });
+          if (error) throw error;
+          const { data: { publicUrl } } = supabase.storage
+            .from('event-images')
+            .getPublicUrl(filename);
+          imageUrl = publicUrl;
+        } catch (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          Alert.alert('Image Upload Failed', 'Event will be saved without the image.');
+          imageUrl = null;
+        }
+      }
 
       const updateData = {
         id: event.id,
