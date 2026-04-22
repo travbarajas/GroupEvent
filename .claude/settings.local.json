@@ -43,7 +43,16 @@
       "Bash(npx vercel env:*)",
       "Bash(npm audit:*)",
       "Bash(git -C \"C:\\Users\\zappi\\GroupEvent\" check-ignore .env.development.local)",
-      "Bash(dir \"C:\\\\Users\\\\zappi\\\\GroupEvent\\\\api\" /b)"
+      "Bash(dir \"C:\\\\Users\\\\zappi\\\\GroupEvent\\\\api\" /b)",
+      "Bash(npx vercel:*)",
+      "Bash(xargs -I {} bash -c \"echo ''=== {} ==='' && head -50 {}\")",
+      "Bash(npx eas:*)",
+      "Bash(cd:*)",
+      "Bash(python3:*)",
+      "Bash(npx expo:*)",
+      "Bash(eas:*)",
+      "Bash(npm list:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

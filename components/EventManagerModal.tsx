@@ -71,6 +71,7 @@ export default function EventManagerModal({ visible, onClose }: EventManagerModa
     const doDelete = async () => {
       try {
         await ApiService.deleteGlobalEvent(event.id);
+        await ApiService.clearCache('explore_events_cache');
         setEvents(prev => prev.filter(e => e.id !== event.id));
       } catch (error) {
         console.error('Failed to delete event:', error);

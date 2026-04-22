@@ -706,7 +706,9 @@ export class ApiService {
 
   // Events endpoints
   static async getAllEvents(): Promise<{ events: any[]; total: number }> {
-    return this.request('/events');
+    return this.getWithCache('explore_events_cache', () =>
+      this.request('/events'), this.isNewsletterTime()
+    );
   }
 
   // Newsletter events - get global events for newsletter selection

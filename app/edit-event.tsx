@@ -255,6 +255,7 @@ export default function EditEventScreen() {
       };
 
       await ApiService.updateGlobalEvent(updateData);
+      await ApiService.clearCache('explore_events_cache');
 
       // Show success message
       setShowSuccess(true);

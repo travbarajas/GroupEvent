@@ -286,6 +286,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
       };
 
       await ApiService.createGlobalEvent(eventData);
+      await ApiService.clearCache('explore_events_cache');
 
       // Show success message
       setLastCreatedEvent(formData.name.trim());

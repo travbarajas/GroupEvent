@@ -179,6 +179,7 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
         startDate: '',
         endDate: '',
       });
+      await ApiService.clearCache('newsletters_cache');
 
       const newNewsletter: Newsletter = {
         id: serverNewsletter.id,
@@ -236,6 +237,8 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
 
     try {
       await ApiService.updateNewsletter(id, updates);
+      await ApiService.clearCache('newsletters_cache');
+      await ApiService.bumpCacheVersion();
     } catch (error) {
       console.error('Failed to update newsletter on server, updating locally:', error);
     }
@@ -280,6 +283,8 @@ export const NewsletterProvider: React.FC<NewsletterProviderProps> = ({ children
 
     try {
       await ApiService.deleteNewsletter(id);
+      await ApiService.clearCache('newsletters_cache');
+      await ApiService.bumpCacheVersion();
     } catch (error) {
       console.error('Failed to delete newsletter on server:', error);
     }
