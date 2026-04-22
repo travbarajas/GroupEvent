@@ -6,6 +6,17 @@ if (!process.env.DATABASE_URL) {
 
 const sql = neon(process.env.DATABASE_URL);
 
+async function bumpCacheVersion() {
+  try {
+    const newVersion = Date.now().toString();
+    await sql`
+      INSERT INTO app_config (key, value, updated_at)
+      VALUES ('cache_version', ${newVersion}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${newVersion}, updated_at = NOW()
+    `;
+  } catch (e) { /* non-critical */ }
+}
+
 module.exports = async function handler(req, res) {
   // Enable CORS
   const _origin = req.headers.origin || ''; res.setHeader('Access-Control-Allow-Origin', (_origin === 'https://group-event.vercel.app' || _origin.endsWith('.exp.direct') || _origin === 'http://localhost:8081' || _origin === 'http://localhost:19006') ? _origin : 'https://group-event.vercel.app');
@@ -158,6 +169,7 @@ module.exports = async function handler(req, res) {
         RETURNING *
       `;
       
+      await bumpCacheVersion();
       return res.status(201).json(newEvent);
 
     } catch (error) {
@@ -230,6 +242,7 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ error: 'Event not found' });
       }
 
+      await bumpCacheVersion();
       return res.status(200).json(updatedEvent);
 
     } catch (error) {
@@ -247,6 +260,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'event_id is required' });
       }
       const result = await sql`DELETE FROM events WHERE id = ${event_id}`;
+      await bumpCacheVersion();
       return res.status(200).json({ success: true, message: `Deleted event ${event_id}` });
     } catch (error) {
       console.error('Error deleting event:', error);
