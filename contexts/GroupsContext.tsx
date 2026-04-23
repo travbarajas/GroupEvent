@@ -81,7 +81,7 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   // Load saved events from AsyncStorage on app start
   useEffect(() => {
     loadSavedEvents();
-    refreshExploreEvents();
+    refreshExploreEvents(true); // cold start: always version check
   }, []);
 
   const loadSavedEvents = async () => {
@@ -108,11 +108,11 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
 
   const hasLoadedOnce = useRef(false);
 
-  const refreshExploreEvents = async () => {
+  const refreshExploreEvents = async (skipTTL = false) => {
     if (!hasLoadedOnce.current) setExploreEventsLoading(true);
     try {
       const [{ events: apiEvents }, tagResult] = await Promise.all([
-        ApiService.getAllEvents(),
+        ApiService.getAllEvents(skipTTL),
         ApiService.getTagOrder().catch(() => ({ tags: [] })),
       ]);
 
@@ -166,7 +166,9 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
-        refreshRef.current();
+        const now = new Date();
+        const isNewsletterTime = now.getDay() === 3 && now.getHours() === 10;
+        refreshRef.current(isNewsletterTime); // warm start: only version check on Wed 10-11am
       }
       appState.current = nextState;
     });

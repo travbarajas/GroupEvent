@@ -705,9 +705,9 @@ export class ApiService {
   }
 
   // Events endpoints
-  static async getAllEvents(): Promise<{ events: any[]; total: number }> {
+  static async getAllEvents(skipTTL = true): Promise<{ events: any[]; total: number }> {
     return this.getWithCache('explore_events_cache', () =>
-      this.request('/events'), this.isNewsletterTime()
+      this.request('/events'), skipTTL
     );
   }
 
