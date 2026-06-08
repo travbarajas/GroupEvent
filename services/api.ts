@@ -715,7 +715,7 @@ export class ApiService {
   static async getNewsletterEvents(): Promise<{ events: any[]; total: number }> {
     const device_id = await DeviceIdManager.getDeviceId();
     return this.getWithCache('events_cache', () =>
-      this.request(`/events/newsletter?device_id=${device_id}`), this.isNewsletterTime()
+      this.request(`/events/newsletter?device_id=${device_id}`), true
     );
   }
 

@@ -6,6 +6,7 @@ import { Newsletter, NewsletterEvent } from '@/types/newsletter';
 import { useGroups } from '@/contexts/GroupsContext';
 import { NewsletterBlock, EventListBlock } from '@/types/blocks';
 import { ApiService } from '@/services/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface NewsletterRendererProps {
   newsletter: Newsletter;
@@ -373,12 +374,16 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
               console.log(`📅 DateKey: ${dateKey}, Parsed: ${year}-${month}-${day}, EventDate: ${eventDate.toDateString()}, DayHeader: ${dayHeader}`);
 
               return (
-                <View key={`day-${dateIndex}`} style={styles.daySection}>
-                  <Text style={styles.dayHeader}>{dayHeader}</Text>
+                <View key={`day-${dateIndex}`} style={[styles.daySection, dateIndex > 0 && { marginTop: 14 }]}>
+                  <View style={styles.dayHeaderRow}>
+                    <Text style={styles.dayHeader}>{dayHeader}</Text>
+                    <View style={styles.dayHeaderLine} />
+                  </View>
                   
                   {dayEvents.map((event: any, eventIndex: number) => (
+                    <React.Fragment key={`event-${eventIndex}`}>
+                      {eventIndex > 0 && <View style={styles.eventDivider} />}
                     <TouchableOpacity
-                      key={`event-${eventIndex}`}
                       style={styles.eventItem}
                       onPress={() => handleNewsletterEventPress(event)}
                       activeOpacity={0.7}
@@ -423,6 +428,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
                         </View>
                       </View>
                     </TouchableOpacity>
+                    </React.Fragment>
                   ))}
                 </View>
               );
@@ -782,14 +788,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   heading1: {
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: 'bold',
     color: '#ffffff',
     marginTop: 24,
     marginBottom: 10,
   },
   heading2: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
     color: '#ffffff',
     marginTop: 6,
@@ -842,13 +848,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   eventListTitle: {
-    fontSize: 28,
+    fontSize: 33,
     fontWeight: '700',
     color: '#ffffff',
     marginBottom: 20,
   },
   eventListH1: {
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: 'bold',
     color: '#ffffff',
     marginTop: 0,
@@ -856,25 +862,48 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   daySection: {
+    marginBottom: 0,
+  },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 0,
     marginBottom: 20,
   },
   dayHeader: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 8,
+    marginRight: 12,
+  },
+  dayHeaderLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: '#ffffff',
+    borderRadius: 1,
+  },
+  eventDivider: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginBottom: 16,
+  },
+  eventDivider: {
+    height: 1,
+    backgroundColor: '#2a2a2a',
+    marginVertical: 10,
   },
   eventItem: {
-    marginBottom: 8,
     paddingLeft: 0,
   },
   eventItemRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   eventItemContent: {
     flex: 1,
     gap: 5,
+    paddingTop: 0,
+    marginTop: 0,
   },
   eventItemImage: {
     width: 88,
@@ -887,6 +916,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#60a5fa',
+    marginTop: -3,
   },
   eventDescription: {
     fontSize: 15,

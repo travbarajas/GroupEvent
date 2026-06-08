@@ -39,7 +39,9 @@ async function registerForPushNotifications() {
   if (finalStatus !== 'granted') return;
 
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: '707ed8ad-c24a-48b9-8f03-26fdec71231a',
+    });
     await ApiService.registerPushToken(tokenData.data);
   } catch (err) {
     console.log('Push token registration failed:', err);

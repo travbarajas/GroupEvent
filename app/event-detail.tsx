@@ -10,9 +10,9 @@ import {
   Dimensions,
   Platform,
   Linking,
-  InteractionManager,
+  Alert,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+import * as Calendar from 'expo-calendar';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,7 +78,6 @@ export default function EventDetailScreen() {
   const event: Event | null = selectedEvent ?? (params.event ? JSON.parse(params.event as string) : null);
 
   const [imageHeight, setImageHeight] = useState(SCREEN_WIDTH * (9 / 16));
-  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     if (event?.image_url) {
@@ -88,16 +87,8 @@ export default function EventDetailScreen() {
     }
   }, [event?.image_url]);
 
-  // Delay map render until after screen transition completes
-  // Clear selectedEvent on unmount so the tab modal overlay doesn't linger
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      setMapReady(true);
-    });
-    return () => {
-      task.cancel();
-      setSelectedEvent(null);
-    };
+    return () => setSelectedEvent(null);
   }, []);
 
   useEffect(() => {
@@ -162,6 +153,89 @@ export default function EventDetailScreen() {
     });
   };
 
+  const getDirectionsAddress = () => {
+    const address = event.location || event.venue_name;
+    return address ? encodeURIComponent(address) : null;
+  };
+
+  const handleAppleMaps = () => {
+    const encoded = getDirectionsAddress();
+    if (!encoded) return;
+    Linking.openURL(`maps://?daddr=${encoded}`);
+  };
+
+  const handleGoogleMaps = () => {
+    const encoded = getDirectionsAddress();
+    if (!encoded) return;
+    Linking.canOpenURL('comgooglemaps://').then((can) =>
+      Linking.openURL(
+        can ? `comgooglemaps://?daddr=${encoded}` : `https://maps.google.com/?daddr=${encoded}`
+      )
+    );
+  };
+
+  const handleAddToCalendar = async () => {
+    const { status } = await Calendar.requestCalendarPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow calendar access in Settings to add events.');
+      return;
+    }
+
+    const datePart = event.date?.split(' to ')[0];
+    if (!datePart?.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      Alert.alert('Could not add event', 'Event date format not recognized.');
+      return;
+    }
+
+    const [year, month, day] = datePart.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day, 9, 0, 0);
+    const endDate = new Date(year, month - 1, day, 10, 0, 0);
+
+    if (event.time) {
+      const range = event.time.match(/(\d+):(\d+)\s*(AM|PM)\s*-\s*(\d+):(\d+)\s*(AM|PM)/i);
+      if (range) {
+        let sh = parseInt(range[1]), sm = parseInt(range[2]);
+        if (range[3].toUpperCase() === 'PM' && sh !== 12) sh += 12;
+        if (range[3].toUpperCase() === 'AM' && sh === 12) sh = 0;
+        startDate.setHours(sh, sm, 0);
+
+        let eh = parseInt(range[4]), em = parseInt(range[5]);
+        if (range[6].toUpperCase() === 'PM' && eh !== 12) eh += 12;
+        if (range[6].toUpperCase() === 'AM' && eh === 12) eh = 0;
+        endDate.setHours(eh, em, 0);
+      } else {
+        const m = event.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (m) {
+          let h = parseInt(m[1]);
+          const min = parseInt(m[2]);
+          if (m[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+          if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
+          startDate.setHours(h, min, 0);
+          endDate.setTime(startDate.getTime() + 60 * 60 * 1000);
+        }
+      }
+    }
+
+    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+    const writable = calendars.find((c) => c.allowsModifications);
+    if (!writable) {
+      Alert.alert('No calendar found', 'Could not find a writable calendar.');
+      return;
+    }
+
+    await Calendar.createEventAsync(writable.id, {
+      title: event.name,
+      startDate,
+      endDate,
+      location: event.venue_name && event.location
+        ? `${event.venue_name}, ${event.location}`
+        : event.venue_name || event.location || '',
+      notes: event.description || '',
+    });
+
+    Alert.alert('Added to Calendar', `"${event.name}" was added to your calendar.`);
+  };
+
   const isSaved = isEventSaved(event.id);
 
   return (
@@ -218,11 +292,13 @@ export default function EventDetailScreen() {
                 : event.venue_name || event.location || '—'}
             </Text>
           </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="card" size={18} color="#4ade80" />
-            <Text style={styles.detailLabel}>Price</Text>
-            <Text style={styles.detailValue}>{event.price || 'Free'}</Text>
-          </View>
+          {(event.price && String(event.price) !== '0' && String(event.price) !== '0.00') && (
+            <View style={styles.detailRow}>
+              <Ionicons name="card" size={18} color="#4ade80" />
+              <Text style={styles.detailLabel}>Price</Text>
+              <Text style={styles.detailValue}>{event.price}</Text>
+            </View>
+          )}
         </View>
 
         {/* Description */}
@@ -249,44 +325,28 @@ export default function EventDetailScreen() {
         {/* Location */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Location</Text>
-          {(event.location || event.venue_name) ? (() => {
-            const query = encodeURIComponent(event.location);
-            const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-            const mapUrl = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${query}`;
-
-            return (
-              <>
-                <View style={styles.mapContainer}>
-                  {Platform.OS === 'web' ? (
-                    <iframe
-                      src={mapUrl}
-                      style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                    />
-                  ) : mapReady ? (
-                    <WebView
-                      source={{ html: `<html><body style="margin:0;padding:0;overflow:hidden;"><iframe src="${mapUrl}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe></body></html>` }}
-                      style={{ flex: 1 }}
-                      scrollEnabled={false}
-                      nestedScrollEnabled={false}
-                    />
-                  ) : (
-                    <View style={{ flex: 1, backgroundColor: '#1a1a1a' }} />
-                  )}
-                </View>
-                <View style={styles.addressContainer}>
-                  <Ionicons name="location" size={16} color="#f87171" />
-                  <Text style={styles.addressText}>
-                    {event.venue_name && event.location
-                      ? `${event.venue_name}, ${event.location}`
-                      : event.venue_name || event.location}
-                  </Text>
-                </View>
-              </>
-            );
-          })() : (
+          {(event.location || event.venue_name) ? (
+            <View style={styles.locationCard}>
+              <View style={styles.locationCardRow}>
+                <Ionicons name="location" size={18} color="#f87171" />
+                <Text style={styles.addressText}>
+                  {event.venue_name && event.location
+                    ? `${event.venue_name}, ${event.location}`
+                    : event.venue_name || event.location}
+                </Text>
+              </View>
+              <View style={styles.directionsRow}>
+                <TouchableOpacity style={styles.directionsButton} onPress={handleAppleMaps}>
+                  <Ionicons name="navigate" size={16} color="#ffffff" />
+                  <Text style={styles.directionsButtonText}>Apple Maps</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.directionsButton} onPress={handleGoogleMaps}>
+                  <Ionicons name="navigate" size={16} color="#ffffff" />
+                  <Text style={styles.directionsButtonText}>Google Maps</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
             <View style={styles.placeholderMap}>
               <Ionicons name="map-outline" size={32} color="#6b7280" />
               <Text style={styles.placeholderMapText}>No location provided</Text>
@@ -335,6 +395,11 @@ export default function EventDetailScreen() {
           ]}>
             {isSaved ? 'Saved' : 'Save'}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.actionButton, styles.calendarButton]} onPress={handleAddToCalendar}>
+          <Ionicons name="calendar-outline" size={18} color="#9ca3af" />
+          <Text style={styles.actionButtonText}>Calendar</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionButton, styles.shareButton]} onPress={handleShare}>
@@ -486,45 +551,59 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  // Map
-  mapContainer: {
-    height: 180,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
+  // Location card
+  locationCard: {
     backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    padding: 14,
+    gap: 12,
+  },
+  locationCardRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#e5e7eb',
+    flex: 1,
+    lineHeight: 20,
+  },
+  directionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  directionsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+  },
+  directionsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   placeholderMap: {
-    height: 180,
+    height: 120,
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#3a3a3a',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
   placeholderMapText: {
     fontSize: 14,
     color: '#6b7280',
     fontWeight: '500',
     marginTop: 8,
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  addressText: {
-    fontSize: 14,
-    color: '#e5e7eb',
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 18,
   },
 
   // Tags
@@ -578,6 +657,11 @@ const styles = StyleSheet.create({
   savedButton: {
     backgroundColor: '#fef2f2',
     borderColor: '#fecaca',
+  },
+  calendarButton: {
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
   },
   shareButton: {
     backgroundColor: '#2a2a2a',

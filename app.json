@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.travbarajas.theroseville",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "jsEngine": "jsc",
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -88,6 +88,12 @@
         "expo-image-picker",
         {
           "photoLibraryUsageDescription": "Roseville Now uses your photo library to add images to events."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Roseville Now would like to add events to your calendar."
         }
       ]
     ],

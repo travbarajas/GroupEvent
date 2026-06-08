@@ -51,6 +51,7 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastCreatedEvent, setLastCreatedEvent] = useState<string | null>(null);
+  const [existingEvents, setExistingEvents] = useState<Array<{ name: string; priority: number; tags: string[]; category: string | null }>>([]);
 
   // Refs for input navigation
   const nameRef = useRef<TextInput>(null);
@@ -78,6 +79,21 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
     if (visible) {
       ApiService.getTagOrder().then(({ tags }) => {
         setAvailableTags(tags.map(t => t.tag_name));
+      }).catch(() => {});
+      ApiService.getAllEvents(true).then(({ events }) => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const cutoff = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+        const filtered = events.filter(e => {
+          if (!e.date || e.date === 'TBD') return false;
+          const datePart = e.date.split(' to ')[0];
+          const d = new Date(datePart + 'T00:00:00');
+          if (isNaN(d.getTime())) return false;
+          return d >= today && d <= cutoff;
+        });
+        setExistingEvents(
+          filtered.map(e => ({ name: e.name, priority: e.priority ?? 0, tags: e.tags ?? [], category: e.category ?? null }))
+        );
       }).catch(() => {});
     }
   }, [visible]);
@@ -582,6 +598,38 @@ export default function AdminEventModal({ visible, onClose, onEventCreated }: Ad
               />
             </View>
 
+            {/* Priority reference */}
+            {availableTags.length > 0 && existingEvents.length > 0 && (() => {
+              const tagMap: { [tag: string]: typeof existingEvents } = {};
+              existingEvents.forEach(e => {
+                e.tags.forEach(tag => {
+                  if (!tagMap[tag]) tagMap[tag] = [];
+                  tagMap[tag].push(e);
+                });
+              });
+              const rows = availableTags
+                .filter(tag => tagMap[tag]?.length > 0)
+                .map(tag => ({
+                  tag,
+                  events: tagMap[tag].sort((a, b) => b.priority - a.priority).slice(0, 10),
+                }));
+              if (rows.length === 0) return null;
+              return (
+                <View style={styles.priorityRef}>
+                  {rows.map((row, i) => (
+                    <View key={row.tag} style={[styles.priorityRefRow, i === 0 && { borderTopWidth: 0 }]}>
+                      <Text style={styles.priorityRefTag}>{row.tag}</Text>
+                      <View style={styles.priorityRefEvents}>
+                        {row.events.map((e, j) => (
+                          <Text key={j} style={styles.priorityRefEvent}>{e.name} ({e.priority})</Text>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+
             {/* Tags */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>Tags</Text>
@@ -859,5 +907,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#60a5fa',
     fontWeight: '500',
+  },
+  priorityRef: {
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  priorityRefRow: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#1e1e1e',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    alignItems: 'flex-start',
+  },
+  priorityRefTag: {
+    width: 80,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6b7280',
+    paddingTop: 1,
+  },
+  priorityRefEvents: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  priorityRefEvent: {
+    fontSize: 11,
+    color: '#d1d5db',
   },
 });

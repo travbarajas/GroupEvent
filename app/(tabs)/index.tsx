@@ -11,7 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useNewsletter } from '@/contexts/NewsletterContext';
@@ -20,6 +20,7 @@ import NewsletterRenderer from '@/components/NewsletterRenderer';
 import { ApiService } from '@/services/api';
 
 export default function NewsletterScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     newsletters,
@@ -94,7 +95,7 @@ export default function NewsletterScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Roseville Now</Text>
@@ -125,7 +126,7 @@ export default function NewsletterScreen() {
       )}
 
       {/* Main Content */}
-      <ScrollView ref={scrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} style={styles.content} contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
         {currentNewsletter ? (
           renderNewsletterContent(currentNewsletter)
         ) : latestNewsletter ? (
@@ -167,7 +168,7 @@ export default function NewsletterScreen() {
           />
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

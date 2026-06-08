@@ -339,7 +339,7 @@ export default function TabLayout() {
             paddingBottom: 8,
             height: 90,
           },
-          tabBarActiveTintColor: '#60a5fa',
+          tabBarActiveTintColor: '#497a49',
           tabBarInactiveTintColor: '#9ca3af',
         }}>
         {/* Groups tab hidden - preserving functionality for future use
