@@ -2,7 +2,7 @@
   "expo": {
     "name": "Roseville Now",
     "slug": "GroupEvent",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "theroseville",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.travbarajas.theroseville",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "jsEngine": "jsc",
       "privacyManifests": {
         "NSPrivacyTracking": false,

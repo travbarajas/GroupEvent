@@ -1,0 +1,23 @@
+OTA PENDING CHANGES
+===================
+Track changes that need to be pushed via `eas update --branch production`
+once the app is live on the App Store.
+
+PENDING
+-------
+- Google Maps button fix (event-detail.tsx) — was silently failing, now uses web URL directly
+- Price hidden when empty/zero in saved events list (saved.tsx)
+- Price hidden when empty/zero in event detail screen (event-detail.tsx)
+- Newsletter UI: header sizes, day name separators, event dividers, spacing
+- Tab bar active color changed to Roseville green (#497a49)
+- Newsletter screen bottom safe area bar fixed
+- Calendar end time parsed from event time range (e.g. "8:00 PM - 10:00 PM")
+- Priority reference table in admin event modal
+- Newsletter events sorted by priority within each day
+- Newsletter event block picker always fetches fresh events (skipTTL)
+- Newsletter title font size slightly larger than H1 (currently 38)
+- Unsave button on saved events screen now actually persists (was only updating local state)
+
+NOT OTA (requires full build)
+------------------------------
+- Push notification projectId fix (_layout.tsx) — already in build #3

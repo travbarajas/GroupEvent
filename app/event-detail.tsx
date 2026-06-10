@@ -167,11 +167,7 @@ export default function EventDetailScreen() {
   const handleGoogleMaps = () => {
     const encoded = getDirectionsAddress();
     if (!encoded) return;
-    Linking.canOpenURL('comgooglemaps://').then((can) =>
-      Linking.openURL(
-        can ? `comgooglemaps://?daddr=${encoded}` : `https://maps.google.com/?daddr=${encoded}`
-      )
-    );
+    Linking.openURL(`https://maps.google.com/?daddr=${encoded}`);
   };
 
   const handleAddToCalendar = async () => {

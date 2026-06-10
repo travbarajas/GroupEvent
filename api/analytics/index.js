@@ -91,6 +91,8 @@ module.exports = async function handler(req, res) {
       }
 
       // Otherwise return summary for all target types
+      const since = req.query.since ? new Date(req.query.since) : new Date('2026-06-10T10:00:00-07:00');
+
       const summary = await sql`
         SELECT
           target_type,
@@ -109,6 +111,7 @@ module.exports = async function handler(req, res) {
              AND a3.source IS NOT NULL
            ORDER BY a3.id DESC LIMIT 1) as latest_source
         FROM analytics_events
+        WHERE created_at >= ${since}
         GROUP BY target_type, target_id, event_type
         ORDER BY target_type, total DESC
       `;
@@ -138,6 +141,7 @@ module.exports = async function handler(req, res) {
           COUNT(DISTINCT device_id) as unique_count
         FROM analytics_events
         WHERE source IS NOT NULL
+          AND created_at >= ${since}
         GROUP BY target_type, target_id, source
         ORDER BY total DESC
       `;

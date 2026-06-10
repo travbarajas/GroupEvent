@@ -362,7 +362,7 @@ export default function NewsletterRenderer({ newsletter, scrollViewRef: external
             )}
             
             {sortedDates.map((dateKey, dateIndex) => {
-              const dayEvents = eventsByDate[dateKey];
+              const dayEvents = [...eventsByDate[dateKey]].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
               // Parse date string as local date to avoid timezone shifts
               const [year, month, day] = dateKey.split('-').map(Number);
               const eventDate = new Date(year, month - 1, day); // month is 0-indexed

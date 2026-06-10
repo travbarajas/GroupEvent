@@ -99,7 +99,9 @@ const EventCard = ({ event, onPress, onUnsave, onShare }: {
       <View style={styles.eventCaption}>
         <View style={styles.eventTopRow}>
           <Text style={styles.eventTime}>{formatDateTime(event.date, event.time)}</Text>
-          <Text style={styles.eventPrice}>{formatPrice(event.price)}</Text>
+          {event.price && String(event.price) !== '0' && String(event.price) !== '0.00' && (
+            <Text style={styles.eventPrice}>{formatPrice(event.price)}</Text>
+          )}
         </View>
         <Text style={styles.eventTitle} numberOfLines={1}>{event.name}</Text>
         <Text style={styles.eventLocation} numberOfLines={1}>
@@ -120,7 +122,7 @@ const EventCard = ({ event, onPress, onUnsave, onShare }: {
 
 export default function SavedTab() {
   const insets = useSafeAreaInsets();
-  const { savedEvents, setSavedEvents } = useGroups();
+  const { savedEvents, setSavedEvents, toggleSaveEvent } = useGroups();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [showPastEvents, setShowPastEvents] = useState(false);
@@ -174,8 +176,8 @@ export default function SavedTab() {
     });
   };
 
-  const handleUnsaveEvent = (eventId: number) => {
-    setSavedEvents(prev => prev.filter(event => event.id !== eventId));
+  const handleUnsaveEvent = (event: Event) => {
+    toggleSaveEvent(event);
   };
 
   const handleShareEvent = async (event: Event) => {
@@ -260,7 +262,7 @@ export default function SavedTab() {
                 key={event.id}
                 event={event}
                 onPress={() => handleEventPress(event)}
-                onUnsave={() => handleUnsaveEvent(event.id)}
+                onUnsave={() => handleUnsaveEvent(event)}
                 onShare={() => handleShareEvent(event)}
               />
             ))}
